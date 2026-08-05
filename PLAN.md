@@ -2,31 +2,168 @@
 
 A smart job application tracker that uses OpenCode CLI as an AI agent to automatically research and discover relevant job listings based on user preferences and resumes.
 
+## Implementation Phases
+
+### Phase 1: Foundation (Week 1-2)
+
+- [ ] Initialize Next.js project with TypeScript
+- [ ] Set up Prisma + Postgres (Neon)
+- [ ] Create data models
+- [ ] Build job CRUD with Server Actions + UI
+- [ ] Basic dashboard with stats
+
+### Phase 2: AI Integration (Week 3-4)
+
+- [ ] OpenCode CLI wrapper
+- [ ] Research prompt templates
+- [ ] Output parser with Zod validation
+- [ ] Background job execution with status tracking
+- [ ] Basic research form UI
+
+### Phase 3: Resume Support (Week 5)
+
+- [ ] File upload handling
+- [ ] PDF text extraction
+- [ ] AI-powered skill/experience parsing
+- [ ] Resume-based auto-research
+
+### Phase 4: Polish (Week 6)
+
+- [ ] Deduplication logic
+- [ ] Status management UI
+- [ ] Search/filter jobs
+- [ ] Export functionality
+
+### Phase 5: Future Enhancements
+
+- [ ] DSA tracker integration
+- [ ] System design tracker
+- [ ] Multi-user auth (if deploying)
+- [ ] Browser extension for job scraping
+
+
 ## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Next.js App (App Router)              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │  Web UI       │  │  API Routes  │  │  Auth (later) │  │
-│  │  (React)      │  │  (tRPC/REST) │  │              │  │
-│  │  ┌──────────┐ │  │              │  │              │  │
-│  │  │ SSE Hook │◄┼──┤── /api/research/stream ────────┤  │
-│  │  └──────────┘ │  │  (EventSource)                 │  │
-│  └──────┬───────┘  └──────┬───────┘  └──────────────┘  │
-│         │                 │                             │
-│  ┌──────┴─────────────────┴──────────────────────────┐  │
-│  │              Service Layer                         │  │
-│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │  │
-│  │  │ Job Service  │ │ AI Service  │ │Resume Service│  │  │
-│  │  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘  │  │
+│                    Next.js App (App Router)             │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐ │
+│  │  Web UI      │   │Server Actions│   │  Auth (later)│ │
+│  │  (React)     │   │  (CRUD)      │   │              │ │
+│  │  ┌──────────┐│   │  ┌────────┐  │   │              │ │
+│  │  │ SSE Hook │◄──────┤ /api/  │  │   │              │ │
+│  │  └──────────┘│   │  │research│  │   │              │ │
+│  └──────┬───────┘   │  │/stream │  │   └──────────────┘ │
+│         │           │  └────────┘  │                    │
+│         │           └──────┬───────┘                    │
+│  ┌──────┴──────────────────┴─────────────────────────┐  │
+│  │              Service Layer                        │  │
+│  │  ┌─────────────┐ ┌─────────────┐ ┌───────────────┐│  │
+│  │  │ Job Service │ │  AI Service │ │ Resume Service││  │
+│  │  └──────┬──────┘ └──────┬──────┘ └──────┬────────┘│  │
 │  └─────────┼───────────────┼───────────────┼─────────┘  │
 │            │               │               │            │
-│  ┌─────────┴───────┐ ┌────┴────┐  ┌───────┴────────┐  │
-│  │   Postgres DB   │ │OpenCode │  │  File Storage   │  │
-│  │   (Prisma)      │ │  SDK    │  │  (uploads/)     │  │
-│  └─────────────────┘ └─────────┘  └────────────────┘  │
+│  ┌─────────┴───────┐ ┌─────┴───┐  ┌────────┴───────┐    │
+│  │   Postgres DB   │ │OpenCode │  │  File Storage  │    │
+│  │   (Prisma)      │ │  SDK    │  │  (uploads/)    │    │
+│  └─────────────────┘ └─────────┘  └────────────────┘    │
 └─────────────────────────────────────────────────────────┘
+
+Server Actions: form submissions, CRUD, settings (no fetch/URL needed)
+API Routes: only SSE streaming endpoint (needs real HTTP for EventSource)
+```
+
+## Server vs Client Components
+
+### Rules
+
+- **Default**: Every component is a Server Component unless marked `'use client'`
+- **Server Components**: Fetch data, render UI, zero JavaScript to browser
+- **Client Components**: `useState`, `useEffect`, `onClick`, browser APIs
+- **Boundary**: Push `'use client'` as deep as possible — only leaf components that need interactivity
+
+### Page Breakdown
+
+| Page | Type | Why |
+|---|---|---|
+| `/` (Dashboard) | **Server** | Fetches stats from DB, no interactivity |
+| `/jobs` | **Server** | Fetches job list, displays table |
+| `/jobs/[id]` | **Server** | Fetches single job, shows details |
+| `/research` | **Client** | Form handling, SSE streaming, real-time updates |
+| `/resumes` | **Server** | Lists resumes from DB |
+| `layout.tsx` | **Server** | Navigation, shell — no hooks needed |
+
+### Component Breakdown
+
+```
+app/
+├── layout.tsx                    # Server (nav, shell)
+├── page.tsx                      # Server (fetch stats, render)
+├── jobs/
+│   ├── page.tsx                  # Server (fetch jobs, render table)
+│   ├── [id]/
+│   │   └── page.tsx              # Server (fetch job, render details)
+│   └── components/
+│       ├── JobTable.tsx          # Server (receives jobs as props)
+│       ├── JobRow.tsx            # Server (renders single row)
+│       └── JobStatusButton.tsx   # Client (onClick to update status)
+├── research/
+│   ├── page.tsx                  # Client (form, SSE, real-time)
+│   └── components/
+│       ├── ResearchForm.tsx      # Client (form state, onSubmit)
+│       ├── ResearchProgress.tsx  # Client (SSE streaming)
+│       └── SubAgentCard.tsx      # Client (onClick, real-time updates)
+├── resumes/
+│   ├── page.tsx                  # Server (fetch resumes, render list)
+│   └── components/
+│       ├── ResumeList.tsx        # Server (receives resumes as props)
+│       └── ResumeUploadForm.tsx  # Client (file input, upload progress)
+└── actions/
+    ├── jobs.ts                   # Server Action
+    ├── resumes.ts                # Server Action
+    └── preferences.ts            # Server Action
+```
+
+### The Pattern
+
+```
+Server Component (page)
+├── Fetches data from DB
+├── Renders structure/layout
+└── Passes data as props to:
+    └── Client Component (leaf)
+        ├── Handles interaction (onClick, onChange)
+        ├── Manages local state (useState)
+        └── Calls Server Actions on submit
+```
+
+**Example:**
+```typescript
+// app/jobs/page.tsx (Server)
+import { db } from '@/lib/db'
+import { JobTable } from './components/JobTable'
+
+export default async function JobsPage() {
+  const jobs = await db.job.findMany()  // server fetch
+  return <JobTable jobs={jobs} />       // pass data down
+}
+
+// app/jobs/components/JobTable.tsx (Server)
+export function JobTable({ jobs }) {
+  return (
+    <table>
+      {jobs.map(job => <JobRow key={job.id} job={job} />)}
+    </table>
+  )
+}
+
+// app/jobs/components/JobStatusButton.tsx (Client)
+'use client'
+
+export function JobStatusButton({ jobId, currentStatus }) {
+  const [status, setStatus] = useState(currentStatus)
+  // onClick calls Server Action to update
+}
 ```
 
 ## Data Model (Prisma Schema)
@@ -75,7 +212,7 @@ model Job {
   salary      String?
   type        String     // remote, hybrid, onsite
   country     String?
-  status      JobStatus @default(APPLIED)
+  status      JobStatus @default(SAVED)
   source      String?    // "ai_research", "manual", "linkedin"
   notes       String?
   appliedAt   DateTime?
@@ -158,16 +295,14 @@ jobtracker/
 │   │   │   └── page.tsx          # AI research form + history
 │   │   ├── resumes/
 │   │   │   └── page.tsx          # Resume upload + management
+│   │   ├── actions/              # Server Actions (no API routes for CRUD)
+│   │   │   ├── jobs.ts           # addJob, updateJob, deleteJob
+│   │   │   ├── resumes.ts        # uploadResume, deleteResume
+│   │   │   └── preferences.ts    # savePreferences
 │   │   └── api/
-│   │       ├── jobs/
-│   │       │   └── route.ts      # CRUD for jobs
-│   │       ├── research/
-│   │       │   └── route.ts      # Trigger AI research
-│   │       ├── resumes/
-│   │       │   └── route.ts      # Upload + parse resumes
-│   │       └── webhooks/
-│   │           └── opencode/
-│   │               └── route.ts  # OpenCode callback (if async)
+│   │       └── research/
+│   │           └── stream/
+│   │               └── route.ts  # SSE endpoint (only HTTP route)
 │   ├── lib/
 │   │   ├── db.ts                 # Prisma client
 │   │   ├── opencode/
@@ -176,8 +311,10 @@ jobtracker/
 │   │   │   ├── parser.ts         # Parse AI output → structured data
 │   │   │   └── types.ts          # AI-related types
 │   │   ├── resume/
-│   │   │   └── parser.ts         # Extract text/skills from resume
+│   │   │   └── parser.ts         # Extract text from resume
 │   │   └── utils.ts
+│   ├── hooks/
+│   │   └── useResearchStream.ts  # SSE streaming hook
 │   ├── components/
 │   │   ├── ui/                   # shadcn components
 │   │   ├── JobTable.tsx
@@ -194,174 +331,44 @@ jobtracker/
 └── next.config.js
 ```
 
-## AI Integration Layer
 
-### OpenCode CLI Client
+## Server Actions (CRUD Operations)
+
+### `app/actions/jobs.ts` - Job Operations
 
 ```typescript
-// src/lib/opencode/client.ts
-import { spawn } from 'child_process';
-import { randomUUID } from 'crypto';
+'use server'
 
-interface OpenCodeSession {
-  id: string;
-  url: string;
-  cleanup: () => void;
-}
-
-export class OpenCodeClient {
-  private binaryPath: string;
-
-  constructor(binaryPath = 'opencode') {
-    this.binaryPath = binaryPath;
-  }
-
-  // Spawn opencode serve, return connection info
-  async startServer(): Promise<OpenCodeSession> {
-    const port = 4096; // or find available
-    const child = spawn(this.binaryPath, [
-      'serve',
-      '--hostname=127.0.0.1',
-      `--port=${port}`
-    ], {
-      env: { ...process.env, OPENCODE_CONFIG_CONTENT: '{}' }
-    });
-
-    // Wait for "opencode server listening on http://..."
-    const url = await this.waitForReady(child);
-    
-    return {
-      id: randomUUID(),
-      url,
-      cleanup: () => child.kill()
-    };
-  }
-
-  // Send a research prompt and get structured output
-  async research(params: {
-    query: string;
-    preferences: JobPreferences;
-    resume?: ResumeData;
-  }): Promise<RawJobListing[]> {
-    // 1. Start/connect to server
-    // 2. Create session
-    // 3. Send prompt with structured output schema
-    // 4. Parse JSON response
-    // 5. Return structured listings
-  }
-}
+// addJob(data) - Create new job
+// updateJob(id, data) - Update job status/notes
+// deleteJob(id) - Remove job
+// Each action: validates input, calls service, revalidates page
 ```
 
-### Prompt Template
+### `app/actions/resumes.ts` - Resume Operations
 
 ```typescript
-// src/lib/opencode/prompts.ts
-export function buildResearchPrompt(params: {
-  query: string;
-  preferences: JobPreferences;
-  resume?: ResumeData;
-}): string {
-  return `
-You are a job research assistant. Find relevant job listings based on these criteria.
+'use server'
 
-## User Query
-${params.query}
-
-## Preferences
-- Job Types: ${params.preferences.jobTypes.join(', ')}
-- Countries: ${params.preferences.countries.join(', ')}
-${params.preferences.notes ? `- Additional Notes: ${params.preferences.notes}` : ''}
-
-${params.resume ? `
-## User Profile (from resume)
-Skills: ${params.resume.skills.join(', ')}
-Experience: ${params.resume.experience}
-Education: ${params.resume.education}
-` : ''}
-
-## Task
-Search for 10-20 relevant job listings. For each job, return a JSON array with:
-- title: Job title
-- company: Company name
-- location: Job location (city, country or "Remote")
-- url: Application URL if found
-- description: Brief description (1-2 sentences)
-- salary: Salary range if available, null otherwise
-- type: "remote" | "hybrid" | "onsite"
-- country: Country where job is located
-
-Return ONLY valid JSON array, no other text.
-`;
-}
+// uploadResume(formData) - Save PDF, extract text, store in DB
+// deleteResume(id) - Remove resume and file
 ```
 
-### Output Parser
+### `app/actions/preferences.ts` - Settings
 
 ```typescript
-// src/lib/opencode/parser.ts
-import { z } from 'zod';
+'use server'
 
-const RawJobSchema = z.object({
-  title: z.string(),
-  company: z.string(),
-  location: z.string().nullable(),
-  url: z.string().url().nullable(),
-  description: z.string(),
-  salary: z.string().nullable(),
-  type: z.enum(['remote', 'hybrid', 'onsite']),
-  country: z.string().nullable(),
-});
-
-export const JobListingsSchema = z.array(RawJobSchema);
-
-export function parseAIOutput(raw: string): RawJobListing[] {
-  // Extract JSON from possible markdown code blocks
-  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, raw];
-  const jsonStr = jsonMatch[1]!.trim();
-  
-  return JobListingsSchema.parse(JSON.parse(jsonStr));
-}
-
-export function deduplicateJobs(
-  existing: Job[],
-  newJobs: RawJobListing[]
-): RawJobListing[] {
-  // Dedupe by title + company similarity
-  return newJobs.filter(newJob => 
-    !existing.some(existing => 
-      normalize(existing.title) === normalize(newJob.title) &&
-      normalize(existing.company) === normalize(newJob.company)
-    )
-  );
-}
+// savePreferences(data) - Update job types, countries, skills, notes
 ```
 
-## Key API Routes
+## API Route (SSE Streaming Only)
 
-### `POST /api/research` - Trigger AI Research
-
-```typescript
-// 1. Receive form data (preferences + optional resume)
-// 2. Create SearchSession record
-// 3. Spawn OpenCode in background
-// 4. Stream results back via SSE or polling
-// 5. Auto-add discovered jobs to tracker
-```
-
-### `POST /api/resumes` - Upload Resume
+### `GET /api/research/stream` - Real-Time AI Events
 
 ```typescript
-// 1. Receive file upload
-// 2. Save to /uploads/resumes/
-// 3. Extract text (pdf-parse or similar)
-// 4. Use OpenCode to parse skills/experience
-// 5. Store parsed data in ResumeSkill table
-```
-
-### `GET/POST/PUT/DELETE /api/jobs` - CRUD
-
-```typescript
-// Standard CRUD with filtering, sorting, pagination
+// Only API route - needed for EventSource connection
+// Streams: content.delta, task.started/progress/completed, done
 ```
 
 ## Real-Time UI with Sub-Agent Tracking
@@ -390,7 +397,7 @@ User clicks "Start Research"
         │
         ▼
 ┌─────────────────────────────────────────────────────────┐
-│  GET /api/research/stream?sessionId=xxx (SSE)          │
+│  GET /api/research/stream?sessionId=xxx (SSE)           │
 │                                                         │
 │  event: content.delta    → streaming text tokens        │
 │  event: task.started     → sub-agent spawned            │
@@ -521,13 +528,13 @@ export function useResearchStream(sessionId: string) {
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  Main Agent: Researching React jobs in USA              │
-│  ├─ 🔄 Web Search: "senior remote React jobs 2026"    │
-│  ├─ ✅ Found 15 listings from LinkedIn                 │
-│  ├─ 🔄 Analyzing company details...                    │
-│  │   ├─ 🔄 [Sub-agent 1] Checking Glassdoor ratings   │
-│  │   └─ 🔄 [Sub-agent 2] Verifying remote policy      │
-│  ├─ ✅ Deduplication complete (3 duplicates removed)   │
-│  └─ 🔄 Compiling final list...                        │
+│  ├─ 🔄 Web Search: "senior remote React jobs 2026"      │
+│  ├─ ✅ Found 15 listings from LinkedIn                  │
+│  ├─ 🔄 Analyzing company details...                     │
+│  │   ├─ 🔄 [Sub-agent 1] Checking Glassdoor ratings     │
+│  │   └─ 🔄 [Sub-agent 2] Verifying remote policy        │
+│  ├─ ✅ Deduplication complete (3 duplicates removed)    │
+│  └─ 🔄 Compiling final list...                          │
 │                                                         │
 │  ┌─────────────────────────────────────────────────┐    │
 │  │ Click a sub-agent to see its activity...        │    │
@@ -546,17 +553,17 @@ Click into sub-agent:
 ├─────────────────────────────────────────────────────────┤
 │  Activity Log:                                          │
 │  12:30:01  Started researching company ratings          │
-│  12:30:03  🔍 Web Search: "Company X glassdoor"        │
-│  12:30:05  Found rating: 4.2/5 (2,345 reviews)        │
-│  12:30:07  🔍 Web Search: "Company Y glassdoor"        │
-│  12:30:09  Found rating: 3.8/5 (890 reviews)           │
-│  12:30:11  ✅ Completed - Checked 5 companies          │
+│  12:30:03  🔍 Web Search: "Company X glassdoor"         │
+│  12:30:05  Found rating: 4.2/5 (2,345 reviews)          │
+│  12:30:07  🔍 Web Search: "Company Y glassdoor"         │
+│  12:30:09  Found rating: 3.8/5 (890 reviews)            │
+│  12:30:11  ✅ Completed - Checked 5 companies           │
 │                                                         │
 │  Output:                                                │
 │  ┌─────────────────────────────────────────────────┐    │
-│  │ Company X: 4.2/5 ⭐ (2,345 reviews)            │    │
-│  │ Company Y: 3.8/5 ⭐ (890 reviews)              │    │
-│  │ Company Z: 4.5/5 ⭐ (5,123 reviews)            │    │
+│  │ Company X: 4.2/5 ⭐ (2,345 reviews)             │    │
+│  │ Company Y: 3.8/5 ⭐ (890 reviews)               │    │
+│  │ Company Z: 4.5/5 ⭐ (5,123 reviews)             │    │
 │  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -599,44 +606,46 @@ Research Page:
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Implementation Phases
+### Output Parser
 
-### Phase 1: Foundation (Week 1-2)
+```typescript
+// src/lib/opencode/parser.ts
+import { z } from 'zod';
 
-- [ ] Initialize Next.js project with TypeScript
-- [ ] Set up Prisma + Postgres
-- [ ] Create basic data models
-- [ ] Build job CRUD API + UI
-- [ ] Basic dashboard with stats
+const RawJobSchema = z.object({
+  title: z.string(),
+  company: z.string(),
+  location: z.string().nullable(),
+  url: z.string().url().nullable(),
+  description: z.string(),
+  salary: z.string().nullable(),
+  type: z.enum(['remote', 'hybrid', 'onsite']),
+  country: z.string().nullable(),
+});
 
-### Phase 2: AI Integration (Week 3-4)
+export const JobListingsSchema = z.array(RawJobSchema);
 
-- [ ] OpenCode CLI wrapper
-- [ ] Research prompt templates
-- [ ] Output parser with Zod validation
-- [ ] Background job execution with status tracking
-- [ ] Basic research form UI
+export function parseAIOutput(raw: string): RawJobListing[] {
+  // Extract JSON from possible markdown code blocks
+  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, raw];
+  const jsonStr = jsonMatch[1]!.trim();
+  
+  return JobListingsSchema.parse(JSON.parse(jsonStr));
+}
 
-### Phase 3: Resume Support (Week 5)
-
-- [ ] File upload handling
-- [ ] PDF text extraction
-- [ ] AI-powered skill/experience parsing
-- [ ] Resume-based auto-research
-
-### Phase 4: Polish (Week 6)
-
-- [ ] Deduplication logic
-- [ ] Status management UI
-- [ ] Search/filter jobs
-- [ ] Export functionality
-
-### Phase 5: Future Enhancements
-
-- [ ] DSA tracker integration
-- [ ] System design tracker
-- [ ] Multi-user auth (if deploying)
-- [ ] Browser extension for job scraping
+export function deduplicateJobs(
+  existing: Job[],
+  newJobs: RawJobListing[]
+): RawJobListing[] {
+  // Dedupe by title + company similarity
+  return newJobs.filter(newJob => 
+    !existing.some(existing => 
+      normalize(existing.title) === normalize(newJob.title) &&
+      normalize(existing.company) === normalize(newJob.company)
+    )
+  );
+}
+```
 
 ## Key Decisions
 
@@ -658,10 +667,9 @@ Research Page:
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14+ (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Next.js API Routes, Prisma ORM
-- **Database**: PostgreSQL (local or Neon)
-- **AI**: OpenCode CLI (local), @opencode-ai/sdk (SSE event streaming)
+- **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Next.js Server Actions (CRUD), API Routes (SSE streaming only)
+- **Database**: PostgreSQL (Neon), Prisma ORM
+- **AI**: OpenCode CLI, @opencode-ai/sdk (SSE event streaming)
 - **Validation**: Zod
 - **File Processing**: pdf-parse (for resume text extraction)
-- **Real-time**: Server-Sent Events (SSE) for sub-agent tracking
