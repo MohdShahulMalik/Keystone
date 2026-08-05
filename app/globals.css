@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Surface colors (backgrounds) - 900 is darkest */
+  --color-surface-700: hsl(209 100% 100%);  /* lightest (white) */
+  --color-surface-800: hsl(209 100% 96%);   /* default background */
+  --color-surface-900: hsl(209 100% 91%);   /* darkest background */
+
+  /* Foreground colors (text) */
+  --color-foreground-900: hsl(224 100% 8%);   /* primary text */
+  --color-foreground-600: hsl(205 87% 26%);   /* muted text */
+
+  /* Accent/Highlight */
+  --color-accent: hsl(209 100% 100%);
+
+  /* Border colors */
+  --color-stroke: hsl(208 44% 51%);          /* default border */
+  --color-stroke-muted: hsl(208 60% 63%);    /* subtle border */
+
+  /* Semantic colors */
+  --color-primary: hsl(205 87% 26%);
+  --color-secondary: hsl(37 100% 18%);
+  --color-danger: hsl(8 40% 42%);
+  --color-warning: hsl(52 82% 24%);
+  --color-success: hsl(154 58% 29%);
+  --color-info: hsl(217 42% 43%);
+
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-space-mono);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer theme {
+  :root, :host {
+    @variant dark {
+      /* Surface colors (backgrounds) - 900 is darkest */
+      --color-surface-700: hsl(208 95% 9%);
+      --color-surface-750: hsl(215 100% 6%);
+      --color-surface-800: hsl(226 100% 3%);
+      --color-surface-900: hsl(226 100% 3%);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+      /* Foreground colors (text) */
+      --color-foreground-900: hsl(209 100% 97%);
+      --color-foreground-600: hsl(209 76% 71%);
+
+      /* Accent/Highlight */
+      --color-accent: hsl(207 55% 39%);
+
+      /* Border colors */
+      --color-stroke: hsl(205 87% 26%);
+      --color-stroke-muted: hsl(205 100% 15%);
+
+      /* Semantic colors */
+      --color-primary: hsl(209 76% 71%);
+      --color-secondary: hsl(31 62% 64%);
+      --color-danger: hsl(9 53% 66%);
+      --color-warning: hsl(51 35% 50%);
+      --color-success: hsl(149 34% 54%);
+      --color-info: hsl(217 59% 67%);
+    }
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-surface-900);
+  color: var(--color-foreground-900);
   font-family: Arial, Helvetica, sans-serif;
 }
