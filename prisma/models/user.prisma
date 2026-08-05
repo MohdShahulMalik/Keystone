@@ -1,0 +1,39 @@
+model User {
+  id          String @id @default(cuid())
+  createdAt   DateTime @default(now())
+
+  resumes     Resume
+  jobs        Job[]
+  search      SearchSession[]
+  preferences UserPreference[]
+}
+
+model Resume {
+  id          String @id @default(cuid())
+  userId      String
+  fileName    String
+  filePath    String
+  content     String?
+  parsedAt    DateTime?
+  createdAt   DateTime @default(now())
+
+  user        User @relation(fields: [userId], references: [id])
+}
+
+enum PreferenceKey {
+  JOB_TYPE
+  COUNTRIES
+  REGION
+  NOTES
+}
+
+model UserPreference {
+  id        String @id @default(cuid())
+  userId    String
+  key       PreferenceKey
+  value     String
+
+  user      User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, key])
+}

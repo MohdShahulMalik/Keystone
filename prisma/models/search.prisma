@@ -1,0 +1,24 @@
+model SearchSession {
+  id          String   @id @default(cuid())
+  userId      String
+  query       String
+  preferences Json?
+  resultCount Int      @default(0)
+  status      String   @default("pending")
+  error       String?
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  user        User   @relation(fields: [userId], references: [id])
+  results     SearchResult[]
+}
+
+model SearchResult {
+  id             String @id @default(cuid())
+  sessionId      String
+  jobListingJson Json
+  matched        Boolean @default(false)
+  jobId          String?
+
+  session        SearchSession @relation(fields: [sessionId], references: [id])
+}
