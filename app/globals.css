@@ -2,20 +2,20 @@
 
 @theme {
   /* Surface colors (backgrounds) - 900 is darkest */
-  --color-surface-700: hsl(209 100% 100%);  /* lightest (white) */
-  --color-surface-800: hsl(209 100% 96%);   /* default background */
-  --color-surface-900: hsl(209 100% 91%);   /* darkest background */
+  --color-surface-700: hsl(209 100% 100%); /* lightest (white) */
+  --color-surface-800: hsl(209 100% 96%); /* default background */
+  --color-surface-900: hsl(209 100% 91%); /* darkest background */
 
   /* Foreground colors (text) */
-  --color-foreground-900: hsl(224 100% 8%);   /* primary text */
-  --color-foreground-600: hsl(205 87% 26%);   /* muted text */
+  --color-foreground-900: hsl(224 100% 8%); /* primary text */
+  --color-foreground-600: hsl(205 87% 26%); /* muted text */
 
   /* Accent/Highlight */
   --color-accent: hsl(209 100% 100%);
 
   /* Border colors */
-  --color-stroke: hsl(208 44% 51%);          /* default border */
-  --color-stroke-muted: hsl(208 60% 63%);    /* subtle border */
+  --color-stroke: hsl(208 44% 51%); /* default border */
+  --color-stroke-muted: hsl(208 60% 63%); /* subtle border */
 
   /* Semantic colors */
   --color-primary: hsl(205 87% 26%);
@@ -30,7 +30,8 @@
 }
 
 @layer theme {
-  :root, :host {
+  :root,
+  :host {
     @variant dark {
       /* Surface colors (backgrounds) - 900 is darkest */
       --color-surface-700: hsl(208 95% 9%);
