@@ -6,9 +6,9 @@ A smart job application tracker that uses OpenCode CLI as an AI agent to automat
 
 ### Phase 1: Foundation (Week 1-2)
 
-- [ ] Initialize Next.js project with TypeScript
-- [ ] Set up Prisma + Postgres (Neon)
-- [ ] Create data models
+- [x] Initialize Next.js project with TypeScript
+- [x] Set up Prisma + Postgres (Neon)
+- [x] Create data models
 - [ ] Build job CRUD with Server Actions + UI
 - [ ] Basic dashboard with stats
 
@@ -120,8 +120,7 @@ app/
 │       └── ResumeUploadForm.tsx  # Client (file input, upload progress)
 └── actions/
     ├── jobs.ts                   # Server Action
-    ├── resumes.ts                # Server Action
-    └── preferences.ts            # Server Action
+    └── resumes.ts                # Server Action
 ```
 
 ### The Pattern
@@ -172,12 +171,10 @@ export function JobStatusButton({ jobId, currentStatus }) {
 model User {
   id            String   @id @default(cuid())
   createdAt     DateTime @default(now())
-  // Future: email, password, etc.
 
   resumes       Resume[]
   jobs          Job[]
   searchSessions SearchSession[]
-  preferences   UserPreference[]
 }
 
 model Resume {
@@ -265,17 +262,6 @@ model SearchResult {
 
   session        SearchSession @relation(fields: [sessionId], references: [id])
 }
-
-model UserPreference {
-  id        String @id @default(cuid())
-  userId    String
-  key       String   // "job_type", "countries", "skills", "notes"
-  value     String
-  
-  user      User @relation(fields: [userId], references: [id])
-  
-  @@unique([userId, key])
-}
 ```
 
 ## Project Structure
@@ -297,8 +283,7 @@ jobtracker/
 │   │   │   └── page.tsx          # Resume upload + management
 │   │   ├── actions/              # Server Actions (no API routes for CRUD)
 │   │   │   ├── jobs.ts           # addJob, updateJob, deleteJob
-│   │   │   ├── resumes.ts        # uploadResume, deleteResume
-│   │   │   └── preferences.ts    # savePreferences
+│   │   │   └── resumes.ts        # uploadResume, deleteResume
 │   │   └── api/
 │   │       └── research/
 │   │           └── stream/
@@ -352,14 +337,6 @@ jobtracker/
 
 // uploadResume(formData) - Save PDF, extract text, store in DB
 // deleteResume(id) - Remove resume and file
-```
-
-### `app/actions/preferences.ts` - Settings
-
-```typescript
-'use server'
-
-// savePreferences(data) - Update job types, countries, skills, notes
 ```
 
 ## API Route (SSE Streaming Only)
