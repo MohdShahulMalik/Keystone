@@ -8,22 +8,22 @@ enum JobListingStatus {
 }
 
 model JobListing {
-  id          String   @id @default(cuid())
-  userId      String
-  title       String
-  company     String
-  location    String?
-  url         String?
-  description String?
-  salary      String?
-  type        String
-  country     String?
-  status      JobStatus @default(OPEN)
-  source      String?
-  notes       String?
-  appliedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  title         String
+  company       String
+  location      String?
+  url           String?
+  description   String?
+  salary        String?
+  experience    String?
+  type          String
+  country       String?
+  status        JobListingStatus @default(OPEN)
+  notes         String?
+  appliedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  user        User @relation(fields: [userId], references: [id])
+  user         User @relation(fields: [userId], references: [id])
 }
