@@ -1,0 +1,29 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
+import { JobStatus } from "@/lib/types/status";
+import { ChangeStatusSchema } from "@/lib/schemas/status";
+
+export async function updateStatus(id: string, status: JobStatus) {
+  const parsed = ChangeStatusSchema.safeParse({ status });
+
+  if (!parsed.success) {
+    return { success: false, error: "Invalid status" };
+  }
+
+  const job = await db.jobListing.findUnique({
+    where: { id },
+  });
+
+  if (!job) {
+    return { success: false, error: "Job not found" };
+  }
+
+  await db.jobListing.update({
+    where: { id },
+    data: { status },
+  });
+
+  revalidatePath("/listings");
+}
