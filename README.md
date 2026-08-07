@@ -1,19 +1,20 @@
 # Keystone
 
-A smart job application tracker with AI integration. Uses OpenCode CLI as an AI agent to automatically research and discover relevant job listings based on user preferences and resumes.
+AI-powered career companion. Track applications, discover opportunities, and ace your interviews, all in one place.
 
-## Features (Work in Progress)
+## Features
 
 - Job application tracking with status management
 - AI-powered job research using OpenCode CLI
 - Real-time streaming UI with sub-agent activity tracking
 - Resume upload and skill extraction
 - Deduplication of job listings
+- Browser extension for quick job saving
 
 ## Tech Stack
 
 - **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, Prisma ORM
+- **Backend**: Server Actions, Prisma ORM
 - **Database**: PostgreSQL (Neon)
 - **AI**: OpenCode CLI, @opencode-ai/sdk
 
@@ -42,3 +43,13 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 ## Status
 
 This project is **work in progress**. Core features are being built out.
+
+## Future Scope
+
+### DSA Problem Tracker
+
+- Track solved DSA problems with topics, difficulty, and revisit dates
+- AI finds problems based on your current level and weak areas
+- Company-specific preparation: AI provides questions that specific companies actually ask
+- Spaced repetition to remind when to revisit problems
+- Progress dashboard with topic-wise breakdown
