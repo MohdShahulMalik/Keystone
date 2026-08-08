@@ -34,7 +34,13 @@ A smart job application tracker that uses OpenCode CLI as an AI agent to automat
 - [ ] Search/filter jobs
 - [ ] Export functionality
 
-### Phase 5: Future Enhancements
+### Phase 5: Job Board & Resources Monitor (Week 7)
+
+- [ ] Static page listing job boards and resource sites to monitor
+- [ ] Card grid layout with name, URL, and short description
+- [ ] Organized by category (e.g. remote boards, niche boards, startup boards)
+
+### Phase 6: Future Enhancements
 
 - [ ] DSA tracker integration
 - [ ] System design tracker
@@ -91,6 +97,7 @@ API Routes: only SSE streaming endpoint (needs real HTTP for EventSource)
 | `/jobs/[id]` | **Server** | Fetches single job, shows details |
 | `/research` | **Client** | Form handling, SSE streaming, real-time updates |
 | `/resumes` | **Server** | Lists resumes from DB |
+| `/boards` | **Server** | Static list of job boards & resources to monitor |
 | `layout.tsx` | **Server** | Navigation, shell — no hooks needed |
 
 ### Component Breakdown
@@ -118,7 +125,11 @@ app/
 │   └── components/
 │       ├── ResumeList.tsx        # Server (receives resumes as props)
 │       └── ResumeUploadForm.tsx  # Client (file input, upload progress)
-└── actions/
+├── boards/
+│   ├── page.tsx                  # Server (static list of resources)
+│   └── components/
+│       └── ResourceCard.tsx      # Server (single card: name, URL, description)
+├── actions/
     ├── jobs.ts                   # Server Action
     └── resumes.ts                # Server Action
 ```
@@ -281,6 +292,10 @@ jobtracker/
 │   │   │   └── page.tsx          # AI research form + history
 │   │   ├── resumes/
 │   │   │   └── page.tsx          # Resume upload + management
+│   │   ├── boards/
+│   │   │   ├── page.tsx          # Job boards & resources to monitor
+│   │   │   └── components/
+│   │   │       └── ResourceCard.tsx
 │   │   ├── actions/              # Server Actions (no API routes for CRUD)
 │   │   │   ├── jobs.ts           # addJob, updateJob, deleteJob
 │   │   │   └── resumes.ts        # uploadResume, deleteResume
@@ -556,7 +571,7 @@ Click into sub-agent:
 │  └─────────────┘ └─────────────┘ └─────────────┘       │
 │                                                         │
 │  ┌───────────────────────────────────────────────────┐  │
-│  │ [Research] [Resumes] [All Jobs] [Settings]        │  │
+│  │ [Research] [Resumes] [All Jobs] [Boards] [Settings]│  │
 │  └───────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
 
@@ -580,6 +595,31 @@ Research Page:
 │  │ 🔄 "Python roles in UK" - Running...             │  │
 │  │ ✅ "Senior frontend" - 8 found - 1h ago          │  │
 │  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+```
+
+Boards Page:
+```
+┌─────────────────────────────────────────────────────────┐
+│  Job Boards & Resources to Monitor                      │
+│  17 resources                                           │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────────────────┐  ┌─────────────────────┐       │
+│  │ 📋 SimplifyJobs      │  │ 🦀 RustJobs          │       │
+│  │ New Grad             │  │                      │       │
+│  │ github.com/...       │  │ rustjobs.dev         │       │
+│  │ – Updated daily      │  │ – Dedicated Rust     │       │
+│  └─────────────────────┘  └─────────────────────┘       │
+│                                                         │
+│  ┌─────────────────────┐  ┌─────────────────────┐       │
+│  │ 🦀 Web3.career       │  │ 🧳 Wellfound         │       │
+│  │                      │  │                      │       │
+│  │ web3.career/...      │  │ wellfound.com        │       │
+│  │ – Entry-level Rust   │  │ – Startup jobs       │       │
+│  └─────────────────────┘  └─────────────────────┘       │
+│                                                         │
+│  ... more cards ...                                     │
 └─────────────────────────────────────────────────────────┘
 ```
 
