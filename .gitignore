@@ -46,3 +46,6 @@ next-env.d.ts
 
 # uploads
 /uploads
+
+#Aye Chat
+/.aye
