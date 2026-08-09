@@ -2,67 +2,151 @@
 
 @theme {
   /* Surface colors (backgrounds) - 900 is darkest */
-  --color-surface-700: hsl(209 100% 100%); /* lightest (white) */
-  --color-surface-800: hsl(209 100% 96%); /* default background */
-  --color-surface-900: hsl(209 100% 91%); /* darkest background */
+  --color-surface-700: hsl(198 100% 5%); /* panel/card bg */
+  --color-surface-800: hsl(205 100% 4%); /* card/input bg */
+  --color-surface-900: hsl(220 100% 4%); /* darkest page bg */
 
   /* Foreground colors (text) */
-  --color-foreground-900: hsl(224 100% 8%); /* primary text */
-  --color-foreground-600: hsl(205 87% 26%); /* muted text */
+  --color-foreground-900: hsl(194 100% 88%); /* primary text */
+  --color-foreground-600: hsl(194 65% 62%); /* muted text */
 
   /* Accent/Highlight */
-  --color-accent: hsl(209 100% 100%);
+  --color-accent: hsl(190 100% 42%);
 
   /* Border colors */
-  --color-stroke: hsl(208 44% 51%); /* default border */
-  --color-stroke-muted: hsl(208 60% 63%); /* subtle border */
+  --color-stroke: hsl(195 100% 12%); /* default border */
+  --color-stroke-muted: hsl(195 100% 12%); /* subtle border */
 
   /* Semantic colors */
-  --color-primary: hsl(205 87% 26%);
-  --color-secondary: hsl(37 100% 18%);
-  --color-danger: hsl(8 40% 42%);
-  --color-warning: hsl(52 82% 24%);
-  --color-success: hsl(154 58% 29%);
-  --color-info: hsl(217 42% 43%);
+  --color-primary: hsl(190 100% 42%);
+  --color-secondary: hsl(193 100% 18%);
+  --color-danger: hsl(7 100% 66%);
+  --color-warning: hsl(53 100% 51%);
+  --color-success: hsl(162 100% 42%);
+  --color-info: hsl(217 100% 70%);
+
+  /* Job card specific colors */
+  --color-card-bg: hsl(205 100% 4%);
+  --color-card-border: hsl(195 100% 12%);
+  --color-card-border-hover: hsl(190 100% 42% / 0.4);
+  --color-card-title: hsl(194 100% 88%);
+  --color-card-subtitle: hsl(190 100% 55%);
+  --color-card-text: hsl(194 100% 88%);
+  
+  /* Badge colors */
+  --color-badge-bg: hsl(193 100% 15%);
+  --color-badge-text: hsl(194 65% 62%);
+  --color-badge-border: hsl(195 100% 12%);
+  
+  /* Visa badge */
+  --color-visa-from: hsl(162 100% 25%);
+  --color-visa-to: hsl(162 100% 30%);
+  --color-visa-text: hsl(162 100% 82%);
+  --color-visa-border: hsl(162 100% 22% / 0.5);
+  
+  /* Button colors */
+  --color-btn-primary-from: hsl(190 100% 42%);
+  --color-btn-primary-to: hsl(205 100% 48%);
+  --color-btn-primary-text: hsl(194 100% 88%);
+  
+  --color-btn-secondary-from: hsl(193 100% 18%);
+  --color-btn-secondary-to: hsl(193 100% 22%);
+  --color-btn-secondary-text: hsl(190 100% 60%);
+  --color-btn-secondary-border: hsl(190 100% 30%);
+  
+  /* Dropdown */
+  --color-dropdown-bg: hsl(198 100% 5%);
+  --color-dropdown-border: hsl(195 100% 12%);
+  --color-dropdown-hover-bg: hsl(193 100% 14%);
+  --color-dropdown-hover-text: hsl(190 100% 68%);
+  
+  /* Visit button */
+  --color-visit-border: hsl(195 100% 12%);
+  --color-visit-border-hover: hsl(190 100% 28%);
+  --color-visit-text: hsl(194 65% 62%);
+  --color-visit-text-hover: hsl(190 100% 68%);
+  --color-visit-bg-hover: hsl(193 100% 11%);
+  
+  /* Status colors - base */
+  --color-status-saved-bg: hsl(194 65% 62% / 0.15);
+  --color-status-saved-text: hsl(194 65% 62%);
+  --color-status-saved-border: hsl(194 65% 62% / 0.3);
+  --color-status-saved-dot: hsl(194 65% 62%);
+  
+  --color-status-applied-bg: hsl(217 100% 70% / 0.15);
+  --color-status-applied-text: hsl(217 100% 70%);
+  --color-status-applied-border: hsl(217 100% 70% / 0.3);
+  --color-status-applied-dot: hsl(217 100% 70%);
+  
+  --color-status-interview-bg: hsl(190 100% 42% / 0.15);
+  --color-status-interview-text: hsl(190 100% 55%);
+  --color-status-interview-border: hsl(190 100% 42% / 0.3);
+  --color-status-interview-dot: hsl(190 100% 55%);
+  
+  --color-status-offer-bg: hsl(162 100% 22% / 0.3);
+  --color-status-offer-text: hsl(162 100% 42%);
+  --color-status-offer-border: hsl(162 100% 22% / 0.5);
+  --color-status-offer-dot: hsl(162 100% 42%);
+  
+  --color-status-rejected-bg: hsl(7 100% 66% / 0.15);
+  --color-status-rejected-text: hsl(7 100% 66%);
+  --color-status-rejected-border: hsl(7 100% 66% / 0.3);
+  --color-status-rejected-dot: hsl(7 100% 66%);
+  
+  --color-status-declined-bg: hsl(53 100% 21% / 0.3);
+  --color-status-declined-text: hsl(53 100% 51%);
+  --color-status-declined-border: hsl(53 100% 21% / 0.5);
+  --color-status-declined-dot: hsl(53 100% 51%);
 
   --font-sans: var(--font-space-grotesk);
   --font-mono: var(--font-space-mono);
-}
-
-@layer theme {
-  :root,
-  :host {
-    @variant dark {
-      /* Surface colors (backgrounds) - 900 is darkest */
-      --color-surface-700: hsl(208 95% 9%);
-      --color-surface-750: hsl(215 100% 6%);
-      --color-surface-800: hsl(226 100% 3%);
-      --color-surface-900: hsl(226 100% 3%);
-
-      /* Foreground colors (text) */
-      --color-foreground-900: hsl(209 100% 97%);
-      --color-foreground-600: hsl(209 76% 71%);
-
-      /* Accent/Highlight */
-      --color-accent: hsl(207 55% 39%);
-
-      /* Border colors */
-      --color-stroke: hsl(205 87% 26%);
-      --color-stroke-muted: hsl(205 100% 15%);
-
-      /* Semantic colors */
-      --color-primary: hsl(209 76% 71%);
-      --color-secondary: hsl(31 62% 64%);
-      --color-danger: hsl(9 53% 66%);
-      --color-warning: hsl(51 35% 50%);
-      --color-success: hsl(149 34% 54%);
-      --color-info: hsl(217 59% 67%);
-    }
-  }
 }
 
 body {
   background: var(--color-surface-900);
   color: var(--color-foreground-900);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Status-specific styles using data attributes */
+[data-status="Saved"] {
+  --status-bg: var(--color-status-saved-bg);
+  --status-text: var(--color-status-saved-text);
+  --status-border: var(--color-status-saved-border);
+  --status-dot: var(--color-status-saved-dot);
+}
+
+[data-status="Applied"] {
+  --status-bg: var(--color-status-applied-bg);
+  --status-text: var(--color-status-applied-text);
+  --status-border: var(--color-status-applied-border);
+  --status-dot: var(--color-status-applied-dot);
+}
+
+[data-status="Interview"] {
+  --status-bg: var(--color-status-interview-bg);
+  --status-text: var(--color-status-interview-text);
+  --status-border: var(--color-status-interview-border);
+  --status-dot: var(--color-status-interview-dot);
+}
+
+[data-status="Offer"] {
+  --status-bg: var(--color-status-offer-bg);
+  --status-text: var(--color-status-offer-text);
+  --status-border: var(--color-status-offer-border);
+  --status-dot: var(--color-status-offer-dot);
+}
+
+[data-status="Rejected"] {
+  --status-bg: var(--color-status-rejected-bg);
+  --status-text: var(--color-status-rejected-text);
+  --status-border: var(--color-status-rejected-border);
+  --status-dot: var(--color-status-rejected-dot);
+}
+
+[data-status="Declined"] {
+  --status-bg: var(--color-status-declined-bg);
+  --status-text: var(--color-status-declined-text);
+  --status-border: var(--color-status-declined-border);
+  --status-dot: var(--color-status-declined-dot);
 }
