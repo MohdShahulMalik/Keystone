@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Listings - New Grad / Junior SWE</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#60a5fa',
+            secondary: '#a78bfa',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .tab-active {
+      background: linear-gradient(135deg, #3b82f6, #9333ea);
+      color: white;
+      border-color: transparent;
+    }
+
+    .job-card {
+      transition: all 0.3s ease;
+    }
+
+    .job-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="dark bg-slate-950 text-slate-100 min-h-screen">
+  <header class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700 shadow-2xl">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <div class="text-center">
+        <h1 class="text-5xl md:text-6xl font-extrabold mb-4">
+          <span class="gradient-text">Job Listings</span>
+        </h1>
+        <p class="text-xl text-slate-400 mb-2">Full Research — August 2026</p>
+        <div class="flex flex-wrap justify-center gap-4 text-sm">
+          <span class="px-4 py-2 bg-slate-800 rounded-full border border-slate-700">🎯 Target: New Grad / Junior SWE</span>
+          <span class="px-4 py-2 bg-slate-800 rounded-full border border-slate-700">🦀 Rust</span>
+          <span class="px-4 py-2 bg-slate-800 rounded-full border border-slate-700">⚛️ React</span>
+          <span class="px-4 py-2 bg-slate-800 rounded-full border border-slate-700">📘 TypeScript</span>
+          <span class="px-4 py-2 bg-slate-800 rounded-full border border-slate-700">☕ Java</span>
+          <span class="px-4 py-2 bg-slate-800 rounded-full border border-slate-700">🟩 Node.js</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="bg-slate-900 border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-6 py-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="text-center p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <div id="totalListings" class="text-3xl font-bold text-blue-400">—</div>
+          <div class="text-sm text-slate-400 mt-1">Total Listings</div>
+        </div>
+        <div class="text-center p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <div id="remoteListings" class="text-3xl font-bold text-purple-400">—</div>
+          <div class="text-sm text-slate-400 mt-1">Remote Worldwide</div>
+        </div>
+        <div class="text-center p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <div id="netherlandsListings" class="text-3xl font-bold text-green-400">—</div>
+          <div class="text-sm text-slate-400 mt-1">Netherlands</div>
+        </div>
+        <div class="text-center p-4 bg-slate-800 rounded-xl border border-slate-700">
+          <div id="categoryCount" class="text-3xl font-bold text-orange-400">—</div>
+          <div class="text-sm text-slate-400 mt-1">Categories</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6 py-8">
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="🔍 Search by company, role, location, visa, notes..."
+      class="w-full px-6 py-4 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    />
+    <p class="mt-3 text-sm text-slate-500">
+      Data source: <code class="text-slate-300">job-listings.tex</code>. Categories and rows are parsed from the TeX file so the HTML stays in sync.
+    </p>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-6">
+    <div id="tabs" class="flex overflow-x-auto gap-2 pb-2 scrollbar-hide"></div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    <div id="loading" class="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center text-slate-300">
+      Loading listings from <code>job-listings.tex</code>...
+    </div>
+
+    <div id="fileFallback" class="hidden bg-slate-800 border border-orange-500/40 rounded-xl p-8 text-center">
+      <h2 class="text-2xl font-bold text-orange-400 mb-3">Could not auto-load job-listings.tex</h2>
+      <p id="fallbackReason" class="text-slate-400 mb-5">
+        If you opened this page directly with <code>file://</code>, your browser may block local fetches. Serve the folder locally, or select the TeX file below.
+      </p>
+      <input id="texFileInput" type="file" accept=".tex,text/plain" class="block mx-auto text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
+    </div>
+
+    <div id="content"></div>
+  </main>
+
+  <footer class="bg-slate-900 border-t border-slate-800 mt-16">
+    <div class="max-w-7xl mx-auto px-6 py-8 text-center text-slate-500 text-sm">
+      <p>Job Listings compiled August 2026 • Target: New Grad / Junior SWE • Stack: Rust, React, TypeScript, Java, Node.js</p>
+      <p id="footerStats" class="mt-2">Parsed from job-listings.tex</p>
+    </div>
+  </footer>
+
+  <script>
+    const state = {
+      sections: [],
+      listingSections: [],
+      boardSection: null,
+      activeTab: null,
+    };
+
+    const iconMap = [
+      [/remote worldwide/i, '🌍'],
+      [/netherlands/i, '🇳🇱'],
+      [/uae/i, '🇦🇪'],
+      [/saudi/i, '🇸🇦'],
+      [/qatar/i, '🇶🇦'],
+      [/malaysia/i, '🇲🇾'],
+      [/indonesia/i, '🇮🇩'],
+      [/turkey/i, '🇹🇷'],
+      [/delhi|noida|ncr/i, '🇮🇳'],
+      [/europe/i, '🇪🇺'],
+      [/job boards|resources/i, '📋'],
+      [/ai|ml/i, '🤖'],
+      [/developer relations|devrel/i, '📣'],
+      [/react|frontend|typescript/i, '⚛️'],
+      [/full-stack|node/i, '🟩'],
+      [/java/i, '☕'],
+      [/rust/i, '🦀'],
+    ];
+
+    function iconFor(title) {
+      const match = iconMap.find(([pattern]) => pattern.test(title));
+      return match ? match[1] : '💼';
+    }
+
+    function slugify(value) {
+      return value
+        .toLowerCase()
+        .replace(/\\&/g, 'and')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'section';
+    }
+
+    function splitLatexCells(row) {
+      const cells = [];
+      let current = '';
+      let depth = 0;
+
+      for (let i = 0; i < row.length; i++) {
+        const char = row[i];
+        const previous = row[i - 1];
+
+        if (char === '{' && previous !== '\\') depth++;
+        if (char === '}' && previous !== '\\' && depth > 0) depth--;
+
+        if (char === '&' && previous !== '\\' && depth === 0) {
+          cells.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+
+      cells.push(current.trim());
+      return cells;
+    }
+
+    function normalizeCellCount(cells, expectedCount) {
+      if (cells.length <= expectedCount) return cells;
+
+      const extra = cells.length - expectedCount;
+      const mergedFirstCell = cells.slice(0, extra + 1).join(' & ');
+      return [mergedFirstCell, ...cells.slice(extra + 1)];
+    }
+
+    function cleanLatex(value) {
+      if (!value) return '';
+
+      let text = String(value);
+      text = text.replace(/\\%/g, '%');
+      text = text.replace(/\\&/g, '&');
+      text = text.replace(/\\\$/g, '$');
+      text = text.replace(/\\#/g, '#');
+      text = text.replace(/\\_/g, '_');
+      text = text.replace(/\\rightarrow/g, '→');
+      text = text.replace(/\\pm/g, '±');
+      text = text.replace(/``|''/g, '"');
+      text = text.replace(/---/g, '—');
+      text = text.replace(/--/g, '–');
+      text = text.replace(/\\href\{([^{}]*)\}\{([^{}]*)\}/g, '$2');
+
+      let previous;
+      do {
+        previous = text;
+        text = text.replace(/\\(?:textbf|textit|emph|texttt)\{([^{}]*)\}/g, '$1');
+      } while (text !== previous);
+
+      text = text.replace(/\\begin\{[^}]+\}/g, '');
+      text = text.replace(/\\end\{[^}]+\}/g, '');
+      text = text.replace(/\\[a-zA-Z]+(?:\[[^\]]*\])?/g, '');
+      text = text.replace(/[{}]/g, '');
+      text = text.replace(/\s+/g, ' ').trim();
+
+      return text;
+    }
+
+    function hrefsFrom(value) {
+      const links = [];
+      const regex = /\\href\{([^{}]*)\}\{([^{}]*)\}/g;
+      let match;
+
+      while ((match = regex.exec(value)) !== null) {
+        links.push({ url: cleanLatex(match[1]), label: cleanLatex(match[2]) });
+      }
+
+      return links;
+    }
+
+    function extractTables(sectionBody) {
+      const tables = [];
+      const regex = /\\begin\{(?:longtable|tabularx|tabular)\}[\s\S]*?\\end\{(?:longtable|tabularx|tabular)\}/g;
+      let match;
+
+      while ((match = regex.exec(sectionBody)) !== null) {
+        tables.push(match[0]);
+      }
+
+      return tables;
+    }
+
+    function parseRowsFromTable(table, expectedCount) {
+      const rowChunks = table.split(/\\\\\s*(?:\\hline)?/g);
+      const rows = [];
+
+      for (const chunk of rowChunks) {
+        let row = chunk
+          .replace(/\\hline/g, '')
+          .replace(/\\endfirsthead/g, '')
+          .replace(/\\endhead/g, '')
+          .trim();
+
+        if (!row) continue;
+        if (/^\\begin\{|^\\end\{/.test(row)) continue;
+        if (/\\textbf\{Company\}|\\textbf\{Platform\}|\\textbf\{Category\}/.test(row)) continue;
+        if (/\\multicolumn/.test(row)) continue;
+        if (!row.includes('&')) continue;
+
+        let cells = splitLatexCells(row);
+        cells = normalizeCellCount(cells, expectedCount);
+
+        if (cells.length !== expectedCount) continue;
+
+        rows.push({
+          raw: cells,
+          cells: cells.map(cleanLatex),
+          links: cells.flatMap(hrefsFrom),
+        });
+      }
+
+      return rows;
+    }
+
+    function parseTex(tex) {
+      const sections = [];
+      const sectionRegex = /\\section\*?\{([^}]*)\}([\s\S]*?)(?=\\section\*?\{|\\end\{document\}|$)/g;
+      let match;
+
+      while ((match = sectionRegex.exec(tex)) !== null) {
+        const title = cleanLatex(match[1]);
+        const body = match[2];
+
+        if (/summary stats/i.test(title)) continue;
+
+        const isBoardSection = /job boards|resources/i.test(title);
+        const tables = extractTables(body);
+        const expectedCount = isBoardSection ? 2 : 5;
+        const rows = tables.flatMap(table => parseRowsFromTable(table, expectedCount));
+
+        if (!rows.length) continue;
+
+        sections.push({
+          id: slugify(title),
+          title,
+          icon: iconFor(title),
+          type: isBoardSection ? 'boards' : 'jobs',
+          rows,
+        });
+      }
+
+      return sections;
+    }
+
+    function badgeClassForVisa(visa) {
+      const value = visa.toLowerCase();
+
+      if (/yes|sponsor|visa|eor|work permit|relocation|global remote|remote-first|india-based|mnc|likely/.test(value) && !/not specified|not stated|unknown|unclear|inquire|contractor/.test(value)) {
+        return 'bg-green-500/20 text-green-400';
+      }
+
+      if (/contractor/.test(value)) return 'bg-purple-500/20 text-purple-400';
+      return 'bg-orange-500/20 text-orange-400';
+    }
+
+    function skillsFor(row) {
+      const text = row.cells.join(' ').toLowerCase();
+      const skills = [];
+
+      if (/rust/.test(text)) skills.push(['🦀 RUST', 'bg-yellow-500/20 text-yellow-400 font-bold']);
+      if (/react/.test(text)) skills.push(['⚛️ REACT', 'bg-blue-500/20 text-blue-400']);
+      if (/typescript|\bts\b/.test(text)) skills.push(['📘 TS', 'bg-sky-500/20 text-sky-400']);
+      if (/node|node\.js/.test(text)) skills.push(['🟩 NODE', 'bg-emerald-500/20 text-emerald-400']);
+      if (/java\b|spring/.test(text)) skills.push(['☕ JAVA', 'bg-red-500/20 text-red-400']);
+      if (/python/.test(text)) skills.push(['🐍 PYTHON', 'bg-indigo-500/20 text-indigo-400']);
+
+      return skills;
+    }
+
+    function createBadge(text, className) {
+      const badge = document.createElement('span');
+      badge.className = `px-3 py-1 rounded-full text-xs ${className}`;
+      badge.textContent = text;
+      return badge;
+    }
+
+    function renderJobCard(row) {
+      const [company, role, location, visa, notes] = row.cells;
+      const link = row.links[0];
+
+      const card = document.createElement('div');
+      card.className = 'job-card bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-blue-500 hover:shadow-xl';
+      card.dataset.searchText = row.cells.join(' ').toLowerCase();
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex flex-wrap items-start justify-between gap-4';
+
+      const body = document.createElement('div');
+      body.className = 'flex-1 min-w-0';
+
+      const companyEl = document.createElement('h3');
+      companyEl.className = 'text-xl font-bold text-slate-100 mb-2';
+      companyEl.textContent = company;
+
+      const roleEl = document.createElement('p');
+      roleEl.className = 'text-lg text-blue-400 mb-2';
+      roleEl.textContent = role;
+
+      const badges = document.createElement('div');
+      badges.className = 'flex flex-wrap gap-2 mb-3';
+      badges.appendChild(createBadge(`📍 ${location}`, 'bg-slate-700 text-slate-300'));
+      badges.appendChild(createBadge(`Visa: ${visa}`, badgeClassForVisa(visa)));
+
+      for (const [skill, className] of skillsFor(row)) {
+        badges.appendChild(createBadge(skill, className));
+      }
+
+      const notesEl = document.createElement('p');
+      notesEl.className = 'text-sm text-slate-400 leading-relaxed';
+      notesEl.textContent = notes;
+
+      body.append(companyEl, roleEl, badges, notesEl);
+      wrapper.appendChild(body);
+
+      if (link) {
+        const apply = document.createElement('a');
+        apply.href = link.url;
+        apply.target = '_blank';
+        apply.rel = 'noopener noreferrer';
+        apply.className = 'px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all whitespace-nowrap';
+        apply.textContent = 'Apply →';
+        wrapper.appendChild(apply);
+      }
+
+      card.appendChild(wrapper);
+      return card;
+    }
+
+    function renderBoardCard(row) {
+      const [platform, notes] = row.cells;
+      const link = row.links[0];
+      const tagIcon = iconFor(`${platform} ${notes}`);
+
+      const card = document.createElement(link ? 'a' : 'div');
+      card.className = 'job-card bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-blue-500 hover:shadow-xl block';
+      card.dataset.searchText = row.cells.join(' ').toLowerCase();
+
+      if (link) {
+        card.href = link.url;
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
+      }
+
+      const header = document.createElement('div');
+      header.className = 'flex items-center gap-3 mb-2';
+
+      const icon = document.createElement('div');
+      icon.className = 'text-2xl';
+      icon.textContent = tagIcon;
+
+      const title = document.createElement('h3');
+      title.className = 'text-xl font-bold';
+      title.textContent = platform;
+
+      const description = document.createElement('p');
+      description.className = 'text-sm text-slate-400 leading-relaxed';
+      description.textContent = notes;
+
+      header.append(icon, title);
+      card.append(header, description);
+      return card;
+    }
+
+    function renderTabs(sections) {
+      const tabs = document.getElementById('tabs');
+      tabs.innerHTML = '';
+
+      sections.forEach((section, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'tab-button px-6 py-3 rounded-xl font-semibold bg-slate-800 hover:bg-slate-700 border border-slate-700 whitespace-nowrap transition-all';
+        button.dataset.tab = section.id;
+        button.textContent = `${section.icon} ${section.title}`;
+        button.addEventListener('click', () => showTab(section.id));
+        tabs.appendChild(button);
+
+        if (index === 0) state.activeTab = section.id;
+      });
+    }
+
+    function renderContent(sections) {
+      const content = document.getElementById('content');
+      content.innerHTML = '';
+
+      sections.forEach((section, index) => {
+        const sectionEl = document.createElement('section');
+        sectionEl.id = section.id;
+        sectionEl.className = `tab-content ${index === 0 ? '' : 'hidden'}`;
+
+        const title = document.createElement('h2');
+        title.className = 'text-3xl font-bold mb-2 text-blue-400';
+        title.textContent = `${section.icon} ${section.title}`;
+
+        const count = document.createElement('p');
+        count.className = 'text-sm text-slate-500 mb-6';
+        count.textContent = `${section.rows.length} ${section.type === 'boards' ? 'resources' : 'listings'}`;
+
+        const rowsWrapper = document.createElement('div');
+        rowsWrapper.className = section.type === 'boards' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-4';
+
+        section.rows.forEach(row => {
+          rowsWrapper.appendChild(section.type === 'boards' ? renderBoardCard(row) : renderJobCard(row));
+        });
+
+        sectionEl.append(title, count, rowsWrapper);
+        content.appendChild(sectionEl);
+      });
+    }
+
+    function showTab(tabName) {
+      state.activeTab = tabName;
+
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+
+      const selected = document.getElementById(tabName);
+      if (selected) selected.classList.remove('hidden');
+
+      document.querySelectorAll('.tab-button').forEach(button => {
+        button.classList.remove('tab-active');
+        button.classList.add('bg-slate-800', 'hover:bg-slate-700', 'border', 'border-slate-700');
+      });
+
+      const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
+      if (activeButton) {
+        activeButton.classList.add('tab-active');
+        activeButton.classList.remove('bg-slate-800', 'hover:bg-slate-700', 'border', 'border-slate-700');
+      }
+    }
+
+    function updateStats(sections) {
+      const listingSections = sections.filter(section => section.type === 'jobs');
+      const totalListings = listingSections.reduce((sum, section) => sum + section.rows.length, 0);
+      const remoteListings = listingSections
+        .filter(section => /^remote worldwide/i.test(section.title))
+        .reduce((sum, section) => sum + section.rows.length, 0);
+      const netherlandsListings = listingSections
+        .filter(section => /netherlands/i.test(section.title))
+        .reduce((sum, section) => sum + section.rows.length, 0);
+
+      document.getElementById('totalListings').textContent = totalListings;
+      document.getElementById('remoteListings').textContent = remoteListings;
+      document.getElementById('netherlandsListings').textContent = netherlandsListings;
+      document.getElementById('categoryCount').textContent = listingSections.length;
+      document.getElementById('footerStats').textContent = `${totalListings} total listings across ${listingSections.length} categories`;
+    }
+
+    function applySearch(term) {
+      const normalized = term.trim().toLowerCase();
+      const cards = document.querySelectorAll('.job-card');
+
+      cards.forEach(card => {
+        const matches = !normalized || card.dataset.searchText.includes(normalized) || card.textContent.toLowerCase().includes(normalized);
+        card.style.display = matches ? '' : 'none';
+      });
+    }
+
+    function showFallback(message) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('fileFallback').classList.remove('hidden');
+
+      if (message) {
+        document.getElementById('fallbackReason').innerHTML = `${message}<br><br>If you opened this page directly with <code>file://</code>, your browser may block local fetches. Serve the folder locally, or select the TeX file below.`;
+      }
+    }
+
+    function renderFromTex(tex) {
+      const sections = parseTex(tex);
+
+      if (!sections.length) {
+        throw new Error('No listings were found in job-listings.tex.');
+      }
+
+      state.sections = sections;
+      state.listingSections = sections.filter(section => section.type === 'jobs');
+      state.boardSection = sections.find(section => section.type === 'boards') || null;
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('fileFallback').classList.add('hidden');
+
+      renderTabs(sections);
+      renderContent(sections);
+      updateStats(sections);
+      showTab(sections[0].id);
+      applySearch(document.getElementById('searchInput').value);
+    }
+
+    async function loadTex() {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
+      try {
+        const response = await fetch('job-listings.tex', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const tex = await response.text();
+        renderFromTex(tex);
+      } catch (error) {
+        console.warn('Could not load job-listings.tex automatically:', error);
+        showFallback(`Could not auto-load <code>job-listings.tex</code>: ${error.message}`);
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', event => {
+      applySearch(event.target.value);
+    });
+
+    document.getElementById('texFileInput').addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          renderFromTex(String(reader.result || ''));
+        } catch (error) {
+          showFallback(error.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    loadTex();
+  </script>
+</body>
+</html>
