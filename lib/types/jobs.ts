@@ -10,11 +10,12 @@ export interface JobListing {
   userId: string;
   title: string;
   company: string;
-  location: string | null;
+  location: string;
   url: string | null;
-  description: string | null;
+  description: string;
   salary: string | null;
-  experience: string | null;
+  experience: string;
+  visa: string | null;
   type: string;
   country: string | null;
   status: JobListingStatus;

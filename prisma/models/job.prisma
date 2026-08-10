@@ -14,9 +14,10 @@ model JobListing {
   company       String
   location      String?
   url           String?
-  description   String?
+  description   String
   salary        String?
-  experience    String?
+  experience    String
+  visa          String?
   type          String
   country       String?
   status        JobListingStatus @default(OPEN)
