@@ -7,6 +7,9 @@ type FiltersProps = {
   searchValue: string;
   onSearchChange: (value: string) => void;
   onAdd: () => void;
+  selectedStatuses?: string[];
+  onToggleStatus?: (status: string) => void;
+  statuses?: string[];
   children?: ReactNode;
 };
 
@@ -15,60 +18,84 @@ export function Filters({
   searchValue,
   onSearchChange,
   onAdd,
+  selectedStatuses = [],
+  onToggleStatus,
+  statuses = [],
   children,
 }: FiltersProps) {
   return (
-    <section className="rounded-2xl border border-stroke-muted bg-surface-700 p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <label className="relative block flex-1">
-          <span className="sr-only">Search {cardName.toLowerCase()}s</span>
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-foreground-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"
-            />
-          </svg>
+    <div className="rounded-2xl border border-stroke bg-surface-700 p-5 shadow-lg">
+      <div className="mb-5 flex items-stretch gap-3">
+        <div className="relative flex-1">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+            <svg
+              className="h-5 w-5 text-foreground-600-muted"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
           <input
-            className="w-full rounded-xl border border-stroke-muted bg-surface-800 py-3 pl-12 pr-4 text-foreground-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={`Search ${cardName.toLowerCase()}s...`}
-            type="search"
+            type="text"
+            placeholder="Search by title, company, or location..."
             value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full rounded-xl border border-stroke bg-surface-800 py-3.5 pl-12 pr-4 text-foreground-900 shadow-sm outline-none transition-all duration-200 placeholder:text-foreground-600-subtle focus:border-primary focus:ring-4 focus:ring-primary-ring"
           />
-        </label>
+        </div>
+
         <button
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-surface-700 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-700"
           onClick={onAdd}
-          type="button"
+          className="shadow-btn-primary shadow-btn-primary-hover shrink-0 rounded-lg bg-gradient-to-br from-btn-primary-from to-btn-primary-to px-6 py-2.5 text-sm font-semibold text-btn-primary-text transition-[filter,box-shadow] duration-200 ease-out hover:brightness-105"
         >
-          <svg
-            aria-hidden="true"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M12 5v14m7-7H5"
-            />
-          </svg>
-          Add {cardName}
+          <span className="flex items-center gap-2">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add {cardName}
+          </span>
         </button>
       </div>
-      {children ? (
-        <div className="mt-4 border-t border-stroke-muted pt-4">{children}</div>
+
+      {statuses.length > 0 && onToggleStatus ? (
+        <div className="border-t border-stroke pt-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-foreground-600">Status</span>
+            <span className="text-xs text-foreground-600-subtle">Multi-select</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {statuses.map((status) => {
+              const isSelected = selectedStatuses.includes(status);
+
+              return (
+                <button
+                  key={status}
+                  onClick={() => onToggleStatus(status)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out ${
+                    isSelected
+                      ? "border-filter-chip-active-border bg-gradient-to-br from-filter-chip-active-from to-filter-chip-active-to text-foreground-900 shadow-filter-chip-active"
+                      : "border-stroke bg-surface-800 text-foreground-600"
+                  }`}
+                >
+                  {status}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       ) : null}
-    </section>
+
+      {children ? (
+        <div className="mt-4 border-t border-stroke pt-4">{children}</div>
+      ) : null}
+    </div>
   );
 }
