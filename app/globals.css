@@ -9,9 +9,12 @@
   /* Foreground colors (text) */
   --color-foreground-900: hsl(194 100% 88%); /* primary text */
   --color-foreground-600: hsl(194 65% 62%); /* muted text */
+  --color-foreground-600-muted: hsl(194 65% 62% / 0.5);
+  --color-foreground-600-subtle: hsl(194 65% 62% / 0.7);
 
   /* Accent/Highlight */
   --color-accent: hsl(190 100% 42%);
+  --color-primary-ring: hsl(190 100% 42% / 0.2);
 
   /* Border colors */
   --color-stroke: hsl(195 100% 12%); /* default border */
@@ -32,67 +35,75 @@
   --color-card-title: hsl(194 100% 88%);
   --color-card-subtitle: hsl(190 100% 55%);
   --color-card-text: hsl(194 100% 88%);
-  
+
   /* Badge colors */
   --color-badge-bg: hsl(193 100% 15%);
   --color-badge-text: hsl(194 65% 62%);
   --color-badge-border: hsl(195 100% 12%);
-  
+
   /* Visa badge */
   --color-visa-from: hsl(162 100% 25%);
   --color-visa-to: hsl(162 100% 30%);
   --color-visa-text: hsl(162 100% 82%);
   --color-visa-border: hsl(162 100% 22% / 0.5);
-  
+
   /* Button colors */
   --color-btn-primary-from: hsl(190 100% 42%);
   --color-btn-primary-to: hsl(205 100% 48%);
   --color-btn-primary-text: hsl(194 100% 88%);
-  
+  --color-btn-primary-shadow: hsl(190 100% 42% / 0.4);
+  --color-btn-primary-shadow-hover: hsl(190 100% 42% / 0.48);
+
   --color-btn-secondary-from: hsl(193 100% 18%);
   --color-btn-secondary-to: hsl(193 100% 22%);
   --color-btn-secondary-text: hsl(190 100% 60%);
   --color-btn-secondary-border: hsl(190 100% 30%);
-  
+
   /* Dropdown */
   --color-dropdown-bg: hsl(198 100% 5%);
   --color-dropdown-border: hsl(195 100% 12%);
   --color-dropdown-hover-bg: hsl(193 100% 14%);
   --color-dropdown-hover-text: hsl(190 100% 68%);
-  
+
   /* Visit button */
   --color-visit-border: hsl(195 100% 12%);
   --color-visit-border-hover: hsl(190 100% 28%);
   --color-visit-text: hsl(194 65% 62%);
   --color-visit-text-hover: hsl(190 100% 68%);
   --color-visit-bg-hover: hsl(193 100% 11%);
-  
+
+  /* Filter component */
+  --color-filter-chip-active-from: hsl(190 100% 40%);
+  --color-filter-chip-active-to: hsl(190 100% 45%);
+  --color-filter-chip-active-border: hsl(190 100% 40%);
+  --color-filter-chip-shadow: hsl(190 100% 40% / 0.3);
+
   /* Status colors - base */
   --color-status-saved-bg: hsl(194 65% 62% / 0.15);
   --color-status-saved-text: hsl(194 65% 62%);
   --color-status-saved-border: hsl(194 65% 62% / 0.3);
   --color-status-saved-dot: hsl(194 65% 62%);
-  
+
   --color-status-applied-bg: hsl(217 100% 70% / 0.15);
   --color-status-applied-text: hsl(217 100% 70%);
   --color-status-applied-border: hsl(217 100% 70% / 0.3);
   --color-status-applied-dot: hsl(217 100% 70%);
-  
+
   --color-status-interview-bg: hsl(190 100% 42% / 0.15);
   --color-status-interview-text: hsl(190 100% 55%);
   --color-status-interview-border: hsl(190 100% 42% / 0.3);
   --color-status-interview-dot: hsl(190 100% 55%);
-  
+
   --color-status-offer-bg: hsl(162 100% 22% / 0.3);
   --color-status-offer-text: hsl(162 100% 42%);
   --color-status-offer-border: hsl(162 100% 22% / 0.5);
   --color-status-offer-dot: hsl(162 100% 42%);
-  
+
   --color-status-rejected-bg: hsl(7 100% 66% / 0.15);
   --color-status-rejected-text: hsl(7 100% 66%);
   --color-status-rejected-border: hsl(7 100% 66% / 0.3);
   --color-status-rejected-dot: hsl(7 100% 66%);
-  
+
   --color-status-declined-bg: hsl(53 100% 21% / 0.3);
   --color-status-declined-text: hsl(53 100% 51%);
   --color-status-declined-border: hsl(53 100% 21% / 0.5);
@@ -106,6 +117,20 @@ body {
   background: var(--color-surface-900);
   color: var(--color-foreground-900);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .shadow-btn-primary {
+    box-shadow: 0 4px 16px var(--color-btn-primary-shadow);
+  }
+
+  .shadow-btn-primary-hover:hover {
+    box-shadow: 0 6px 20px var(--color-btn-primary-shadow-hover);
+  }
+
+  .shadow-filter-chip-active {
+    box-shadow: 0 3px 12px var(--color-filter-chip-shadow);
+  }
 }
 
 /* Status-specific styles using data attributes */
