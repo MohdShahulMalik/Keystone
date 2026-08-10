@@ -1,18 +1,7 @@
 "use client";
 
+import { JobListing } from "@/lib/types/jobs";
 import { useState } from "react";
-
-export interface JobListing {
-  id: number;
-  company: string;
-  title: string;
-  location: string;
-  visa: string;
-  salary: string;
-  experience: string;
-  status: string;
-  description: string;
-}
 
 interface JobListingCardProps {
   listing: JobListing;

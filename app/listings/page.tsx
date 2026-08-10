@@ -1,8 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { type JobListing, JobListingCard } from "@/components/cards/listings";
+import { JobListingCard } from "@/components/cards/listings";
 import { Filters } from "@/components/filters";
+import { JobListing } from "@/lib/types/jobs";
+
+interface Tab {
+  location: string;
+  type: string;
+}
+
+function createTabs(jobListings: JobListing[]): Map<Tab, JobListing[]> {
+  const tabsMap = new Map<Tab, JobListing[]>();
+
+  for (const jobListing of jobListings) {
+    const tab: Tab = {
+      location: jobListing.location as string,
+      type: jobListing.type,
+    };
+
+    tabsMap.set(tab, [...(tabsMap.get(tab) || []), jobListing]);
+  }
+
+  return tabsMap;
+}
 
 const statuses = [
   "Saved",
@@ -13,52 +34,50 @@ const statuses = [
   "Declined",
 ] as const;
 
+const filterStatuses = ["All", ...statuses];
+
 const initialListings: JobListing[] = [
   {
-    id: 1,
     company: "Google",
     title: "Senior React Developer",
     location: "Remote worldwide",
     visa: "Global EOR",
     salary: "$150k - $200k",
     experience: "5+ years",
-    status: "Applied",
+    status: "APPLIED",
     description:
       "Build and maintain large-scale web applications with React, TypeScript, and modern frontend tooling.",
   },
   {
-    id: 2,
     company: "Meta",
     title: "Frontend Lead",
     location: "New York, hybrid",
     visa: "Sponsored",
     salary: "$180k - $220k",
     experience: "7+ years",
-    status: "Saved",
+    status: "SAVED",
     description:
       "Lead a frontend team, set technical direction, and create high-quality social experiences.",
   },
   {
-    id: 3,
     company: "Startup Inc.",
     title: "Full Stack Developer",
     location: "London, onsite",
     visa: "Required",
     salary: "GBP80k - GBP100k",
     experience: "3-7 years",
-    status: "Interview",
+    status: "INTERVIEW",
     description:
       "Join a small team building fintech products from the ground up across a modern application stack.",
   },
   {
-    id: 4,
     company: "Amazon",
     title: "UI Engineer",
     location: "Remote worldwide",
     visa: "Global EOR",
     salary: "$160k - $190k",
     experience: "5+ years",
-    status: "Offer",
+    status: "OFFER",
     description:
       "Create accessible, performant interfaces that serve customers at a global scale.",
   },
@@ -100,48 +119,23 @@ export default function ListingsPage() {
   return (
     <main className="min-h-screen bg-surface-900 px-4 py-8 sm:px-6 lg:py-12">
       <div className="mx-auto max-w-5xl">
-        <header className="mb-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-            Opportunity tracker
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground-900 sm:text-4xl">
-            Job listings
-          </h1>
-          <p className="mt-2 text-foreground-600">
-            Keep every promising role and its next step in one place.
-          </p>
-        </header>
         <Filters
           cardName="Job"
           onAdd={() => {}}
           onSearchChange={setSearchQuery}
           searchValue={searchQuery}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-2 text-sm font-semibold text-foreground-600">
-              Status
-            </span>
-            {["All", ...statuses].map((status) => {
-              const selected = selectedStatuses.includes(status);
-              return (
-                <button
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${selected ? "border-primary bg-primary text-surface-700" : "border-stroke-muted bg-surface-800 text-foreground-600 hover:border-primary"}`}
-                  key={status}
-                  onClick={() => toggleStatus(status)}
-                  type="button"
-                >
-                  {status}
-                </button>
-              );
-            })}
-          </div>
-        </Filters>
+          statuses={filterStatuses}
+          selectedStatuses={selectedStatuses}
+          onToggleStatus={toggleStatus}
+        />
+
         <div className="mt-8 flex items-center justify-between">
           <p className="text-sm text-foreground-600">
             {filteredListings.length}{" "}
             {filteredListings.length === 1 ? "listing" : "listings"}
           </p>
         </div>
+
         <section className="mt-3 space-y-4" aria-label="Job listings">
           {filteredListings.map((listing) => (
             <JobListingCard
