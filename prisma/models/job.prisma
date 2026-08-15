@@ -12,7 +12,7 @@ model JobListing {
   userId        String
   title         String
   company       String
-  location      String?
+  location      String
   url           String?
   description   String
   salary        String?
