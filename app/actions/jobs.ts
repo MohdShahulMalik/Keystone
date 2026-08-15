@@ -14,6 +14,13 @@ import type {
   JobListing,
 } from "@/lib/types/jobs";
 
+export async function getJobListings(userId: string): Promise<JobListing[]> {
+  return db.jobListing.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export async function addJobListing(userId: string, formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
   const parsed = addJobSchema.safeParse(raw);
