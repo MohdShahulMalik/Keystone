@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { addJobSchema, updateJobSchema } from "@/lib/schemas/jobs";
-import type { JobListingStatus } from "@/app/generated/prisma";
+import { JobStatus } from "./status";
 
 type AddJobInput = z.infer<typeof addJobSchema>;
 type UpdateJobInput = z.infer<typeof updateJobSchema>;
@@ -18,7 +18,7 @@ export interface JobListing {
   visa: string | null;
   type: string;
   country: string | null;
-  status: JobListingStatus;
+  status: JobStatus;
   notes: string | null;
   appliedAt: Date | null;
   createdAt: Date;
@@ -55,3 +55,8 @@ export interface JobActionError {
 }
 
 export type JobActionResponse = JobActionSuccess | JobActionError;
+
+export interface Tab {
+  location: string;
+  type: string;
+}
