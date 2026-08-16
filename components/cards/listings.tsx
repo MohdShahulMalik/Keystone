@@ -61,11 +61,11 @@ export function JobListingCard({
   }
 
   return (
-    <article className="group rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-7 shadow-lg transition-all duration-200 hover:border-[var(--color-card-border-hover)] hover:shadow-[0_8px_24px_hsl(190_100%_42%_/_0.15)]">
+    <article className="group rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-7 shadow-lg transition-all duration-200 hover:border-(--color-card-border-hover) hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)]">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="mb-2 flex items-center gap-3">
-            <h3 className="text-xl font-bold text-[var(--color-card-title)]">
+            <h3 className="text-xl font-bold text-(--color-card-title)">
               {listing.company}
             </h3>
           </div>
