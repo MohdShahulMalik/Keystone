@@ -12,18 +12,24 @@ export async function updateStatus(id: string, status: JobStatus) {
     return { success: false, error: "Invalid status" };
   }
 
-  const job = await db.jobListing.findUnique({
-    where: { id },
-  });
+  try {
+    const job = await db.jobListing.findUnique({
+      where: { id },
+    });
 
-  if (!job) {
-    return { success: false, error: "Job not found" };
+    if (!job) {
+      return { success: false, error: "Job not found" };
+    }
+
+    await db.jobListing.update({
+      where: { id },
+      data: { status },
+    });
+
+    revalidatePath("/listings");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update status:", error);
+    return { success: false, error: "Failed to update status" };
   }
-
-  await db.jobListing.update({
-    where: { id },
-    data: { status },
-  });
-
-  revalidatePath("/listings");
 }
