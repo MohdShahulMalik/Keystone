@@ -2,7 +2,7 @@
 
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface JobListingCardProps {
   listing: JobListing;
@@ -36,6 +36,29 @@ export function JobListingCard({
   statuses,
 }: JobListingCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const buttonSpanRef = useRef<HTMLSpanElement | null>(null);
+  const buttonSvgRef = useRef<SVGSVGElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  const secondaryButtonClass = "flex items-center gap-2 rounded-lg border border-[var(--color-visit-border)] bg-transparent px-6 py-2.5 text-sm font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
+
+  const processOpenStatus = (listing: JobListing) => {
+    const buttonSpan = buttonSpanRef.current;
+    const buttonSvg = buttonSvgRef.current;
+    const button = buttonRef.current;
+
+    if (!buttonSpan) return;
+
+    if (buttonSpan?.textContent === "Apply Now") {
+      window.open(listing.url as string, "_blank");
+      buttonSpan.textContent = "Applied?";
+      if (buttonSvg) buttonSvg.style.display = "none";
+      if (button) button.className = secondaryButtonClass;
+    }else {
+      onStatusChange(listing.id, "APPLIED");
+    }
+  }
 
   return (
     <article className="group rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-7 shadow-lg transition-all duration-200 hover:border-[var(--color-card-border-hover)] hover:shadow-[0_8px_24px_hsl(190_100%_42%_/_0.15)]">
@@ -92,14 +115,12 @@ export function JobListingCard({
 
           {listing.description ? (
             <div>
-              <p
-                className={`text-sm leading-relaxed text-foreground-600 ${
-                  isExpanded ? "" : "line-clamp-2"
-                }`}
-              >
-                {listing.description}
+              <p className="text-sm leading-relaxed text-foreground-600">
+                {isExpanded || listing.description.length <= 250
+                  ? listing.description
+                  : `${listing.description.slice(0, 250)}...`}
               </p>
-              {listing.description.length > 150 ? (
+              {listing.description.length > 250 ? (
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="mt-2 text-sm font-medium text-[var(--color-card-subtitle)] transition"
@@ -153,7 +174,7 @@ export function JobListingCard({
               </div>
 
               <button
-                className="flex items-center gap-2 rounded-lg border border-[var(--color-visit-border)] bg-transparent px-6 py-2.5 text-sm font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]"
+                className={secondaryButtonClass}
                 type="button"
               >
                 <span>Visit</span>
@@ -177,15 +198,17 @@ export function JobListingCard({
             <button
               className="flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-7 py-3 text-sm font-bold text-[var(--color-btn-primary-text)] shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)]"
               type="button"
-              onClick={() => onStatusChange(listing.id, "APPLIED")}
+              ref={buttonRef}
+              onClick={() => processOpenStatus(listing)}
             >
-              <span>Apply Now</span>
+              <span ref={buttonSpanRef}>Apply Now</span>
               <svg
                 className="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
                 aria-hidden="true"
+                ref = {buttonSvgRef}
               >
                 <path
                   strokeLinecap="round"
