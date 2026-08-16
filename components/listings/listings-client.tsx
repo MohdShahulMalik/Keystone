@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { JobListingCard } from "@/components/cards/listings";
 import { Filters, type FilterGroup } from "@/components/filters";
+import { updateStatus } from "@/app/actions/status";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -15,26 +17,8 @@ const statuses: JobStatus[] = [
   "DECLINED",
 ];
 
-type SerializedJobListing = Omit<
-  JobListing,
-  "appliedAt" | "createdAt" | "updatedAt"
-> & {
-  appliedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 interface ListingsClientProps {
-  initialListings: SerializedJobListing[];
-}
-
-function deserializeListings(listings: SerializedJobListing[]): JobListing[] {
-  return listings.map((listing) => ({
-    ...listing,
-    appliedAt: listing.appliedAt ? new Date(listing.appliedAt) : null,
-    createdAt: new Date(listing.createdAt),
-    updatedAt: new Date(listing.updatedAt),
-  }));
+  initialListings: JobListing[];
 }
 
 function formatFilterLabel(value: string) {
@@ -95,9 +79,7 @@ function matchesSelectedValues(selectedValues: string[], value: string) {
 }
 
 export function ListingsClient({ initialListings }: ListingsClientProps) {
-  const [listings, setListings] = useState<JobListing[]>(() =>
-    deserializeListings(initialListings),
-  );
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["All"]);
   const [selectedLocationTypes, setSelectedLocationTypes] = useState<string[]>([
@@ -116,8 +98,8 @@ export function ListingsClient({ initialListings }: ListingsClientProps) {
   );
 
   const locationTypeFilterOptions = useMemo(
-    () => getLocationTypeFilterOptions(listings),
-    [listings],
+    () => getLocationTypeFilterOptions(initialListings),
+    [initialListings],
   );
 
   const filterGroups: FilterGroup[] = [
@@ -141,7 +123,7 @@ export function ListingsClient({ initialListings }: ListingsClientProps) {
     },
   ];
 
-  const filteredListings = listings.filter((listing) => {
+  const filteredListings = initialListings.filter((listing) => {
     const searchable =
       `${listing.company} ${listing.title} ${listing.location} ${listing.country ?? ""} ${listing.type}`.toLowerCase();
     const matchesSearch = searchable.includes(searchQuery.toLowerCase());
@@ -157,22 +139,9 @@ export function ListingsClient({ initialListings }: ListingsClientProps) {
     return matchesSearch && matchesStatus && matchesLocationType;
   });
 
-  function updateListingStatus(id: string, status: JobStatus) {
-    setListings((current) =>
-      current.map((listing) => {
-        if (listing.id !== id) return listing;
-
-        return {
-          ...listing,
-          status,
-          appliedAt:
-            status === "APPLIED" && listing.appliedAt === null
-              ? new Date()
-              : listing.appliedAt,
-          updatedAt: new Date(),
-        };
-      }),
-    );
+  async function updateListingStatus(id: string, status: JobStatus) {
+    await updateStatus(id, status);
+    router.refresh();
   }
 
   return (
