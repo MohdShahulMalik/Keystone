@@ -54,7 +54,7 @@ function extractUrl(text: string): string | null {
   if (hrefMatch) return hrefMatch[1];
 
   const plainMatch = text.match(
-    /(?:https?:\/\/)?[\w.-]+\.[a-z]{2,}(?:\/[\w./-]*)?/i
+    /(?:https?:\/\/)?[\w.-]+\.[a-z]{2,}(?:\/[\w./-]*)?/i,
   );
   return plainMatch ? plainMatch[0] : null;
 }
@@ -104,7 +104,11 @@ function inferCountry(location: string, section: string): string {
   const loc = location.toLowerCase();
   const sec = section.toLowerCase();
 
-  if (loc.includes("usa") || loc.includes("us only") || loc.includes("us-based"))
+  if (
+    loc.includes("usa") ||
+    loc.includes("us only") ||
+    loc.includes("us-based")
+  )
     return "USA";
   if (loc.includes("uk") || loc.includes("london")) return "UK";
   if (loc.includes("netherlands") || loc.includes("amsterdam"))
@@ -116,7 +120,12 @@ function inferCountry(location: string, section: string): string {
     return "Malaysia";
   if (loc.includes("indonesia") || loc.includes("jakarta")) return "Indonesia";
   if (loc.includes("istanbul") || loc.includes("turkey")) return "Turkey";
-  if (loc.includes("delhi") || loc.includes("noida") || loc.includes("ncr") || loc.includes("gurgaon"))
+  if (
+    loc.includes("delhi") ||
+    loc.includes("noida") ||
+    loc.includes("ncr") ||
+    loc.includes("gurgaon")
+  )
     return "India";
   if (loc.includes("bangalore") || loc.includes("india")) return "India";
   if (loc.includes("berlin") || loc.includes("hamburg")) return "Germany";
@@ -139,7 +148,12 @@ function inferType(location: string): string {
   const loc = location.toLowerCase();
   if (loc.includes("remote")) return "remote";
   if (loc.includes("hybrid")) return "hybrid";
-  if (loc.includes("onsite") || loc.includes("on-site") || loc.includes("in-office") || loc.includes("in-person"))
+  if (
+    loc.includes("onsite") ||
+    loc.includes("on-site") ||
+    loc.includes("in-office") ||
+    loc.includes("in-person")
+  )
     return "onsite";
   return "remote";
 }
@@ -194,7 +208,7 @@ function parseLatex(texContent: string): JobListing[] {
 }
 
 async function fetchJobDetails(
-  url: string
+  url: string,
 ): Promise<{ description?: string; experience?: string; type?: string }> {
   try {
     const controller = new AbortController();
@@ -215,13 +229,13 @@ async function fetchJobDetails(
 
     let description = "";
     const descMeta = html.match(
-      /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i
+      /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i,
     );
     if (descMeta) {
       description = descMeta[1];
     } else {
       const ogDesc = html.match(
-        /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i
+        /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i,
       );
       if (ogDesc) description = ogDesc[1];
     }
@@ -288,12 +302,15 @@ async function main() {
   for (let i = 0; i < jobs.length; i++) {
     const job = jobs[i];
     process.stdout.write(
-      `\r  [${i + 1}/${jobs.length}] ${job.company} - ${job.title}`
+      `\r  [${i + 1}/${jobs.length}] ${job.company} - ${job.title}`,
     );
 
     if (job.url) {
       const details = await fetchJobDetails(job.url);
-      if (details.description && details.description.length > job.description.length) {
+      if (
+        details.description &&
+        details.description.length > job.description.length
+      ) {
         job.description = details.description;
       }
       if (details.experience) job.experience = details.experience;

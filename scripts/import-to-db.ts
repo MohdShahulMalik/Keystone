@@ -1,5 +1,5 @@
-import { db } from "../lib/db";
 import { readFileSync } from "fs";
+import { db } from "../lib/db";
 
 async function main() {
   const jobs = JSON.parse(readFileSync("data/imported-jobs.json", "utf-8"));
