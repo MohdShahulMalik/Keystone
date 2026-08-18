@@ -1,9 +1,9 @@
 "use server";
 
-import { z } from "zod";
-import { rm, writeFile } from "fs/promises";
-import { join } from "path";
+import { rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { PDFParse } from "pdf-parse";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { resumeFileSchema } from "@/lib/schemas/resumes";
 import type { ResumeActionResponse } from "@/lib/types/resumes";

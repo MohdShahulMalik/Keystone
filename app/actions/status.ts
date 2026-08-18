@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { JobStatus } from "@/lib/types/status";
 import { ChangeStatusSchema } from "@/lib/schemas/status";
+import type { JobStatus } from "@/lib/types/status";
 
 export async function updateStatus(id: string, status: JobStatus) {
   const parsed = ChangeStatusSchema.safeParse({ status });

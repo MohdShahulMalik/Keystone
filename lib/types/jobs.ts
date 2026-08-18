@@ -1,6 +1,6 @@
-import { z } from "zod";
-import { addJobSchema, updateJobSchema } from "@/lib/schemas/jobs";
-import { JobStatus } from "./status";
+import type { z } from "zod";
+import type { addJobSchema, updateJobSchema } from "@/lib/schemas/jobs";
+import type { JobStatus } from "./status";
 
 type AddJobInput = z.infer<typeof addJobSchema>;
 type UpdateJobInput = z.infer<typeof updateJobSchema>;

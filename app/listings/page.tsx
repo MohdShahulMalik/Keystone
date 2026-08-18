@@ -1,5 +1,5 @@
-import { ListingsClient } from "@/components/listings/listings-client";
 import { getJobListings } from "@/app/actions/jobs";
+import { ListingsClient } from "@/components/listings/listings-client";
 
 export default async function ListingsPage() {
   const userId = "maxum";
