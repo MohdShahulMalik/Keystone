@@ -1,8 +1,8 @@
 "use client";
 
+import { useRef, useState } from "react";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
-import { useRef, useState } from "react";
 
 interface JobListingCardProps {
   listing: JobListing;
@@ -20,12 +20,12 @@ function formatStatusLabel(status: JobStatus) {
 
 function getStatusDataAttribute(status: JobStatus): string {
   const statusMap: Record<JobStatus, string> = {
-    OPEN: 'Saved',
-    APPLIED: 'Applied',
-    INTERVIEW: 'Interview',
-    OFFER: 'Offer',
-    REJECTED: 'Rejected',
-    DECLINED: 'Declined',
+    OPEN: "Saved",
+    APPLIED: "Applied",
+    INTERVIEW: "Interview",
+    OFFER: "Offer",
+    REJECTED: "Rejected",
+    DECLINED: "Declined",
   };
   return statusMap[status];
 }
@@ -41,7 +41,8 @@ export function JobListingCard({
   const buttonSvgRef = useRef<SVGSVGElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
-  const secondaryButtonClass = "flex items-center gap-2 rounded-lg border border-[var(--color-visit-border)] bg-transparent px-6 py-2.5 text-sm font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
+  const secondaryButtonClass =
+    "flex items-center gap-2 rounded-lg border border-[var(--color-visit-border)] bg-transparent px-6 py-2.5 text-sm font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
 
   const processOpenStatus = (listing: JobListing) => {
     const buttonSpan = buttonSpanRef.current;
@@ -55,10 +56,10 @@ export function JobListingCard({
       buttonSpan.textContent = "Applied?";
       if (buttonSvg) buttonSvg.style.display = "none";
       if (button) button.className = secondaryButtonClass;
-    }else {
+    } else {
       onStatusChange(listing.id, "APPLIED");
     }
-  }
+  };
 
   return (
     <article className="group rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-7 shadow-lg transition-all duration-200 hover:border-(--color-card-border-hover) hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)]">
@@ -76,15 +77,37 @@ export function JobListingCard({
 
           <div className="mb-4 flex items-center gap-4 text-sm">
             <span className="flex items-center gap-2 text-[var(--color-card-text)]">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               <span className="font-semibold">{listing.salary}</span>
             </span>
             <span className="text-[hsl(194_65%_62%_/_0.4)]">•</span>
             <span className="flex items-center gap-2 text-[var(--color-card-text)]">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
               </svg>
               <span className="font-medium">{listing.experience}</span>
             </span>
@@ -106,9 +129,7 @@ export function JobListingCard({
               className="flex items-center gap-2 rounded-lg border border-[var(--status-border)] bg-[var(--status-bg)] px-3.5 py-1.5 text-xs font-medium text-[var(--status-text)]"
               data-status={getStatusDataAttribute(listing.status)}
             >
-              <span
-                className="h-2 w-2 rounded-full bg-[var(--status-dot)]"
-              />
+              <span className="h-2 w-2 rounded-full bg-[var(--status-dot)]" />
               {formatStatusLabel(listing.status)}
             </span>
           </div>
@@ -173,10 +194,7 @@ export function JobListingCard({
                 </div>
               </div>
 
-              <button
-                className={secondaryButtonClass}
-                type="button"
-              >
+              <button className={secondaryButtonClass} type="button">
                 <span>Visit</span>
                 <svg
                   className="h-4 w-4"
@@ -208,7 +226,7 @@ export function JobListingCard({
                 stroke="currentColor"
                 viewBox="0 0 24 24"
                 aria-hidden="true"
-                ref = {buttonSvgRef}
+                ref={buttonSvgRef}
               >
                 <path
                   strokeLinecap="round"

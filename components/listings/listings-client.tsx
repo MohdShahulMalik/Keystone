@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { JobListingCard } from "@/components/cards/listings";
-import { Filters, type FilterGroup } from "@/components/filters";
+import { useMemo, useState } from "react";
 import { updateStatus } from "@/app/actions/status";
+import { JobListingCard } from "@/components/cards/listings";
+import { type FilterGroup, Filters } from "@/components/filters";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -108,7 +108,9 @@ export function ListingsClient({ initialListings }: ListingsClientProps) {
       options: statusFilterOptions,
       selectedValues: selectedStatuses,
       onToggle: (status) =>
-        setSelectedStatuses((current) => getNextSelectedValues(current, status)),
+        setSelectedStatuses((current) =>
+          getNextSelectedValues(current, status),
+        ),
       multiSelect: true,
     },
     {
