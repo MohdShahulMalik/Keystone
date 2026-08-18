@@ -6,6 +6,7 @@
       "name": "keystone",
       "dependencies": {
         "@neondatabase/serverless": "^1.1.0",
+        "@opencode-ai/sdk": "^1.18.13",
         "@prisma/adapter-neon": "^7.9.0",
         "@prisma/client": "^7.9.0",
         "dotenv": "^17.4.2",
@@ -169,6 +170,8 @@
     "@next/swc-win32-arm64-msvc": ["@next/swc-win32-arm64-msvc@16.2.10", "", { "os": "win32", "cpu": "arm64" }, "sha512-DwAnhLX76HQiFFQNgWlcK+JzlnD1rZ+UK/WY0ZMI/deXpvgnesjNYrqcfo1JzBuz4Kf7o3brIBL0glI1junatA=="],
 
     "@next/swc-win32-x64-msvc": ["@next/swc-win32-x64-msvc@16.2.10", "", { "os": "win32", "cpu": "x64" }, "sha512-0JXq3b85Jk9Jg4ntLUbXSPvoDw3gpZou7twuKdoFG2jOw635v7+IiXfTaa0TxVMyx78pUjnrVYwLgjKfX4e6/A=="],
+
+    "@opencode-ai/sdk": ["@opencode-ai/sdk@1.18.13", "", { "dependencies": { "cross-spawn": "7.0.6" } }, "sha512-JY9etiVcu1G/pZjaH2vjK/b8z54ujxaWCD1GziO4ADUhRM6m6zm2332bPGcxEfA6TwweiJfNlK6wVZQ0f/X4KQ=="],
 
     "@prisma/adapter-neon": ["@prisma/adapter-neon@7.9.0", "", { "dependencies": { "@neondatabase/serverless": ">0.6.0 <2", "@prisma/driver-adapter-utils": "7.9.0", "postgres-array": "3.0.4" } }, "sha512-32gJvZt0MYFz2C/NP8un6TNk6s/zlehY47Sr63ZtklQYz5XbWcQTWgA667BrVgKgGKMh6Rfdn/ehVyDwsbUokw=="],
 
