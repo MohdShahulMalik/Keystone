@@ -1,620 +1,324 @@
 "use client";
 
+import { useState, useRef } from "react";
 import Link from "next/link";
-import { useState } from "react";
 
-const STATUSES = [
-  "All",
-  "Saved",
-  "Applied",
-  "Interview",
-  "Offer",
-  "Rejected",
-  "Declined",
-];
-const CATEGORIES = [
-  { id: "all", label: "📋 All" },
-  { id: "remote-worldwide", label: "🌐 Remote Worldwide – React" },
-  { id: "local-hybrid", label: "🏠 Local Hybrid" },
-  { id: "local-onsite", label: "🏢 Local Onsite" },
+const models = [
+  { name: "Claude Sonnet 4", provider: "Anthropic" },
+  { name: "GPT-4o", provider: "OpenAI" },
+  { name: "Gemini 2.5 Pro", provider: "Google" },
 ];
 
-const MOCK_JOBS = [
-  {
-    id: 1,
-    title: "Senior React Developer",
-    company: "Google",
-    location: "Remote worldwide",
-    visa: "Visa: Global EOR",
-    type: "Remote",
-    date: "Aug 3",
-    status: "Applied",
-    salary: "$150k - $200k",
-    experience: "5+ years",
-    description:
-      "Build and maintain large-scale web applications using React, TypeScript, and modern frontend technologies. Work with cross-functional teams to deliver high-quality user experiences.",
-  },
-  {
-    id: 2,
-    title: "Frontend Lead",
-    company: "Meta",
-    location: "NYC · Hybrid",
-    visa: "Visa: Sponsored",
-    type: "Hybrid",
-    date: "Aug 2",
-    status: "Saved",
-    salary: "$180k - $220k",
-    experience: "7+ years",
-    description:
-      "Lead a team of frontend engineers building the next generation of social experiences. Define technical direction and mentor junior developers.",
-  },
-  {
-    id: 3,
-    title: "Full Stack Developer",
-    company: "Startup Inc",
-    location: "London · Onsite",
-    visa: "Visa: Required",
-    type: "Onsite",
-    date: "Aug 1",
-    status: "Saved",
-    salary: "£80k - £100k",
-    experience: "3-7 years",
-    description:
-      "Join our small team to build innovative fintech products from the ground up. Work across the entire stack with modern technologies.",
-  },
-  {
-    id: 4,
-    title: "UI Engineer",
-    company: "Amazon",
-    location: "Remote worldwide",
-    visa: "Visa: Global EOR",
-    type: "Remote",
-    date: "Jul 30",
-    status: "Interview",
-    salary: "$160k - $190k",
-    experience: "5+ years",
-    description:
-      "Create beautiful, accessible user interfaces for millions of customers. Focus on performance, accessibility, and design systems.",
-  },
-  {
-    id: 5,
-    title: "React Developer",
-    company: "Netflix",
-    location: "Remote worldwide",
-    visa: "Visa: US Only",
-    type: "Remote",
-    date: "Jul 28",
-    status: "Applied",
-    salary: "$140k - $180k",
-    experience: "3-5 years",
-    description:
-      "Work on streaming platform features used by millions globally. Collaborate with product and design teams to build engaging video experiences.",
-  },
-  {
-    id: 6,
-    title: "Senior Frontend Dev",
-    company: "Shopify",
-    location: "Toronto · Hybrid",
-    visa: "Visa: Sponsored",
-    type: "Hybrid",
-    date: "Jul 25",
-    status: "Offer",
-    salary: "CAD$140k+",
-    experience: "6+ years",
-    description:
-      "Build merchant-facing tools and features for one of the world's largest e-commerce platforms. Solve complex problems at scale.",
-  },
+const resumes = ["Resume_Frontend.pdf", "Resume_Fullstack.pdf"];
+
+const recentSessions = [
+  { id: 1, status: "completed" as const, summary: "React senior remote USA UK", count: "15 jobs found", time: "2m ago" },
+  { id: 2, status: "failed" as const, summary: "Python backend hybrid Germany", count: "Error", time: "1h ago" },
+  { id: 3, status: "running" as const, summary: "Fullstack Node.js remote global", count: "In progress", time: "Now" },
 ];
 
-const NavigationBubbles = ({ current }: { current: number }) => (
-  <div
-    className="fixed bottom-8 right-8 flex gap-2.5 rounded-2xl border p-3 shadow-2xl"
-    style={{
-      backgroundColor: "hsl(198 100% 5%)",
-      borderColor: "hsl(195 100% 12%)",
-    }}
-  >
-    {[1, 2, 3, 4, 5, 6, 7].map((num) => {
-      const isActive = num === current;
-      return (
-        <Link
-          key={num}
-          href={`/${num}`}
-          className="flex h-11 w-11 items-center justify-center rounded-xl text-sm font-semibold transition-all duration-200"
-          style={{
-            background: isActive
-              ? "linear-gradient(135deg, hsl(190 100% 42%) 0%, hsl(205 100% 48%) 100%)"
-              : "hsl(193 100% 15%)",
-            color: isActive ? "hsl(194 100% 88%)" : "hsl(194 65% 62%)",
-            boxShadow: isActive ? "0 4px 16px hsl(190 100% 42% / 0.4)" : "none",
-          }}
-        >
-          {num}
-        </Link>
-      );
-    })}
-  </div>
-);
+const jobResults = [
+  { title: "Senior React Engineer", company: "Vercel", location: "Remote", type: "Remote", salary: "$180k-$220k", link: "#" },
+  { title: "Full Stack Developer", company: "Stripe", location: "USA", type: "Hybrid", salary: "$160k-$200k", link: "#" },
+  { title: "Frontend Lead", company: "GitHub", location: "Remote", type: "Remote", salary: "$170k-$210k", link: "#" },
+];
 
-const primaryButtonClass =
-  "transition-[filter,box-shadow] duration-200 ease-out hover:brightness-105";
-
-const secondaryButtonClass =
-  "transition-[background-color,border-color,color,box-shadow] duration-200 ease-out";
-
-type FiltersCardProps = {
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
-  selectedStatuses: string[];
-  onToggleStatus: (status: string) => void;
-};
-
-const FiltersCard = ({
-  searchQuery,
-  onSearchChange,
-  selectedStatuses,
-  onToggleStatus,
-}: FiltersCardProps) => {
+function NavBubbles({ current }: { current: number }) {
   return (
-    <div
-      className="rounded-2xl border p-5 shadow-lg"
-      style={{
-        backgroundColor: "hsl(198 100% 5%)",
-        borderColor: "hsl(195 100% 12%)",
-      }}
-    >
-      <div className="mb-5 flex items-stretch gap-3">
-        <div className="relative flex-1">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-            <svg
-              className="h-5 w-5"
-              style={{ color: "hsl(194 65% 62% / 0.5)" }}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          <input
-            type="text"
-            placeholder="Search by title, company, or location..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full rounded-xl border py-3.5 pl-12 pr-4 shadow-sm"
-            style={{
-              borderColor: "hsl(195 100% 12%)",
-              backgroundColor: "hsl(205 100% 4%)",
-              color: "hsl(194 100% 88%)",
-              outline: "none",
-              transition: "all 0.2s ease",
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "hsl(190 100% 42%)";
-              e.target.style.boxShadow = "0 0 0 3px hsl(190 100% 42% / 0.2)";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "hsl(195 100% 12%)";
-              e.target.style.boxShadow = "none";
-            }}
-          />
-        </div>
-
-        <button
-          className={`shrink-0 rounded-lg px-6 py-2.5 text-sm font-semibold [box-shadow:0_4px_16px_hsl(190_100%_42%_/_0.4)] hover:[box-shadow:0_6px_20px_hsl(190_100%_42%_/_0.48)] ${primaryButtonClass}`}
-          style={{
-            background:
-              "linear-gradient(135deg, hsl(190 100% 42%) 0%, hsl(205 100% 48%) 100%)",
-            color: "hsl(194 100% 88%)",
-          }}
+    <div className="fixed bottom-6 right-6 flex gap-2 z-50">
+      {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+        <Link
+          key={n}
+          href={`/${n}`}
+          className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-medium transition-all ${
+            n === current
+              ? "border-accent bg-accent/10 text-accent"
+              : "border-stroke bg-surface-800 text-foreground-600 hover:text-foreground-900 hover:border-foreground-600"
+          }`}
         >
-          <span className="flex items-center gap-2">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Add Job
-          </span>
-        </button>
-      </div>
-
-      <div
-        className="border-t pt-4"
-        style={{ borderColor: "hsl(195 100% 12%)" }}
-      >
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <span
-            className="text-sm font-semibold"
-            style={{ color: "hsl(194 65% 62%)" }}
-          >
-            Status
-          </span>
-          <span className="text-xs" style={{ color: "hsl(194 65% 62% / 0.7)" }}>
-            Multi-select
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {STATUSES.map((status) => {
-            const isSelected = selectedStatuses.includes(status);
-            return (
-              <button
-                key={status}
-                onClick={() => onToggleStatus(status)}
-                className="rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out"
-                style={{
-                  background: isSelected
-                    ? "linear-gradient(135deg, hsl(190 100% 40%) 0%, hsl(190 100% 45%) 100%)"
-                    : "hsl(205 100% 4%)",
-                  color: isSelected ? "hsl(194 100% 88%)" : "hsl(194 65% 62%)",
-                  borderColor: isSelected
-                    ? "hsl(190 100% 40%)"
-                    : "hsl(195 100% 12%)",
-                  boxShadow: isSelected
-                    ? "0 3px 12px hsl(190 100% 40% / 0.3)"
-                    : "none",
-                }}
-              >
-                {status}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+          {n}
+        </Link>
+      ))}
     </div>
   );
-};
+}
 
-export default function ListingsPage1() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["All"]);
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [jobs, setJobs] = useState(MOCK_JOBS);
+function StatusIcon({ status }: { status: "completed" | "failed" | "running" }) {
+  if (status === "completed") return <span className="text-success text-lg leading-none">&#10003;</span>;
+  if (status === "failed") return <span className="text-danger text-lg leading-none">&#10007;</span>;
+  return <span className="inline-block h-3 w-3 rounded-full border-2 border-accent border-t-transparent animate-spin" />;
+}
 
-  const toggleStatus = (status: string) => {
-    if (status === "All") {
-      setSelectedStatuses(["All"]);
-    } else {
-      const newStatuses = selectedStatuses.includes(status)
-        ? selectedStatuses.filter((s) => s !== status && s !== "All")
-        : [...selectedStatuses.filter((s) => s !== "All"), status];
-      setSelectedStatuses(newStatuses.length === 0 ? ["All"] : newStatuses);
-    }
+export default function Design1() {
+  const [phase, setPhase] = useState<'idle' | 'connecting' | 'researching' | 'completed'>("idle");
+  const [streamText, setStreamText] = useState("");
+  const [showResults, setShowResults] = useState(false);
+  const [model, setModel] = useState("Claude Sonnet 4");
+  const [remote, setRemote] = useState(true);
+  const [hybrid, setHybrid] = useState(false);
+  const [onsite, setOnsite] = useState(false);
+  const [countries, setCountries] = useState("");
+  const [skills, setSkills] = useState("");
+  const [skillsMode, setSkillsMode] = useState<'text' | 'resume'>("text");
+  const [notes, setNotes] = useState("");
+  const [resume, setResume] = useState("");
+  const abortRef = useRef(() => {});
+
+  const startResearch = () => {
+    setPhase("connecting");
+    setStreamText("");
+    setShowResults(false);
+    abortRef.current = () => {};
+
+    setTimeout(() => {
+      setPhase("researching");
+      const messages = [
+        "Initializing research agent...\n",
+        "Loading model configuration...\n",
+        "Scanning remote job boards for React, Node.js...\n",
+        "Found 43 potential matches in USA, UK, Canada...\n",
+        "Filtering by salary range and company size...\n",
+        "Verifying job posting freshness...\n",
+        "Cross-referencing with company career pages...\n",
+        "Compiling final results...\n",
+        "Done. 15 jobs matched your criteria.\n",
+      ];
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i >= messages.length) {
+          clearInterval(interval);
+          setPhase("completed");
+          setShowResults(true);
+          return;
+        }
+        setStreamText((prev) => prev + messages[i]);
+        i++;
+      }, 700);
+      abortRef.current = () => clearInterval(interval);
+    }, 800);
   };
 
-  const changeJobStatus = (jobId: number, newStatus: string) => {
-    setJobs(
-      jobs.map((job) =>
-        job.id === jobId ? { ...job, status: newStatus } : job,
-      ),
-    );
+  const abort = () => {
+    abortRef.current();
+    setPhase("idle");
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, { bg: string; text: string; border: string }> =
-      {
-        Saved: {
-          bg: "hsl(194 65% 62% / 0.15)",
-          text: "hsl(194 65% 62%)",
-          border: "hsl(194 65% 62% / 0.3)",
-        },
-        Applied: {
-          bg: "hsl(217 100% 70% / 0.15)",
-          text: "hsl(217 100% 70%)",
-          border: "hsl(217 100% 70% / 0.3)",
-        },
-        Interview: {
-          bg: "hsl(190 100% 42% / 0.15)",
-          text: "hsl(190 100% 55%)",
-          border: "hsl(190 100% 42% / 0.3)",
-        },
-        Offer: {
-          bg: "hsl(162 100% 22% / 0.3)",
-          text: "hsl(162 100% 42%)",
-          border: "hsl(162 100% 22% / 0.5)",
-        },
-        Rejected: {
-          bg: "hsl(7 100% 66% / 0.15)",
-          text: "hsl(7 100% 66%)",
-          border: "hsl(7 100% 66% / 0.3)",
-        },
-        Declined: {
-          bg: "hsl(53 100% 21% / 0.3)",
-          text: "hsl(53 100% 51%)",
-          border: "hsl(53 100% 21% / 0.5)",
-        },
-      };
-    return colors[status] || colors.Saved;
-  };
-
-  const getStatusDotColor = (status: string) => {
-    const colors: Record<string, string> = {
-      Saved: "hsl(194 65% 62%)",
-      Applied: "hsl(217 100% 70%)",
-      Interview: "hsl(190 100% 55%)",
-      Offer: "hsl(162 100% 42%)",
-      Rejected: "hsl(7 100% 66%)",
-      Declined: "hsl(53 100% 51%)",
-    };
-    return colors[status] || "hsl(194 65% 62%)";
+  const reset = () => {
+    setPhase("idle");
+    setStreamText("");
+    setShowResults(false);
   };
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor: "hsl(220 100% 4%)" }}
-    >
-      <div
-        className="border-b backdrop-blur-sm"
-        style={{
-          borderColor: "hsl(195 100% 12%)",
-          backgroundColor: "hsl(198 100% 5% / 0.6)",
-        }}
-      >
-        <div className="mx-auto max-w-5xl px-6 py-5">
-          <FiltersCard
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            selectedStatuses={selectedStatuses}
-            onToggleStatus={toggleStatus}
-          />
+    <div className="min-h-screen bg-surface-900 text-foreground-900 font-sans">
+      <div className="mx-auto max-w-5xl px-6 py-12">
+        {phase === "idle" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 flex flex-col gap-10">
+              <div className="text-center lg:text-left">
+                <h1 className="text-4xl font-semibold tracking-tight mb-3">Research Agent</h1>
+                <p className="text-foreground-600 text-lg">Configure your research parameters and fire the agent</p>
+              </div>
 
-          <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-            {CATEGORIES.map((cat) => {
-              const isActive = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(cat.id)}
-                  className="whitespace-nowrap rounded-lg border px-5 py-2.5 text-sm font-medium transition-[background-color,border-color,color] duration-200 ease-out"
-                  style={{
-                    background: isActive
-                      ? "linear-gradient(135deg, hsl(193 100% 15%) 0%, hsl(193 100% 17%) 100%)"
-                      : "transparent",
-                    color: isActive ? "hsl(194 100% 88%)" : "hsl(194 65% 62%)",
-                    borderColor: isActive ? "hsl(190 100% 42%)" : "transparent",
-                  }}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="space-y-4">
-          {jobs.map((job) => {
-            const statusColors = getStatusColor(job.status);
-            return (
-              <div
-                key={job.id}
-                className="rounded-2xl border p-7 shadow-lg"
-                style={{
-                  backgroundColor: "hsl(205 100% 4%)",
-                  borderColor: "hsl(195 100% 12%)",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "hsl(190 100% 42% / 0.4)";
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 24px hsl(190 100% 42% / 0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "hsl(195 100% 12%)";
-                  e.currentTarget.style.boxShadow = "";
-                }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="mb-2 flex items-center gap-3">
-                      <h3
-                        className="text-xl font-bold"
-                        style={{ color: "hsl(194 100% 88%)" }}
-                      >
-                        {job.company}
-                      </h3>
-                    </div>
-
-                    <h4
-                      className="mb-3 text-lg font-semibold"
-                      style={{ color: "hsl(190 100% 55%)" }}
+              <div className="flex flex-col gap-8">
+                <div>
+                  <label className="block text-sm font-medium text-foreground-600 mb-2">Model</label>
+                  <div className="relative">
+                    <select
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      className="w-full appearance-none bg-transparent border-b border-stroke py-3 pr-8 text-foreground-900 focus:border-accent focus:outline-none transition-colors"
                     >
-                      {job.title}
-                    </h4>
-
-                    <div className="mb-4 flex items-center gap-4 text-sm">
-                      <span
-                        className="flex items-center gap-2"
-                        style={{ color: "hsl(194 100% 88%)" }}
-                      >
-                        <span className="text-lg">💰</span>
-                        <span className="font-semibold">{job.salary}</span>
-                      </span>
-                      <span style={{ color: "hsl(194 65% 62% / 0.4)" }}>•</span>
-                      <span
-                        className="flex items-center gap-2"
-                        style={{ color: "hsl(194 100% 88%)" }}
-                      >
-                        <span className="text-lg">📊</span>
-                        <span className="font-medium">{job.experience}</span>
-                      </span>
-                    </div>
-
-                    <div className="mb-4 flex flex-wrap items-center gap-2.5">
-                      <span
-                        className="flex items-center gap-2 rounded-lg border px-3.5 py-1.5 text-xs font-medium"
-                        style={{
-                          backgroundColor: "hsl(193 100% 15%)",
-                          color: "hsl(194 65% 62%)",
-                          borderColor: "hsl(195 100% 12%)",
-                        }}
-                      >
-                        <span>📍</span>
-                        {job.location}
-                      </span>
-
-                      <span
-                        className="rounded-lg border px-3.5 py-1.5 text-xs font-semibold"
-                        style={{
-                          background:
-                            "linear-gradient(135deg, hsl(162 100% 25%) 0%, hsl(162 100% 30%) 100%)",
-                          color: "hsl(162 100% 82%)",
-                          borderColor: "hsl(162 100% 22% / 0.5)",
-                        }}
-                      >
-                        {job.visa}
-                      </span>
-
-                      <span
-                        className="flex items-center gap-2 rounded-lg border px-3.5 py-1.5 text-xs font-medium"
-                        style={{
-                          backgroundColor: statusColors.bg,
-                          color: statusColors.text,
-                          borderColor: statusColors.border,
-                        }}
-                      >
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{
-                            backgroundColor: getStatusDotColor(job.status),
-                          }}
-                        ></span>
-                        {job.status}
-                      </span>
-                    </div>
-
-                    <p
-                      className="text-sm leading-relaxed"
-                      style={{ color: "hsl(194 65% 62%)" }}
-                    >
-                      {job.description}
-                    </p>
-                  </div>
-
-                  <div className="ml-8 flex shrink-0 flex-col items-end gap-3">
-                    {job.status !== "Saved" ? (
-                      <>
-                        <div className="group relative">
-                          <button
-                            className={`flex min-w-[160px] items-center justify-between gap-2.5 rounded-lg border px-5 py-2.5 text-sm font-medium [box-shadow:0_3px_10px_hsl(190_100%_42%_/_0.2)] hover:[box-shadow:0_4px_14px_hsl(190_100%_42%_/_0.24)] ${primaryButtonClass}`}
-                            style={{
-                              background:
-                                "linear-gradient(135deg, hsl(193 100% 18%) 0%, hsl(193 100% 22%) 100%)",
-                              color: "hsl(190 100% 60%)",
-                              borderColor: "hsl(190 100% 30%)",
-                            }}
-                          >
-                            <span>{job.status}</span>
-                            <svg
-                              className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                              />
-                            </svg>
-                          </button>
-                          <div
-                            className="absolute right-0 top-full z-10 mt-2 w-48 overflow-hidden rounded-xl border shadow-2xl invisible opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
-                            style={{
-                              backgroundColor: "hsl(198 100% 5%)",
-                              borderColor: "hsl(195 100% 12%)",
-                            }}
-                          >
-                            {STATUSES.filter(
-                              (s) => s !== "All" && s !== job.status,
-                            ).map((status) => (
-                              <button
-                                key={status}
-                                onClick={() => changeJobStatus(job.id, status)}
-                                className={`block w-full text-left px-4 py-3 text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-[hsl(193_100%_14%)] hover:text-[hsl(190_100%_68%)] ${secondaryButtonClass}`}
-                                style={{ color: "hsl(194 65% 62%)" }}
-                              >
-                                {status}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <button
-                          className={`flex items-center gap-2 rounded-lg border px-6 py-2.5 text-sm font-semibold hover:bg-[hsl(193_100%_11%)] hover:text-[hsl(190_100%_68%)] hover:border-[hsl(190_100%_28%)] hover:[box-shadow:0_2px_10px_hsl(190_100%_42%_/_0.14)] ${secondaryButtonClass}`}
-                          style={{
-                            borderColor: "hsl(195 100% 12%)",
-                            color: "hsl(194 65% 62%)",
-                            backgroundColor: "transparent",
-                          }}
-                        >
-                          <span>Visit</span>
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                            />
-                          </svg>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        className={`flex items-center gap-2.5 rounded-xl px-7 py-3 text-sm font-bold [box-shadow:0_4px_16px_hsl(190_100%_42%_/_0.4)] hover:[box-shadow:0_6px_20px_hsl(190_100%_42%_/_0.48)] ${primaryButtonClass}`}
-                        style={{
-                          background:
-                            "linear-gradient(135deg, hsl(190 100% 42%) 0%, hsl(205 100% 48%) 100%)",
-                          color: "hsl(194 100% 88%)",
-                        }}
-                      >
-                        <span>Apply Now</span>
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13 7l5 5m0 0l-5 5m5-5H6"
-                          />
-                        </svg>
-                      </button>
-                    )}
+                      {models.map((m) => (
+                        <option key={m.name} value={m.name} className="bg-surface-800">
+                          {m.name} — {m.provider}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute right-0 top-3 text-foreground-600">&#9662;</div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      <NavigationBubbles current={1} />
+                <div>
+                  <label className="block text-sm font-medium text-foreground-600 mb-3">Job Types</label>
+                  <div className="flex gap-6">
+                    {[
+                      { label: "Remote", val: remote, set: setRemote },
+                      { label: "Hybrid", val: hybrid, set: setHybrid },
+                      { label: "Onsite", val: onsite, set: setOnsite },
+                    ].map((t) => (
+                      <label key={t.label} className="flex items-center gap-2 cursor-pointer select-none">
+                        <div
+                          className={`flex h-5 w-5 items-center justify-center rounded border transition-colors ${
+                            t.val ? "border-accent bg-accent/20" : "border-stroke"
+                          }`}
+                          onClick={() => t.set(!t.val)}
+                        >
+                          {t.val && <span className="text-accent text-sm">&#10003;</span>}
+                        </div>
+                        <span className="text-foreground-900">{t.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground-600 mb-2">Countries</label>
+                  <input
+                    type="text"
+                    value={countries}
+                    onChange={(e) => setCountries(e.target.value)}
+                    placeholder="USA, UK, Canada"
+                    className="w-full bg-transparent border-b border-stroke py-3 text-foreground-900 placeholder:text-foreground-600-muted focus:border-accent focus:outline-none transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-foreground-600">Skills</label>
+                    <div className="flex gap-1 bg-surface-800 rounded-lg p-0.5 border border-stroke">
+                      <button
+                        onClick={() => setSkillsMode("text")}
+                        className={`text-[10px] px-2 py-1 rounded-md transition-colors ${
+                          skillsMode === "text" ? "bg-accent text-surface-900 font-medium" : "text-foreground-600 hover:text-foreground-900"
+                        }`}
+                      >
+                        Type
+                      </button>
+                      <button
+                        onClick={() => setSkillsMode("resume")}
+                        className={`text-[10px] px-2 py-1 rounded-md transition-colors ${
+                          skillsMode === "resume" ? "bg-accent text-surface-900 font-medium" : "text-foreground-600 hover:text-foreground-900"
+                        }`}
+                      >
+                        Resume
+                      </button>
+                    </div>
+                  </div>
+                  {skillsMode === "text" ? (
+                    <input
+                      type="text"
+                      value={skills}
+                      onChange={(e) => setSkills(e.target.value)}
+                      placeholder="React, Node.js, Python"
+                      className="w-full bg-transparent border-b border-stroke py-3 text-foreground-900 placeholder:text-foreground-600-muted focus:border-accent focus:outline-none transition-colors"
+                    />
+                  ) : (
+                    <div className="relative">
+                      <select
+                        value={resume}
+                        onChange={(e) => setResume(e.target.value)}
+                        className="w-full appearance-none bg-transparent border-b border-stroke py-3 pr-8 text-foreground-900 focus:border-accent focus:outline-none transition-colors"
+                      >
+                        <option value="" className="bg-surface-800">None</option>
+                        {resumes.map((r) => (
+                          <option key={r} value={r} className="bg-surface-800">{r}</option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute right-0 top-3 text-foreground-600">&#9662;</div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground-600 mb-2">Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Additional instructions for the AI..."
+                    rows={3}
+                    className="w-full bg-transparent border-b border-stroke py-3 text-foreground-900 placeholder:text-foreground-600-muted focus:border-accent focus:outline-none transition-colors resize-none"
+                  />
+                </div>
+
+                <button
+                  onClick={startResearch}
+                  className="mt-2 w-full rounded-lg bg-accent py-4 text-surface-900 font-semibold text-lg hover:brightness-110 transition-all"
+                  style={{ boxShadow: "0 0 40px -10px hsl(190, 100%, 42%)" }}
+                >
+                  Start Research
+                </button>
+              </div>
+            </div>
+
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">
+                <h3 className="text-sm font-medium text-foreground-600 mb-4 uppercase tracking-wider">Recent Sessions</h3>
+                <div className="flex flex-col gap-3">
+                  {recentSessions.map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between rounded-lg border border-stroke bg-surface-800 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <StatusIcon status={s.status} />
+                        <span className="text-foreground-900 truncate max-w-[140px] text-sm">{s.summary}</span>
+                      </div>
+                      <div className="flex flex-col items-end text-xs">
+                        <span className="text-foreground-600">{s.count}</span>
+                        <span className="text-foreground-600-muted">{s.time}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6 pt-8 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={`inline-block h-2.5 w-2.5 rounded-full ${phase === "completed" ? "bg-success" : "bg-accent animate-pulse"}`} />
+                <span className="font-medium">
+                  {phase === "connecting" && "Connecting to AI..."}
+                  {phase === "researching" && "Researching..."}
+                  {phase === "completed" && "Completed"}
+                </span>
+              </div>
+              {phase !== "completed" ? (
+                <button onClick={abort} className="text-sm text-danger hover:underline">Abort</button>
+              ) : (
+                <button onClick={reset} className="text-sm text-accent hover:underline">New Research</button>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-stroke bg-surface-800 p-5 font-mono text-sm text-foreground-600 leading-relaxed whitespace-pre-wrap min-h-[240px] max-h-[400px] overflow-y-auto">
+              {streamText}
+              {phase !== "completed" && <span className="inline-block h-4 w-2 bg-accent animate-pulse ml-0.5 align-middle" />}
+            </div>
+
+            {showResults && (
+              <div className="flex flex-col gap-4">
+                <h3 className="font-medium text-lg">Matched Jobs</h3>
+                {jobResults.map((job, i) => (
+                  <div key={i} className="rounded-xl border border-stroke bg-surface-800 p-5 flex flex-col gap-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-semibold text-foreground-900">{job.title}</div>
+                        <div className="text-foreground-600 text-sm">{job.company}</div>
+                      </div>
+                      <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-foreground-900">
+                        {job.type}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-foreground-600">
+                      <span>{job.location}</span>
+                      <span>{job.salary}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button className="rounded-md bg-surface-700 border border-stroke px-3 py-1.5 text-sm hover:border-accent transition-colors">
+                        Save
+                      </button>
+                      <a href={job.link} className="text-sm text-accent hover:underline">View posting</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <NavBubbles current={1} />
     </div>
   );
 }
