@@ -42,7 +42,7 @@ export function JobListingCard({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   const secondaryButtonClass =
-    "flex items-center gap-2 rounded-lg border border-[var(--color-visit-border)] bg-transparent px-6 py-2.5 text-sm font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
+    "flex items-center gap-2 rounded-lg border border-visit-border bg-transparent px-6 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
 
   const processOpenStatus = (listing: JobListing) => {
     const buttonSpan = buttonSpanRef.current;
@@ -91,7 +91,7 @@ export function JobListingCard({
                   d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span className="font-semibold">{listing.salary}</span>
+              <span className="font-semibold">{listing.salary || "N.A."}</span>
             </span>
             <span className="text-[hsl(194_65%_62%_/_0.4)]">•</span>
             <span className="flex items-center gap-2 text-[var(--color-card-text)]">
@@ -159,7 +159,7 @@ export function JobListingCard({
             <>
               <div className="group/dropdown relative">
                 <button
-                  className="flex min-w-[160px] items-center justify-between gap-2.5 rounded-lg border border-[var(--color-btn-secondary-border)] bg-gradient-to-br from-[var(--color-btn-secondary-from)] to-[var(--color-btn-secondary-to)] px-5 py-2.5 text-sm font-medium text-[var(--color-btn-secondary-text)] shadow-[0_3px_10px_hsl(190_100%_42%_/_0.2)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_4px_14px_hsl(190_100%_42%_/_0.24)]"
+                  className="flex min-w-[160px] items-center justify-between gap-2.5 rounded-lg border border-[var(--color-btn-secondary-border)] bg-gradient-to-br from-[var(--color-btn-secondary-from)] to-[var(--color-btn-secondary-to)] px-5 py-2.5 text-base font-medium text-[var(--color-btn-secondary-text)] shadow-[0_3px_10px_hsl(190_100%_42%_/_0.2)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_4px_14px_hsl(190_100%_42%_/_0.24)]"
                   type="button"
                 >
                   <span>{formatStatusLabel(listing.status)}</span>
@@ -185,7 +185,7 @@ export function JobListingCard({
                       <button
                         key={`${listing.id}-${status}`}
                         onClick={() => onStatusChange(listing.id, status)}
-                        className="block w-full px-4 py-3 text-left text-sm text-[var(--color-badge-text)] transition-all duration-200 ease-out first:rounded-t-xl last:rounded-b-xl hover:bg-[var(--color-dropdown-hover-bg)] hover:text-[var(--color-dropdown-hover-text)]"
+                        className="block w-full px-4 py-3 text-left text-base text-[var(--color-badge-text)] transition-all duration-200 ease-out first:rounded-t-xl last:rounded-b-xl hover:bg-[var(--color-dropdown-hover-bg)] hover:text-[var(--color-dropdown-hover-text)]"
                         type="button"
                       >
                         {formatStatusLabel(status)}
@@ -214,7 +214,7 @@ export function JobListingCard({
             </>
           ) : (
             <button
-              className="flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-7 py-3 text-sm font-bold text-[var(--color-btn-primary-text)] shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)]"
+              className="flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-7 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)]"
               type="button"
               ref={buttonRef}
               onClick={() => processOpenStatus(listing)}
