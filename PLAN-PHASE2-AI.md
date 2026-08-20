@@ -456,7 +456,7 @@ export function useResearchStream(sessionId: string | null) {
     
     eventSource.addEventListener("status", (e) => {
       const { status } = JSON.parse(e.data)
-      setState(prev => ({ ...prev, status: "running" }))
+      setState(prev => ({ ...prev, status }))
     })
     
     eventSource.addEventListener("message.completed", (e) => {
