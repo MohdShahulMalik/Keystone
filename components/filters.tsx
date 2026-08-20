@@ -89,7 +89,7 @@ export function Filters({
                 ) : null}
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="scrollbar-hidden flex items-center gap-2 overflow-x-scroll">
                 {group.options.map((option) => {
                   const isSelected = group.selectedValues.includes(
                     option.value,
@@ -101,7 +101,7 @@ export function Filters({
                       type="button"
                       onClick={() => group.onToggle(option.value)}
                       aria-pressed={isSelected}
-                      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out ${
+                      className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out ${
                         isSelected
                           ? "border-filter-chip-active-border bg-gradient-to-br from-filter-chip-active-from to-filter-chip-active-to text-foreground-900 shadow-filter-chip-active"
                           : "border-stroke bg-surface-800 text-foreground-600 hover:border-filter-chip-active-border"
