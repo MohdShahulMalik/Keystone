@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ResearchForm } from "@/app/research/component/research-form";
+import { ResearchClient } from "@/app/research/component/research-client";
 import {
   type ResearchSession,
   ResearchSessionSidebar,
@@ -45,14 +45,7 @@ export default async function ResearchPage({
         title={modeLabels[mode]}
       />
       <main className="min-w-0 flex-1 px-4 py-16 sm:px-6 lg:px-12 lg:py-12">
-        <div className="mx-auto max-w-2xl">
-          <section
-            className="rounded-2xl border border-stroke bg-surface-700 p-5 shadow-lg sm:p-7"
-            aria-label={`${modeLabels[mode]} configuration`}
-          >
-            <ResearchForm researchType={mode} />
-          </section>
-        </div>
+        <ResearchClient mode={mode} label={modeLabels[mode]} />
       </main>
     </div>
   );
