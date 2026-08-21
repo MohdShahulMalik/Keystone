@@ -11,11 +11,21 @@ const modelVariants: Record<string, string[]> = {
 
 const jobTypes = ["Remote", "Hybrid", "Onsite"];
 
-type ResearchFormProps = {
-  researchType: "job" | "dsa";
+export type UserPreferences = {
+  model: string;
+  jobTypes: string[];
+  countries: string;
+  skills: string;
+  notes: string;
+  resumeName?: string;
 };
 
-export function ResearchForm({ researchType }: ResearchFormProps) {
+type ResearchFormProps = {
+  researchType: "job" | "dsa";
+  onStart?: (preferences: UserPreferences) => void;
+};
+
+export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [baseModel, setBaseModel] = useState("Claude");
   const [variant, setVariant] = useState("Sonnet");
@@ -25,6 +35,8 @@ export function ResearchForm({ researchType }: ResearchFormProps) {
   const [skills, setSkills] = useState("");
   const [resumeName, setResumeName] = useState<string>();
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [countries, setCountries] = useState("");
+  const [notes, setNotes] = useState("");
 
   const selectBaseModel = (nextModel: string) => {
     setBaseModel(nextModel);
@@ -48,8 +60,20 @@ export function ResearchForm({ researchType }: ResearchFormProps) {
     ? "Start job research"
     : "Start DSA research";
 
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    onStart?.({
+      model: `${baseModel} ${variant}`,
+      jobTypes: selectedJobTypes,
+      countries,
+      skills,
+      notes,
+      resumeName,
+    });
+  };
+
   return (
-    <form className="space-y-7" onSubmit={(event) => event.preventDefault()}>
+    <form className="space-y-7" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-foreground-600">
@@ -189,6 +213,8 @@ export function ResearchForm({ researchType }: ResearchFormProps) {
             </span>
             <input
               type="text"
+              value={countries}
+              onChange={(e) => setCountries(e.target.value)}
               placeholder="USA, UK, Canada"
               className="w-full rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] placeholder:text-foreground-600-subtle focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)]"
             />
@@ -201,6 +227,8 @@ export function ResearchForm({ researchType }: ResearchFormProps) {
           Notes
         </span>
         <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional instructions for the research agent..."
           rows={3}
           className="w-full resize-none rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] placeholder:text-foreground-600-subtle focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)]"
@@ -209,7 +237,7 @@ export function ResearchForm({ researchType }: ResearchFormProps) {
 
       <button
         type="submit"
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3.5 text-base font-bold text-[var(--color-btn-primary-text)] shadow-btn-primary transition-all duration-200 hover:brightness-105 shadow-btn-primary-hover"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3.5 text-base font-bold text-[var(--color-btn-primary-text)] shadow-btn-primary transition-all duration-200 hover:brightness-105 hover:shadow-btn-primary-hover"
       >
         {actionLabel}
         <svg
