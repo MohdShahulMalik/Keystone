@@ -16,7 +16,9 @@ export function useResearchStream(sessionId: string | null) {
   useEffect(() => {
     if (!sessionId) return;
 
-    const eventSource = new EventSource(`/api/research/stream?sessionId=${sessionId}`);
+    const eventSource = new EventSource(
+      `/api/research/stream?sessionId=${sessionId}`,
+    );
 
     eventSource.addEventListener("chunk", (e) => {
       const { text } = JSON.parse(e.data);
@@ -45,7 +47,9 @@ export function useResearchStream(sessionId: string | null) {
     });
 
     eventSource.addEventListener("error", (e: MessageEvent) => {
-      const data = e.data ? JSON.parse(e.data) : { message: "Connection error" };
+      const data = e.data
+        ? JSON.parse(e.data)
+        : { message: "Connection error" };
       setState((prev) => ({
         ...prev,
         status: "error",
@@ -81,7 +85,7 @@ export function useResearchStream(sessionId: string | null) {
       status: "idle",
       mainText: "",
     });
-  }, [])
+  }, []);
 
   return { ...state, reset };
 }
