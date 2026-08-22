@@ -2,7 +2,10 @@
 
 import { useRef, useState } from "react";
 import { JobListingCard } from "@/components/cards/listings";
-import { ResearchForm, type UserPreferences } from "@/app/research/component/research-form";
+import {
+  ResearchForm,
+  type UserPreferences,
+} from "@/app/research/component/research-form";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -85,7 +88,8 @@ const mockJobResults: JobListing[] = [
 export function ResearchClient({ mode, label }: ResearchClientProps) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [responseText, setResponseText] = useState("");
-  const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
+  const [userPreferences, setUserPreferences] =
+    useState<UserPreferences | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -152,30 +156,42 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
                 {userPreferences && (
                   <div className="space-y-2 text-foreground-600">
                     <div>
-                      <span className="font-medium text-foreground-900">Model:</span>{" "}
+                      <span className="font-medium text-foreground-900">
+                        Model:
+                      </span>{" "}
                       {userPreferences.model}
                     </div>
                     <div>
-                      <span className="font-medium text-foreground-900">Job Types:</span>{" "}
+                      <span className="font-medium text-foreground-900">
+                        Job Types:
+                      </span>{" "}
                       {userPreferences.jobTypes.join(", ")}
                     </div>
                     <div>
-                      <span className="font-medium text-foreground-900">Countries:</span>{" "}
+                      <span className="font-medium text-foreground-900">
+                        Countries:
+                      </span>{" "}
                       {userPreferences.countries || "Any"}
                     </div>
                     <div>
-                      <span className="font-medium text-foreground-900">Skills:</span>{" "}
+                      <span className="font-medium text-foreground-900">
+                        Skills:
+                      </span>{" "}
                       {userPreferences.skills || "None specified"}
                     </div>
                     {userPreferences.resumeName ? (
                       <div>
-                        <span className="font-medium text-foreground-900">Resume:</span>{" "}
+                        <span className="font-medium text-foreground-900">
+                          Resume:
+                        </span>{" "}
                         {userPreferences.resumeName}
                       </div>
                     ) : null}
                     {userPreferences.notes ? (
                       <div>
-                        <span className="font-medium text-foreground-900">Notes:</span>{" "}
+                        <span className="font-medium text-foreground-900">
+                          Notes:
+                        </span>{" "}
                         {userPreferences.notes}
                       </div>
                     ) : null}
