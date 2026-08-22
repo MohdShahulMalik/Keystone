@@ -31,6 +31,20 @@ export async function sendResearchPrompt(
   return result.data;
 }
 
+export async function getSessionMessages(sessionId: string) {
+  const client = await getOpencodeClient();
+
+  const messages = await client.session.messages({ path: { id: sessionId } });
+  return messages.data;
+}
+
+export async function getSessionChildren(sessionId: string) {
+  const client = await getOpencodeClient();
+
+  const children = await client.session.children({ path: { id: sessionId } });
+  return children.data;
+}
+
 export async function subscribeToEvents() {
   const client = await getOpencodeClient();
 
