@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { buildResearchPrompt } from "@/lib/opencode/prompts";
-import { createResearchSession, sendResearchPrompt } from "@/lib/opencode/server";
+import {
+  createResearchSession,
+  sendResearchPrompt,
+} from "@/lib/opencode/server";
 import { ResearchPreferences } from "@/lib/types/opencode";
 import z from "zod";
 
@@ -12,7 +15,9 @@ const startResearchSchema = z.object({
   resumeId: z.string().optional(),
 });
 
-type ResearchPromptInput = Omit<ResearchPreferences, 'resumeContent'> & { resumeId?: string };
+type ResearchPromptInput = Omit<ResearchPreferences, "resumeContent"> & {
+  resumeId?: string;
+};
 
 export async function startResearch(preferences: ResearchPromptInput) {
   const parsedPreferences = startResearchSchema.parse(preferences);
@@ -24,7 +29,7 @@ export async function startResearch(preferences: ResearchPromptInput) {
       userId: user,
       query: buildResearchPrompt(parsedPreferences),
       status: "running",
-   } 
+    },
   });
 
   let resumeContent: string | undefined;
@@ -40,7 +45,7 @@ export async function startResearch(preferences: ResearchPromptInput) {
     throw new Error("Failed to create OpenCode session");
   }
 
-  const prompt = buildResearchPrompt({...parsedPreferences, resumeContent});
+  const prompt = buildResearchPrompt({ ...parsedPreferences, resumeContent });
 
   sendResearchPrompt(openCodeSession.id, prompt).catch(async (error) => {
     console.error("Error sending research prompt:", error);
@@ -55,15 +60,14 @@ export async function startResearch(preferences: ResearchPromptInput) {
 
   return {
     sessionId: session.id,
-    openCodeSessionId: openCodeSession.id
+    openCodeSessionId: openCodeSession.id,
   };
-
 }
 
 export async function getResearchStatus(sessionId: string) {
   const session = await db.searchSession.findUnique({
     where: { id: sessionId },
-    include: { results: true }
+    include: { results: true },
   });
 
   if (!session) {
