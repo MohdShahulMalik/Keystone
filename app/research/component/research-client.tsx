@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { JobListingCard } from "@/components/cards/listings";
 import {
   ResearchForm,
   type UserPreferences,
 } from "@/app/research/component/research-form";
+import { useResearchStream } from "@/hooks/useResearchStream";
+import { startResearch } from "@/app/actions/research";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -13,8 +15,6 @@ type ResearchClientProps = {
   mode: "job" | "dsa";
   label: string;
 };
-
-type Phase = "idle" | "connecting" | "running" | "completed";
 
 const statuses: JobStatus[] = [
   "OPEN",
@@ -85,68 +85,78 @@ const mockJobResults: JobListing[] = [
   },
 ];
 
+function toList(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function ResearchClient({ mode, label }: ResearchClientProps) {
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [responseText, setResponseText] = useState("");
+  const [openCodeSessionId, setOpenCodeSessionId] = useState<string | null>(
+    null,
+  );
   const [userPreferences, setUserPreferences] =
     useState<UserPreferences | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
 
-  const startResearch = (preferences: UserPreferences) => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  const { status, mainText, error, reset } =
+    useResearchStream(openCodeSessionId);
 
+  const startResearchHandler = async (preferences: UserPreferences) => {
     setUserPreferences(preferences);
-    setPhase("connecting");
-    setResponseText("");
+    setStartError(null);
+    reset();
 
-    timeoutRef.current = setTimeout(() => {
-      setPhase("running");
+    try {
+      const skills = toList(preferences.skills);
+      const countries = toList(preferences.countries);
 
-      const messages = [
-        "Initializing research agent...\n",
-        "Loading configuration...\n",
-        "Searching public job boards and communities...\n",
-        "Aggregating role signals and filtering by fit...\n",
-        "Ranking results by location and skill match...\n",
-        "Finalizing report and recommendations...\n",
-        "Research complete.\n",
-      ];
-
-      let index = 0;
-      intervalRef.current = setInterval(() => {
-        setResponseText((current) => current + messages[index]);
-        index += 1;
-
-        if (index >= messages.length) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          setPhase("completed");
-        }
-      }, 700);
-    }, 800);
+      const { openCodeSessionId: newSessionId } = await startResearch({
+        jobTypes:
+          preferences.jobTypes.length > 0 ? preferences.jobTypes : ["Any"],
+        countries: countries.length > 0 ? countries : ["Any"],
+        skills: skills.length > 0 ? skills : ["General"],
+        notes: preferences.notes || undefined,
+      });
+      setOpenCodeSessionId(newSessionId);
+    } catch (err) {
+      setStartError(
+        err instanceof Error ? err.message : "Failed to start research",
+      );
+    }
   };
+
+  const started = openCodeSessionId !== null;
+  const displayError = startError ?? error;
 
   return (
     <div className="mx-auto max-w-3xl">
-      {phase === "idle" ? (
+      {!started ? (
         <section
           className="rounded-2xl border border-stroke bg-surface-700 p-5 shadow-lg sm:p-7"
           aria-label={`${label} configuration`}
         >
-          <ResearchForm researchType={mode} onStart={startResearch} />
+          {startError ? (
+            <p className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/15 px-4 py-2 text-sm text-rose-400">
+              {startError}
+            </p>
+          ) : null}
+          <ResearchForm researchType={mode} onStart={startResearchHandler} />
         </section>
       ) : (
         <div className="space-y-8">
           <div className="flex items-center">
             <span
               className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
-                phase === "completed"
+                status === "completed"
                   ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
-                  : "border-sky-500/30 bg-sky-500/15 text-sky-400"
+                  : status === "error"
+                    ? "border-rose-500/30 bg-rose-500/15 text-rose-400"
+                    : "border-sky-500/30 bg-sky-500/15 text-sky-400"
               }`}
             >
-              {phase === "completed" ? "Completed" : "Running"}
+              {status}
             </span>
           </div>
 
@@ -203,16 +213,21 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             <div className="flex justify-start">
               <div className="max-w-2xl">
                 <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground-600">
-                  {responseText || "Waiting for agent output..."}
-                  {phase !== "completed" ? (
+                  {mainText || "Waiting for agent output..."}
+                  {status !== "completed" && status !== "error" ? (
                     <span className="ml-1 inline-block h-4 w-2 bg-accent align-middle" />
                   ) : null}
                 </div>
+                {displayError ? (
+                  <p className="mt-4 rounded-lg border border-rose-500/30 bg-rose-500/15 px-4 py-2 text-sm text-rose-400">
+                    {displayError}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
 
-          {mode === "job" && phase === "completed" ? (
+          {mode === "job" && status === "completed" ? (
             <section className="mt-12 space-y-4" aria-label="Job matches">
               <h3 className="text-lg font-semibold text-foreground-900">
                 Matched jobs
