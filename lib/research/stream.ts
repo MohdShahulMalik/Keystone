@@ -37,10 +37,12 @@ export function handleTextPart(
   isParent: boolean,
 ) {
   if (!delta) return;
+
   if (isParent) {
     ctx.buffers.chunk += delta;
     return;
   }
+
   ctx.send(
     sse("subagent.chunk", {
       id: part.sessionID,
@@ -78,6 +80,7 @@ export function handleToolRunning(ctx: StreamCtx, part: ToolPart, isChild: boole
       id: part.id,
       tool: part.tool,
       title: state.title,
+      input: state.input,
       sessionId: isChild ? part.sessionID : undefined,
     }),
   );
@@ -110,6 +113,7 @@ export function handleToolCompleted(ctx: StreamCtx, part: ToolPart) {
       id: part.id,
       tool: part.tool,
       title: state.title,
+      input: state.input,
       durationMs: state.time.end - state.time.start,
       outputPreview: state.output?.slice(0, 2000) || "",
     }),
