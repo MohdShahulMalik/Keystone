@@ -29,7 +29,7 @@ export interface Subagent {
 
 export interface ResearchSession {
   status: ResearchStatus;
-  mainText: string;
+  segments: TextSegment[];
   error?: string;
   messageId?: string;
 }
@@ -65,5 +65,10 @@ export interface SubagentStartedPayload {
 export interface SubagentChunkPayload {
   id: string;
   childSessionId: string;
+  text: string;
+}
+
+export interface TextSegment {
+  id: string;
   text: string;
 }
