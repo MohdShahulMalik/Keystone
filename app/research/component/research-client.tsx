@@ -25,65 +25,7 @@ const statuses: JobStatus[] = [
   "DECLINED",
 ];
 
-const mockJobResults: JobListing[] = [
-  {
-    id: "job-1",
-    userId: "demo",
-    title: "Junior Frontend Engineer",
-    company: "Keystone Labs",
-    location: "Remote",
-    url: "https://example.com/job/frontend",
-    description: "Build user-facing workflows for the research platform.",
-    salary: "$70k-$90k",
-    experience: "Entry Level",
-    visa: "Global remote",
-    type: "remote",
-    country: "Remote",
-    status: "OPEN",
-    notes: null,
-    appliedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "job-2",
-    userId: "demo",
-    title: "AI Operations Associate",
-    company: "VectorFlow",
-    location: "Austin, TX",
-    url: "https://example.com/job/ai-ops",
-    description: "Support AI pipelines, tooling, and evaluation workflows.",
-    salary: "$85k-$105k",
-    experience: "Junior",
-    visa: "US only",
-    type: "hybrid",
-    country: "USA",
-    status: "OPEN",
-    notes: null,
-    appliedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "job-3",
-    userId: "demo",
-    title: "Research Engineer Intern",
-    company: "SignalStack",
-    location: "Berlin, Germany",
-    url: "https://example.com/job/research-intern",
-    description: "Support applied research and experiment tooling.",
-    salary: null,
-    experience: "Intern",
-    visa: "EU eligible",
-    type: "onsite",
-    country: "Germany",
-    status: "OPEN",
-    notes: null,
-    appliedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+const mockJobResults: JobListing[] = [];
 
 function toList(value: string): string[] {
   return value
@@ -100,7 +42,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
     useState<UserPreferences | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
 
-  const { status, mainText, error, reset } =
+  const { status, segments, error, reset } =
     useResearchStream(openCodeSessionId);
 
   const startResearchHandler = async (preferences: UserPreferences) => {
@@ -115,7 +57,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
       const { openCodeSessionId: newSessionId } = await startResearch({
         jobTypes:
           preferences.jobTypes.length > 0 ? preferences.jobTypes : ["Any"],
-        countries: countries.length > 0 ? countries : ["Any"],
+        countries: countries.length > 0 ? countries : ["Current"],
         skills: skills.length > 0 ? skills : ["General"],
         notes: preferences.notes || undefined,
       });
@@ -213,7 +155,9 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             <div className="flex justify-start">
               <div className="max-w-2xl">
                 <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground-600">
-                  {mainText || "Waiting for agent output..."}
+                  {segments.length > 0
+                    ? segments.map((s) => s.text).join("")
+                    : "Waiting for agent output..."}
                   {status !== "completed" && status !== "error" ? (
                     <span className="ml-1 inline-block h-4 w-2 bg-accent align-middle" />
                   ) : null}
