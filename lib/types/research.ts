@@ -71,4 +71,5 @@ export interface SubagentChunkPayload {
 export interface TextSegment {
   id: string;
   text: string;
+  kind?: "text" | "thinking" | "tool";
 }
