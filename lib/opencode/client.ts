@@ -13,6 +13,7 @@ type ServerHandle = Awaited<ReturnType<typeof createOpencodeServer>>;
 
 const globalForOpencode = globalThis as unknown as {
   opencodeServer?: ServerHandle;
+  opencodeServerPromise?: Promise<ServerHandle>;
 };
 
 function isPortOpen(port: number, host: string): Promise<boolean> {
@@ -39,12 +40,26 @@ export async function getOpencodeServer() {
     return handle;
   }
 
-  const server = await createOpencodeServer({
-    hostname: HOST,
-    port: PORT,
-  });
-  globalForOpencode.opencodeServer = server;
-  return server;
+  if (!globalForOpencode.opencodeServerPromise) {
+    const spawn = createOpencodeServer({
+      hostname: HOST,
+      port: PORT,
+      timeout: 30_000,
+    }).then((handle) => {
+      globalForOpencode.opencodeServer = handle;
+      return handle;
+    });
+    globalForOpencode.opencodeServerPromise = spawn;
+    spawn
+      .catch(() => {})
+      .finally(() => {
+        if (globalForOpencode.opencodeServerPromise === spawn) {
+          globalForOpencode.opencodeServerPromise = undefined;
+        }
+      });
+  }
+
+  return globalForOpencode.opencodeServerPromise;
 }
 
 export async function getOpencodeClient(): Promise<OpencodeClient> {
