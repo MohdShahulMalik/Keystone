@@ -2,9 +2,11 @@ import type { NextRequest } from "next/server";
 import { subscribeToEvents } from "@/lib/opencode/server";
 import {
   flush,
+  handlePartDelta,
   handlePartUpdated,
-  sse,
   type StreamCtx,
+  type StreamEvent,
+  sse,
 } from "@/lib/research/stream";
 
 export async function GET(req: NextRequest) {
@@ -27,13 +29,23 @@ export async function GET(req: NextRequest) {
         sessionId,
         childSessions,
         buffers: { chunk: "", thinking: "" },
+        parts: new Map(),
+        pendingDeltas: new Map(),
+        emittedTools: new Set(),
         send: sendText,
       };
 
       const intervalId = setInterval(() => flush(ctx), 100);
 
       try {
-        for await (const event of eventsStream) {
+        for await (const raw of eventsStream) {
+          const event = raw as StreamEvent;
+
+          if (event.type === "message.part.delta") {
+            handlePartDelta(ctx, event.properties);
+            continue;
+          }
+
           if (event.type === "message.part.updated") {
             handlePartUpdated(
               ctx,
@@ -71,11 +83,11 @@ export async function GET(req: NextRequest) {
 
           if (event.type === "session.error") {
             if (event.properties.sessionID === sessionId) {
+              flush(ctx);
               sendText(sse("error", { message: event.properties.error }));
               clearInterval(intervalId);
               controller.close();
             }
-            continue;
           }
         }
 
@@ -86,8 +98,7 @@ export async function GET(req: NextRequest) {
       } catch (error) {
         sendText(
           sse("error", {
-            message:
-              error instanceof Error ? error.message : "Stream error",
+            message: error instanceof Error ? error.message : "Stream error",
           }),
         );
         clearInterval(intervalId);
