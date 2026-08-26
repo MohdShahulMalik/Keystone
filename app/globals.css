@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "streamdown/styles.css";
+
+@source "../node_modules/streamdown/dist/*.js";
 
 @theme {
   /* Surface colors (backgrounds) - 900 is darkest */
