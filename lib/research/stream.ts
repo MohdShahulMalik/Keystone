@@ -1,22 +1,95 @@
 import type {
+  Event,
   Part,
-  TextPart,
   ReasoningPart,
+  TextPart,
   ToolPart,
-  ToolStateRunning,
   ToolStateCompleted,
   ToolStateError,
+  ToolStateRunning,
 } from "@opencode-ai/sdk";
 
 export function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+export interface PartDeltaProperties {
+  sessionID: string;
+  messageID: string;
+  partID: string;
+  field: string;
+  delta: string;
+}
+
+export type StreamEvent =
+  | Event
+  | { type: "message.part.delta"; properties: PartDeltaProperties };
+
 export interface StreamCtx {
   sessionId: string;
   childSessions: Map<string, string>;
   buffers: { chunk: string; thinking: string };
+  parts: Map<string, { sessionId: string; type: string }>;
+  pendingDeltas: Map<string, string[]>;
+  emittedTools: Set<string>;
   send: (text: string) => void;
+}
+
+function deliverDelta(
+  ctx: StreamCtx,
+  type: string,
+  sessionID: string,
+  isParent: boolean,
+  delta: string,
+) {
+  if (type === "reasoning") {
+    ctx.buffers.thinking += delta;
+    return;
+  }
+
+  if (isParent) {
+    ctx.buffers.chunk += delta;
+    return;
+  }
+
+  ctx.send(
+    sse("subagent.chunk", {
+      id: sessionID,
+      childSessionId: sessionID,
+      text: delta,
+    }),
+  );
+}
+
+function registerPart(ctx: StreamCtx, part: Part) {
+  ctx.parts.set(part.id, { sessionId: part.sessionID, type: part.type });
+
+  const pending = ctx.pendingDeltas.get(part.id);
+  if (!pending) return;
+  ctx.pendingDeltas.delete(part.id);
+
+  const isParent = part.sessionID === ctx.sessionId;
+  for (const delta of pending) {
+    deliverDelta(ctx, part.type, part.sessionID, isParent, delta);
+  }
+}
+
+export function handlePartDelta(ctx: StreamCtx, props: PartDeltaProperties) {
+  if (props.field !== "text") return;
+
+  const isChild = ctx.childSessions.has(props.sessionID);
+  const isParent = props.sessionID === ctx.sessionId;
+  if (!isChild && !isParent) return;
+
+  const part = ctx.parts.get(props.partID);
+  if (!part) {
+    const pending = ctx.pendingDeltas.get(props.partID) ?? [];
+    pending.push(props.delta);
+    ctx.pendingDeltas.set(props.partID, pending);
+    return;
+  }
+
+  deliverDelta(ctx, part.type, props.sessionID, isParent, props.delta);
 }
 
 export function flush(ctx: StreamCtx) {
@@ -73,7 +146,14 @@ export function handleReasoningPart(
   }
 }
 
-export function handleToolRunning(ctx: StreamCtx, part: ToolPart, isChild: boolean) {
+export function handleToolRunning(
+  ctx: StreamCtx,
+  part: ToolPart,
+  isChild: boolean,
+) {
+  if (ctx.emittedTools.has(part.id)) return;
+  ctx.emittedTools.add(part.id);
+
   const state = part.state as ToolStateRunning;
   ctx.send(
     sse("tool.started", {
@@ -85,10 +165,7 @@ export function handleToolRunning(ctx: StreamCtx, part: ToolPart, isChild: boole
     }),
   );
 
-  if (
-    part.tool !== "task" ||
-    typeof state.metadata?.sessionId !== "string"
-  ) {
+  if (part.tool !== "task" || typeof state.metadata?.sessionId !== "string") {
     return;
   }
 
@@ -132,7 +209,11 @@ export function handleToolError(ctx: StreamCtx, part: ToolPart) {
   );
 }
 
-export function handleToolPart(ctx: StreamCtx, part: ToolPart, isChild: boolean) {
+export function handleToolPart(
+  ctx: StreamCtx,
+  part: ToolPart,
+  isChild: boolean,
+) {
   const { state } = part;
   if (state.status === "running") handleToolRunning(ctx, part, isChild);
   else if (state.status === "completed") handleToolCompleted(ctx, part);
@@ -147,6 +228,8 @@ export function handlePartUpdated(
   const isChild = ctx.childSessions.has(part.sessionID);
   const isParent = part.sessionID === ctx.sessionId;
   if (!isChild && !isParent) return;
+
+  registerPart(ctx, part);
 
   if (part.type === "text") handleTextPart(ctx, part, delta, isParent);
   else if (part.type === "reasoning") handleReasoningPart(ctx, part, delta);
