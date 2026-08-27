@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Streamdown } from "streamdown";
 import { startResearch } from "@/app/actions/research";
 import {
   ResearchForm,
   type UserPreferences,
 } from "@/app/research/component/research-form";
+import { AgentResponse } from "@/components/agent-response";
 import { JobListingCard } from "@/components/cards/listings";
 import { useResearchStream } from "@/hooks/useResearchStream";
 import type { JobListing } from "@/lib/types/jobs";
-import type { TextSegment } from "@/lib/types/research";
 import type { JobStatus } from "@/lib/types/status";
 
 type ResearchClientProps = {
@@ -34,65 +33,6 @@ function toList(value: string): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function SegmentStream({ segments }: { segments: TextSegment[] }) {
-  const blocks: React.ReactNode[] = [];
-  let markdown = "";
-
-  const flushMarkdown = (key: string) => {
-    if (!markdown) return;
-    const content = markdown;
-    markdown = "";
-    blocks.push(
-      <div
-        key={key}
-        className="text-sm leading-relaxed text-foreground-600 [&_a]:text-accent [&_a]:underline [&_code]:font-mono [&_code]:text-accent [&_h1]:text-foreground-900 [&_h2]:text-foreground-900 [&_h3]:text-foreground-900 [&_h4]:text-foreground-900 [&_strong]:text-foreground-900 [&_table]:text-xs"
-      >
-        <Streamdown>{content}</Streamdown>
-      </div>,
-    );
-  };
-
-  const toolTone = (text: string) => {
-    if (text.includes("✗")) return "border-l-danger";
-    if (text.includes("✓")) return "border-l-success";
-    return "border-l-accent";
-  };
-
-  segments.forEach((segment, i) => {
-    if (segment.kind === "thinking") {
-      flushMarkdown(`md-${i}`);
-      blocks.push(
-        <div
-          key={segment.id}
-          className="rounded-r-lg border-l-2 border-info/40 bg-surface-700/40 px-3 py-2 text-xs italic leading-relaxed text-foreground-600-subtle"
-        >
-          <span className="font-semibold not-italic text-info">Thinking:</span>{" "}
-          <Streamdown>{segment.text}</Streamdown>
-        </div>,
-      );
-      return;
-    }
-
-    if (segment.kind === "tool") {
-      flushMarkdown(`md-${i}`);
-      blocks.push(
-        <div
-          key={segment.id}
-          className={`rounded-r-md border-l-2 ${toolTone(segment.text)} bg-surface-800 px-3 py-1.5 font-mono text-xs text-foreground-600-subtle [&_a]:text-accent [&_a]:underline [&_p]:my-0 [&_p]:whitespace-pre-wrap`}
-        >
-          <Streamdown>{segment.text}</Streamdown>
-        </div>,
-      );
-      return;
-    }
-
-    markdown += segment.text;
-  });
-  flushMarkdown(`md-${segments.length}`);
-
-  return <div className="space-y-3">{blocks}</div>;
 }
 
 export function ResearchClient({ mode, label }: ResearchClientProps) {
@@ -213,25 +153,11 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
               </div>
             </div>
 
-            <div className="flex justify-start">
-              <div className="max-w-2xl">
-                <div className="text-sm leading-relaxed text-foreground-600">
-                  {segments.length > 0 ? (
-                    <SegmentStream segments={segments} />
-                  ) : (
-                    "Waiting for agent output..."
-                  )}
-                  {status !== "completed" && status !== "error" ? (
-                    <span className="ml-1 inline-block h-4 w-2 bg-accent align-middle" />
-                  ) : null}
-                </div>
-                {displayError ? (
-                  <p className="mt-4 rounded-lg border border-rose-500/30 bg-rose-500/15 px-4 py-2 text-sm text-rose-400">
-                    {displayError}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+            <AgentResponse
+              segments={segments}
+              status={status}
+              error={displayError}
+            />
           </div>
 
           {mode === "job" && status === "completed" ? (
