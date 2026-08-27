@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { startResearch } from "@/app/actions/research";
 import {
@@ -36,9 +37,12 @@ function toList(value: string): string[] {
 }
 
 export function ResearchClient({ mode, label }: ResearchClientProps) {
-  const [openCodeSessionId, setOpenCodeSessionId] = useState<string | null>(
-    null,
-  );
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Session is driven by the URL: the agent response view only renders when
+  // the path contains a `sessionId` query param.
+  const openCodeSessionId = searchParams.get("sessionId");
+
   const [userPreferences, setUserPreferences] =
     useState<UserPreferences | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
@@ -62,7 +66,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         skills: skills.length > 0 ? skills : ["General"],
         notes: preferences.notes || undefined,
       });
-      setOpenCodeSessionId(newSessionId);
+      router.replace(`?sessionId=${newSessionId}`);
     } catch (err) {
       setStartError(
         err instanceof Error ? err.message : "Failed to start research",
