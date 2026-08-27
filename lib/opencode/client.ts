@@ -19,9 +19,9 @@ const globalForOpencode = globalThis as unknown as {
 function isPortOpen(port: number, host: string): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = connect({ port, host });
-    const finish = (open: boolean) => {
+    const finish = (isOpen: boolean) => {
       socket.destroy();
-      resolve(open);
+      resolve(isOpen);
     };
     socket.setTimeout(500, () => finish(false));
     socket.once("connect", () => finish(true));
