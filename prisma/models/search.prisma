@@ -1,3 +1,27 @@
+enum SearchMode {
+  job
+  dsa
+}
+
+enum SearchSessionStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+enum SubagentStatus {
+  running
+  completed
+  failed
+}
+
+enum SegmentKind {
+  text
+  thinking
+  tool
+}
+
 model SearchSession {
   id          String   @id @default(cuid())
   userId      String
