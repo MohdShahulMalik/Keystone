@@ -26,14 +26,6 @@ export async function startResearch(preferences: ResearchPromptInput) {
 
   const user = "maxum"; // Replace with actual user identification logic
 
-  const session = await db.searchSession.create({
-    data: {
-      userId: user,
-      query: buildResearchPrompt(parsedPreferences),
-      status: "running",
-    },
-  });
-
   let resumeContent: string | undefined;
   if (parsedPreferences.resumeId) {
     const resume = await db.resume.findUnique({
@@ -46,6 +38,15 @@ export async function startResearch(preferences: ResearchPromptInput) {
   if (!openCodeSession) {
     throw new Error("Failed to create OpenCode session");
   }
+
+  const session = await db.searchSession.create({
+    data: {
+      userId: user,
+      query: buildResearchPrompt({ ...parsedPreferences, resumeContent }),
+      status: "running",
+      openCodeSessionId: openCodeSession.id,
+    },
+  });
 
   const prompt = buildResearchPrompt({ ...parsedPreferences, resumeContent });
 
