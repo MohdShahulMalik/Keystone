@@ -23,26 +23,85 @@ enum SegmentKind {
 }
 
 model SearchSession {
-  id          String   @id @default(cuid())
-  userId      String
-  query       String
-  preferences Json?
-  resultCount Int      @default(0)
-  status      String   @default("pending")
-  error       String?
-  createdAt   DateTime @default(now())
-  completedAt DateTime?
+  id                String              @id @default(cuid())
+  userId            String
+  query             String
+  preferences       Json?
+  mode              SearchMode          @default(job)
+  resultCount       Int                 @default(0)
+  status            SearchSessionStatus @default(running)
+  error             String?
+  openCodeSessionId String              @unique
+  children          SubagentSession[]
+  segments          ResearchSegment[]
+  createdAt         DateTime            @default(now())
+  completedAt       DateTime?
 
-  user        User   @relation(fields: [userId], references: [id])
-  results     SearchResult[]
+  user    User           @relation(fields: [userId], references: [id])
+  results SearchResult[]
+
+  @@index([userId, createdAt])
+  @@index([openCodeSessionId])
+}
+
+model SubagentSession {
+  id                   String         @id @default(cuid())
+  // opencode child session id (the sessionId passed via ?sessionId= for subagent view)
+  sessionId            String         @unique
+  status               SubagentStatus @default(running)
+  error                String?
+  parentId             String
+  title                String
+  toolCount            Int? // total tool call count when subagent is done
+  openCodeParentToolId String?        @unique
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  timeTaken   String? // formatted duration e.g. "1m 2s" from hooks/useResearchStream.ts:43 formatDuration
+
+  parent   SearchSession     @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  segments SubagentSegment[]
+
+  @@index([parentId])
+  @@index([sessionId])
+}
+
+model ResearchSegment {
+  id        String        @id @default(cuid())
+  sessionId String
+  seq       Int
+  kind      SegmentKind
+  text      String        @db.Text
+  toolId    String? // for tool updates
+  timeTaken String? // formatted duration e.g. "2s" - matches hooks/useResearchStream.ts:43
+  createdAt DateTime      @default(now())
+  session   SearchSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, seq])
+  @@index([sessionId, seq])
+}
+
+model SubagentSegment {
+  id        String          @id @default(cuid())
+  sessionId String // references SubagentSession.sessionId (or SubagentSession.id)
+  seq       Int
+  kind      SegmentKind
+  text      String          @db.Text
+  toolId    String?
+  timeTaken String? // formatted duration
+  createdAt DateTime        @default(now())
+  session   SubagentSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@unique([sessionId, seq])
+  @@index([sessionId, seq])
 }
 
 model SearchResult {
-  id             String @id @default(cuid())
+  id             String  @id @default(cuid())
   sessionId      String
   jobListingJson Json
   matched        Boolean @default(false)
   jobId          String?
 
-  session        SearchSession @relation(fields: [sessionId], references: [id])
+  session SearchSession @relation(fields: [sessionId], references: [id])
 }
