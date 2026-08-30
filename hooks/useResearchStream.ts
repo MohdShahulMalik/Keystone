@@ -321,6 +321,22 @@ export function useResearchStream(sessionId: string | null) {
       }
     });
 
+    eventSource.addEventListener("subagent.completed", (e) => {
+      const payload = JSON.parse(e.data) as SubagentCompletedPayload;
+      const subagent = subagentsRef.current[payload.id];
+      const segId = toolSegmentsRef.current[payload.id];
+      if (!subagent || !segId) return;
+      const start = subagentStartsRef.current[payload.id];
+      const durationMs = payload.durationMs ?? (start ? Date.now() - start : undefined);
+      const toolCount = Object.values(toolsRef.current).filter(
+        (t) => t.sessionId === payload.childSessionId,
+      ).length;
+      const titleLine = subagentTitleLine({ ...subagent, title: payload.title, description: payload.description, subagentType: payload.subagentType } as Subagent);
+      const link = subagentLink(titleLine, payload.childSessionId);
+      const timeTaken = payload.timeTaken ?? (durationMs ? formatDuration(durationMs) : undefined);
+      replaceSegment(segId, `✓ ${link}\n↳ ${toolCount} tool${toolCount === 1 ? "" : "s"}${timeTaken ? ` · ${timeTaken}` : ""}`);
+    });
+
     eventSource.addEventListener("message.completed", (e) => {
       const { messageId } = JSON.parse(e.data) as MessageCompletedPayload;
       setState((prev) => ({
