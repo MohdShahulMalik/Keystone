@@ -67,6 +67,25 @@ function formatDuration(ms: number): string {
   return `${ms}ms`;
 }
 
+function toTitleCase(tool: string): string {
+  return tool.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function webfetchDisplayText(part: ToolPart): string {
+  if (part.tool === "webfetch") {
+    const url = (part.state as ToolStateRunning).input?.url as string | undefined;
+    const name = toTitleCase(part.tool);
+    if (url) return `${name} ↳ ${url}`;
+    return name;
+  }
+  const state: unknown = part.state;
+  if (state && typeof state === "object" && "title" in (state as Record<string, unknown>)) {
+    const t = (state as { title?: string }).title;
+    if (t) return t;
+  }
+  return toTitleCase(part.tool);
+}
+
 function getOrCreateOpenSegment(ctx: StreamCtx, sessionID: string, kind: SegmentKind, toolId?: string) {
   const existing = ctx.openSegments.get(sessionID);
   if (existing && existing.kind === kind && existing.toolId === toolId) return existing;
