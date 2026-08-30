@@ -8,6 +8,7 @@ import type {
   StatusPayload,
   Subagent,
   SubagentChunkPayload,
+  SubagentCompletedPayload,
   SubagentStartedPayload,
   ThinkingPayload,
   ToolEvent,
@@ -18,7 +19,7 @@ const initialState: ResearchSession = {
   segments: [],
 };
 
-const SUBAGENT_ROUTE = "/research/subagent";
+const SUBAGENT_ROUTE = "/research/job";
 
 function normalizeStatus(raw: unknown): ResearchStatus | null {
   if (
@@ -46,6 +47,19 @@ function formatDuration(ms: number): string {
   if (m > 0) return `${m}m ${s % 60}s`;
   if (s > 0) return `${s}s`;
   return `${ms}ms`;
+}
+
+function toTitleCase(tool: string): string {
+  return tool.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function webfetchDisplay(tool: ToolEvent): string {
+  const name = toTitleCase(tool.tool);
+  const url = (tool.input as Record<string, unknown> | undefined)?.url as string | undefined;
+  if (tool.tool === "webfetch" && url) {
+    return `${name} ↳ ${url}`;
+  }
+  return tool.title ?? name;
 }
 
 function subagentLink(text: string, childSessionId: string): string {
@@ -104,6 +118,17 @@ export function useResearchStream(sessionId: string | null) {
       thinkingIdRef.current = null;
     };
 
+    const subagentTitleLine = (s: Subagent) =>
+      `${toTitleCase(s.subagentType || "general")} Task - ${s.title || s.description || "Subagent"}`;
+
+    const subagentToolLine = (tool: ToolEvent): string => {
+      const url = (tool.input as Record<string, unknown> | undefined)?.url as string | undefined;
+      const query = (tool.input as Record<string, unknown> | undefined)?.query as string | undefined;
+      if (tool.tool === "webfetch" && url) return `${toTitleCase(tool.tool)} ${url}${tool.title && tool.title !== url ? ` (${tool.title})` : ""}`.trim();
+      if (tool.tool === "websearch" && query) return `${toTitleCase(tool.tool)} ${tool.title || query}`.trim();
+      return tool.title ?? toTitleCase(tool.tool);
+    };
+
     const handleToolEvent = (tool: ToolEvent) => {
       const { id, tool: name, title } = tool;
       const status = tool.status ?? "running";
@@ -117,10 +142,25 @@ export function useResearchStream(sessionId: string | null) {
       const parentSubagent = Object.values(prevSubagents).find(
         (s) => s.id === id,
       );
+      const isChildTool = !!tool.sessionId && Object.values(prevSubagents).some((s) => s.childSessionId === tool.sessionId);
 
       if (status === "running") {
+        if (isChildTool) {
+          const parent = Object.values(prevSubagents).find((s) => s.childSessionId === tool.sessionId);
+          if (parent) {
+            const segId = toolSegmentsRef.current[parent.id];
+            if (segId) {
+              const titleLine = subagentTitleLine(parent);
+              const link = subagentLink(titleLine, parent.childSessionId);
+              const toolLine = subagentToolLine(tool);
+              replaceSegment(segId, `∴ ${link}\n↳ ${toolLine}`);
+            }
+          }
+          return;
+        }
         if (!parentSubagent && !toolSegmentsRef.current[id]) {
-          const segId = appendSegment(title ?? name, "tool");
+          const display = webfetchDisplay(tool);
+          const segId = appendSegment(display, "tool");
           toolSegmentsRef.current[id] = segId;
         }
       } else if (status === "completed") {
@@ -130,10 +170,8 @@ export function useResearchStream(sessionId: string | null) {
           const toolCount = Object.values(toolsRef.current).filter(
             (t) => t.sessionId === parentSubagent.childSessionId && t.id !== id,
           ).length;
-          const link = subagentLink(
-            parentSubagent.description,
-            parentSubagent.childSessionId,
-          );
+          const titleLine = subagentTitleLine(parentSubagent);
+          const link = subagentLink(titleLine, parentSubagent.childSessionId);
           replaceSegment(
             id,
             `✓ ${link}\n↳ ${toolCount} tool${
@@ -141,18 +179,46 @@ export function useResearchStream(sessionId: string | null) {
             }${durationMs ? ` · ${formatDuration(durationMs)}` : ""}`,
           );
         } else {
+          if (isChildTool) {
+            const parent = Object.values(prevSubagents).find((s) => s.childSessionId === tool.sessionId);
+            if (parent) {
+              const segId = toolSegmentsRef.current[parent.id];
+              if (segId) {
+                const titleLine = subagentTitleLine(parent);
+                const link = subagentLink(titleLine, parent.childSessionId);
+                const toolLine = subagentToolLine(tool);
+                const prefix = tool.status === "error" ? "✗" : "✓";
+                // keep ∴ while parent still running, show last tool with status
+                replaceSegment(segId, `∴ ${link}\n↳ ${toolLine}${tool.status === "error" ? ` · ${tool.error}` : ""}`);
+              }
+            }
+            return;
+          }
           const segId = toolSegmentsRef.current[id];
           if (segId) {
-            const completedText = `✓ ${title ?? name}${
-              tool.durationMs ? ` (${formatDuration(tool.durationMs)})` : ""
-            }`;
+            const base = webfetchDisplay(tool);
+            const completedText = `✓ ${base}${tool.durationMs ? ` (${formatDuration(tool.durationMs)})` : ""}`;
             replaceSegment(segId, completedText);
           }
         }
       } else if (status === "error") {
+        if (isChildTool) {
+          const parent = Object.values(prevSubagents).find((s) => s.childSessionId === tool.sessionId);
+          if (parent) {
+            const segId = toolSegmentsRef.current[parent.id];
+            if (segId) {
+              const titleLine = subagentTitleLine(parent);
+              const link = subagentLink(titleLine, parent.childSessionId);
+              const toolLine = subagentToolLine(tool);
+              replaceSegment(segId, `∴ ${link}\n↳ ✗ ${toolLine}: ${tool.error ?? "error"}`);
+            }
+          }
+          return;
+        }
         const segId = toolSegmentsRef.current[id];
         if (segId) {
-          const errorText = `✗ ${title ?? name}: ${tool.error ?? "error"}`;
+          const base = webfetchDisplay(tool);
+          const errorText = `✗ ${base}: ${tool.error ?? "error"}`;
           replaceSegment(segId, errorText);
         }
       }
@@ -214,23 +280,24 @@ export function useResearchStream(sessionId: string | null) {
 
     eventSource.addEventListener("subagent.started", (e) => {
       const payload = JSON.parse(e.data) as SubagentStartedPayload;
+      const subagent: Subagent = {
+        id: payload.id,
+        childSessionId: payload.childSessionId,
+        title: payload.title,
+        description: payload.description,
+        subagentType: payload.subagentType,
+        text: "",
+      };
       subagentsRef.current = {
         ...subagentsRef.current,
-        [payload.id]: {
-          id: payload.id,
-          childSessionId: payload.childSessionId,
-          description: payload.description,
-          agent: payload.agent,
-          text: "",
-        },
+        [payload.id]: subagent,
       };
       subagentStartsRef.current[payload.id] = Date.now();
 
-      const link = subagentLink(
-        payload.description || "Subagent",
-        payload.childSessionId,
-      );
-      appendSegment(`Delegating ${link}...`, "tool");
+      const titleLine = subagentTitleLine(subagent);
+      const link = subagentLink(titleLine, payload.childSessionId);
+      const segId = appendSegment(`∴ ${link}\n↳ Starting...`, "tool");
+      toolSegmentsRef.current[payload.id] = segId;
     });
 
     eventSource.addEventListener("subagent.chunk", (e) => {
