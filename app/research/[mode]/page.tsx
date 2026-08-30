@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { ResearchClient } from "@/app/research/component/research-client";
+import { ResearchClient } from "@/app/research/component/ResearchClient";
 import {
   type ResearchSession,
   ResearchSessionSidebar,
-} from "@/components/research-session-sidebar";
+} from "@/components/ResearchSessionSidebar";
 
 const sessions: ResearchSession[] = [
   {

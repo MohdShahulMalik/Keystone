@@ -6,7 +6,7 @@ import { startResearch } from "@/app/actions/research";
 import {
   ResearchForm,
   type UserPreferences,
-} from "@/app/research/component/research-form";
+} from "@/app/research/component/ResearchForm";
 import { AgentResponse } from "@/components/AgentResponse";
 import { JobListingCard } from "@/components/cards/listings";
 import { useResearchStream } from "@/hooks/useResearchStream";

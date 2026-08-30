@@ -1,7 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { Streamdown } from "streamdown";
 import type { ResearchStatus, TextSegment } from "@/lib/types/research";
+
+const streamdownLink = {
+  a: ({
+    href,
+    children,
+    node: _node,
+    ...rest
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => {
+    if (href?.startsWith("/")) {
+      return (
+        <Link href={href as string} {...rest}>
+          {children}
+        </Link>
+      );
+    }
+    return (
+      <a href={href} {...rest}>
+        {children}
+      </a>
+    );
+  },
+} as React.ComponentProps<typeof Streamdown>["components"];
 
 function SegmentStream({ segments }: { segments: TextSegment[] }) {
   const blocks: React.ReactNode[] = [];
@@ -16,7 +39,7 @@ function SegmentStream({ segments }: { segments: TextSegment[] }) {
         key={key}
         className="text-sm leading-relaxed text-foreground-600 [&_a]:text-accent [&_a]:underline [&_code]:font-mono [&_code]:text-accent [&_h1]:text-foreground-900 [&_h2]:text-foreground-900 [&_h3]:text-foreground-900 [&_h4]:text-foreground-900 [&_strong]:text-foreground-900 [&_table]:text-xs"
       >
-        <Streamdown>{content}</Streamdown>
+        <Streamdown components={streamdownLink}>{content}</Streamdown>
       </div>,
     );
   };
@@ -27,6 +50,8 @@ function SegmentStream({ segments }: { segments: TextSegment[] }) {
     return "border-l-accent";
   };
 
+  const isRunningSubagent = (text: string) => text.trimStart().startsWith("∴");
+
   segments.forEach((segment, i) => {
     if (segment.kind === "thinking") {
       flushMarkdown(`md-${i}`);
@@ -36,7 +61,7 @@ function SegmentStream({ segments }: { segments: TextSegment[] }) {
           className="rounded-r-lg border-l-2 border-info/40 bg-surface-700/40 px-3 py-2 text-xs italic leading-relaxed text-foreground-600-subtle"
         >
           <span className="font-semibold not-italic text-info">Thinking:</span>{" "}
-          <Streamdown>{segment.text}</Streamdown>
+          <Streamdown components={streamdownLink}>{segment.text}</Streamdown>
         </div>,
       );
       return;
@@ -44,12 +69,13 @@ function SegmentStream({ segments }: { segments: TextSegment[] }) {
 
     if (segment.kind === "tool") {
       flushMarkdown(`md-${i}`);
+      const running = isRunningSubagent(segment.text);
       blocks.push(
         <div
           key={segment.id}
-          className={`rounded-r-md border-l-2 ${toolTone(segment.text)} bg-surface-800 px-3 py-1.5 font-mono text-xs text-foreground-600-subtle [&_a]:text-accent [&_a]:underline [&_p]:my-0 [&_p]:whitespace-pre-wrap`}
+          className={`rounded-r-md border-l-2 ${toolTone(segment.text)} bg-surface-800 px-3 py-1.5 font-mono text-xs text-foreground-600-subtle [&_a]:text-accent [&_a]:underline [&_p]:my-0 [&_p]:whitespace-pre-wrap ${running ? "animate-pulse" : ""}`}
         >
-          <Streamdown>{segment.text}</Streamdown>
+          <Streamdown components={streamdownLink}>{segment.text}</Streamdown>
         </div>,
       );
       return;
