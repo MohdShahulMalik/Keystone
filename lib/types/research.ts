@@ -22,8 +22,9 @@ export interface ToolEvent {
 export interface Subagent {
   id: string;
   childSessionId: string;
-  description: string;
-  agent?: string;
+  title: string;
+  description?: string;
+  subagentType?: string;
   text: string;
 }
 
@@ -58,8 +59,10 @@ export interface ErrorPayload {
 export interface SubagentStartedPayload {
   id: string;
   childSessionId: string;
-  description: string;
-  agent?: string;
+  title: string;
+  description?: string;
+  subagentType?: string;
+
 }
 
 export interface SubagentChunkPayload {
