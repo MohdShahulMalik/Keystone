@@ -71,6 +71,16 @@ export interface SubagentChunkPayload {
   text: string;
 }
 
+export interface SubagentCompletedPayload {
+  id: string;
+  childSessionId: string;
+  title: string;
+  description?: string;
+  subagentType?: string;
+  durationMs?: number;
+  timeTaken?: string;
+}
+
 export interface TextSegment {
   id: string;
   text: string;
