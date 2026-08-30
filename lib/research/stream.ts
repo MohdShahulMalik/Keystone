@@ -86,23 +86,54 @@ function webfetchDisplayText(part: ToolPart): string {
   return toTitleCase(part.tool);
 }
 
-function getOrCreateOpenSegment(ctx: StreamCtx, sessionID: string, kind: SegmentKind, toolId?: string) {
+function getOrCreateOpenSegment(
+  ctx: StreamCtx,
+  sessionID: string,
+  kind: SegmentKind,
+  toolId?: string,
+) {
   const existing = ctx.openSegments.get(sessionID);
-  if (existing && existing.kind === kind && existing.toolId === toolId) return existing;
+  if (existing && existing.kind === kind && existing.toolId === toolId)
+    return existing;
   const next = { kind, text: "", toolId };
   ctx.openSegments.set(sessionID, next);
   return next;
 }
 
-function emitChildSegment(ctx: StreamCtx, buf: { kind: SegmentKind; text: string; toolId?: string }, sessionID: string, seq: number) {
+function emitChildSegment(
+  ctx: StreamCtx,
+  buf: { kind: SegmentKind; text: string; toolId?: string },
+  sessionID: string,
+  seq: number,
+) {
   if (buf.kind === "thinking") {
-    ctx.send(sse("subagent.thinking", { id: sessionID, childSessionId: sessionID, text: buf.text, done: true, seq }));
+    ctx.send(
+      sse("subagent.thinking", {
+        id: sessionID,
+        childSessionId: sessionID,
+        text: buf.text,
+        done: true,
+        seq,
+      }),
+    );
   } else {
-    ctx.send(sse("subagent.chunk", { id: sessionID, childSessionId: sessionID, text: buf.text, seq }));
+    ctx.send(
+      sse("subagent.chunk", {
+        id: sessionID,
+        childSessionId: sessionID,
+        text: buf.text,
+        seq,
+      }),
+    );
   }
 }
 
-function emitParentSegment(ctx: StreamCtx, buf: { kind: SegmentKind; text: string; toolId?: string }, sessionID: string, seq: number) {
+function emitParentSegment(
+  ctx: StreamCtx,
+  buf: { kind: SegmentKind; text: string; toolId?: string },
+  sessionID: string,
+  seq: number,
+) {
   if (buf.kind === "thinking") {
     ctx.send(sse("thinking", { text: buf.text, done: true, seq }));
   } else {
@@ -129,12 +160,23 @@ async function commitOpenSegment(ctx: StreamCtx, sessionID: string) {
   ctx.openSegments.delete(sessionID);
 }
 
-function appendToOpenSegment(ctx: StreamCtx, sessionID: string, kind: SegmentKind, delta: string, toolId?: string) {
+function appendToOpenSegment(
+  ctx: StreamCtx,
+  sessionID: string,
+  kind: SegmentKind,
+  delta: string,
+  toolId?: string,
+) {
   const seg = getOrCreateOpenSegment(ctx, sessionID, kind, toolId);
   seg.text += delta;
 }
 
-function deliverDelta(ctx: StreamCtx, type: string, sessionID: string, delta: string) {
+function deliverDelta(
+  ctx: StreamCtx,
+  type: string,
+  sessionID: string,
+  delta: string,
+) {
   if (type === "reasoning") {
     appendToOpenSegment(ctx, sessionID, "thinking", delta);
     return;
@@ -230,33 +272,23 @@ export async function handleToolRunning(
 
   const state = part.state as ToolStateRunning;
 
-  // tool calls are not coalesced - emit and persist directly
+  // emit running via same commit path but store pending for in-place update on completed
   const seq = (ctx.seq.get(part.sessionID) ?? 0) + 1;
   ctx.seq.set(part.sessionID, seq);
-  await ctx.persist(part.sessionID, "tool", state.title ?? part.tool, part.id, undefined);
+  const displayText = webfetchDisplayText(part);
+  ctx.pendingTools.set(part.id, { sessionID: part.sessionID, seq, text: displayText });
+  await ctx.persist(part.sessionID, "tool", displayText, part.id, undefined);
 
-  if (isChild) {
-    ctx.send(
-      sse("subagent.tool", {
-        id: part.id,
-        tool: part.tool,
-        title: state.title,
-        input: state.input,
-        sessionId: part.sessionID,
-        seq,
-      }),
-    );
-  } else {
-    ctx.send(
-      sse("tool.started", {
-        id: part.id,
-        tool: part.tool,
-        title: state.title,
-        input: state.input,
-        seq,
-      }),
-    );
-  }
+  ctx.send(
+    sse("tool.started", {
+      id: part.id,
+      tool: part.tool,
+      title: state.title,
+      input: state.input,
+      sessionId: isChild ? part.sessionID : undefined,
+      seq,
+    }),
+  );
 
   if (part.tool !== "task" || typeof state.metadata?.sessionId !== "string") {
     return;
@@ -266,7 +298,11 @@ export async function handleToolRunning(
   ctx.childSessions.set(childSessionId, part.id);
 
   const input = state.input as Record<string, unknown>;
-  const title = (input.title as string) || (input.description as string) || "Subagent";
+  const title =
+    (state.title as string) || (input.description as string) || "Subagent";
+  const description = input.description as string | undefined;
+  const subagentType =
+    (input.subagent_type as string) || (input.subagent as string) || undefined;
 
   // ensure SubagentSession row exists for FK of SubagentSegment
   try {
@@ -276,6 +312,8 @@ export async function handleToolRunning(
         sessionId: childSessionId,
         parentId: ctx.dbSessionId,
         title,
+        description,
+        subagentType,
         status: "running",
         openCodeParentToolId: part.id,
       },
@@ -290,6 +328,8 @@ export async function handleToolRunning(
       id: part.id,
       childSessionId,
       title,
+      description,
+      subagentType,
     }),
   );
 }
@@ -298,37 +338,58 @@ export async function handleToolCompleted(ctx: StreamCtx, part: ToolPart) {
   const state = part.state as ToolStateCompleted;
   const durationStr = formatDuration(state.time.end - state.time.start);
   const isChild = ctx.childSessions.has(part.sessionID);
-  const seq = (ctx.seq.get(part.sessionID) ?? 0) + 1;
-  ctx.seq.set(part.sessionID, seq);
-  await ctx.persist(part.sessionID, "tool", state.title ?? part.tool, part.id, durationStr);
-
-  if (isChild) {
-    ctx.send(
-      sse("subagent.tool", {
-        id: part.id,
-        tool: part.tool,
-        title: state.title,
-        input: state.input,
-        durationMs: state.time.end - state.time.start,
-        outputPreview: state.output?.slice(0, 2000) || "",
-        seq,
-        timeTaken: durationStr,
-        sessionId: part.sessionID,
-      }),
-    );
+  const pending = ctx.pendingTools.get(part.id);
+  const seq = pending?.seq ?? (ctx.seq.get(part.sessionID) ?? 0) + 1;
+  if (!pending) ctx.seq.set(part.sessionID, seq);
+  const displayText =
+    part.tool === "webfetch" && typeof (state.input as Record<string, unknown>)?.url === "string"
+      ? `${toTitleCase(part.tool)} ↳ ${(state.input as Record<string, unknown>).url as string}`
+      : state.title ?? toTitleCase(part.tool);
+  const completedText = `✓ ${displayText} (${durationStr})`;
+  if (pending) {
+    await ctx.persistToolUpdate(part.sessionID, seq, completedText, part.id, durationStr);
+    ctx.pendingTools.delete(part.id);
   } else {
+    await ctx.persist(part.sessionID, "tool", completedText, part.id, durationStr);
+  }
+
+  ctx.send(
+    sse("tool.completed", {
+      id: part.id,
+      tool: part.tool,
+      title: state.title,
+      input: state.input,
+      durationMs: state.time.end - state.time.start,
+      outputPreview: state.output?.slice(0, 2000) || "",
+      seq,
+      timeTaken: durationStr,
+      sessionId: isChild ? part.sessionID : undefined,
+    }),
+  );
+
+  if (part.tool === "task" && typeof state.metadata?.sessionId === "string") {
+    const childSessionId = state.metadata.sessionId as string;
+    const input = state.input as Record<string, unknown>;
+    const title = (state.title as string) || (input.description as string) || "Subagent";
+    const description = input.description as string | undefined;
+    const subagentType = (input.subagent_type as string) || (input.subagent as string) || undefined;
     ctx.send(
-      sse("tool.completed", {
+      sse("subagent.completed", {
         id: part.id,
-        tool: part.tool,
-        title: state.title,
-        input: state.input,
+        childSessionId,
+        title,
+        description,
+        subagentType,
         durationMs: state.time.end - state.time.start,
-        outputPreview: state.output?.slice(0, 2000) || "",
-        seq,
         timeTaken: durationStr,
       }),
     );
+    try {
+      await db.subagentSession.update({
+        where: { sessionId: childSessionId },
+        data: { status: "completed", completedAt: new Date(), timeTaken: durationStr },
+      });
+    } catch {}
   }
 }
 
@@ -337,34 +398,28 @@ export async function handleToolError(ctx: StreamCtx, part: ToolPart) {
   await commitOpenSegment(ctx, part.sessionID);
   const durationStr = formatDuration(state.time.end - state.time.start);
   const isChild = ctx.childSessions.has(part.sessionID);
-  const seq = (ctx.seq.get(part.sessionID) ?? 0) + 1;
-  ctx.seq.set(part.sessionID, seq);
-  await ctx.persist(part.sessionID, "tool", `${part.tool}: ${state.error}`, part.id, durationStr);
-
-  if (isChild) {
-    ctx.send(
-      sse("subagent.tool", {
-        id: part.id,
-        tool: part.tool,
-        error: state.error,
-        durationMs: state.time.end - state.time.start,
-        timeTaken: durationStr,
-        sessionId: part.sessionID,
-        seq,
-      }),
-    );
+  const pending = ctx.pendingTools.get(part.id);
+  const seq = pending?.seq ?? (ctx.seq.get(part.sessionID) ?? 0) + 1;
+  if (!pending) ctx.seq.set(part.sessionID, seq);
+  const errorText = `✗ ${toTitleCase(part.tool)}: ${state.error}`;
+  if (pending) {
+    await ctx.persistToolUpdate(part.sessionID, seq, errorText, part.id, durationStr);
+    ctx.pendingTools.delete(part.id);
   } else {
-    ctx.send(
-      sse("tool.error", {
-        id: part.id,
-        tool: part.tool,
-        error: state.error,
-        durationMs: state.time.end - state.time.start,
-        timeTaken: durationStr,
-        seq,
-      }),
-    );
+    await ctx.persist(part.sessionID, "tool", errorText, part.id, durationStr);
   }
+
+  ctx.send(
+    sse("tool.error", {
+      id: part.id,
+      tool: part.tool,
+      error: state.error,
+      durationMs: state.time.end - state.time.start,
+      timeTaken: durationStr,
+      seq,
+      sessionId: isChild ? part.sessionID : undefined,
+    }),
+  );
 }
 
 export async function handleToolPart(
@@ -388,13 +443,14 @@ export async function handlePartUpdated(
   if (!isChild && !isParent) return;
 
   const open = ctx.openSegments.get(part.sessionID);
-  if (open && open.kind !== part.type as SegmentKind) {
+  if (open && open.kind !== (part.type as SegmentKind)) {
     await commitOpenSegment(ctx, part.sessionID);
   }
 
   registerPart(ctx, part);
 
   if (part.type === "text") handleTextPart(ctx, part, delta);
-  else if (part.type === "reasoning") await handleReasoningPart(ctx, part, delta);
+  else if (part.type === "reasoning")
+    await handleReasoningPart(ctx, part, delta);
   else if (part.type === "tool") await handleToolPart(ctx, part, isChild);
 }
