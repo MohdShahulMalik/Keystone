@@ -37,9 +37,26 @@ export interface StreamCtx {
   pendingDeltas: Map<string, string[]>; // partId -> delta[] queued before part type known
   emittedTools: Set<string>; // toolId set already sent as tool.started
   send: (text: string) => void;
-  openSegments: Map<string, { kind: SegmentKind; text: string; toolId?: string }>; // sessionId (opencode) -> coalesced segment buffer
+  openSegments: Map<
+    string,
+    { kind: SegmentKind; text: string; toolId?: string }
+  >; // sessionId (opencode) -> coalesced segment buffer
   seq: Map<string, number>; // sessionId (opencode) -> last seq written
-  persist: (sessionId: string, kind: SegmentKind, text: string, toolId?: string, timeTaken?: string) => Promise<void>;
+  pendingTools: Map<string, { sessionID: string; seq: number; text: string }>; // toolId -> pending running tool for in-place update
+  persist: (
+    sessionId: string,
+    kind: SegmentKind,
+    text: string,
+    toolId?: string,
+    timeTaken?: string,
+  ) => Promise<void>;
+  persistToolUpdate: (
+    sessionId: string,
+    seq: number,
+    text: string,
+    toolId: string,
+    timeTaken?: string,
+  ) => Promise<void>;
 }
 
 function formatDuration(ms: number): string {
