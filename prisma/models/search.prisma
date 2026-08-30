@@ -52,6 +52,8 @@ model SubagentSession {
   error                String?
   parentId             String
   title                String
+  description          String? // input.description from task tool
+  subagentType         String? // input.subagent_type from task tool
   toolCount            Int? // total tool call count when subagent is done
   openCodeParentToolId String?        @unique
 
