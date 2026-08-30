@@ -45,7 +45,14 @@ export async function GET(req: NextRequest) {
         send: sendText,
         openSegments: new Map(),
         seq: new Map(),
-        persist: async (sid: string, kind: SegmentKind, text: string, toolId?: string, timeTaken?: string) => {
+        pendingTools: new Map(),
+        persist: async (
+          sid: string,
+          kind: SegmentKind,
+          text: string,
+          toolId?: string,
+          timeTaken?: string,
+        ) => {
           const seq = ctx.seq.get(sid) ?? 0;
           const isChild = ctx.childSessions.has(sid);
           try {
@@ -55,11 +62,43 @@ export async function GET(req: NextRequest) {
               });
             } else {
               await db.researchSegment.create({
-                data: { sessionId: dbSessionId, seq, kind, text, toolId, timeTaken },
+                data: {
+                  sessionId: dbSessionId,
+                  seq,
+                  kind,
+                  text,
+                  toolId,
+                  timeTaken,
+                },
               });
             }
           } catch {
             // ignore duplicate seq races - will be retried on next commit
+          }
+        },
+        persistToolUpdate: async (sid: string, seq: number, text: string, toolId: string, timeTaken?: string) => {
+          const isChild = ctx.childSessions.has(sid);
+          try {
+            if (isChild) {
+              await db.subagentSegment.update({
+                where: { sessionId_seq: { sessionId: sid, seq } },
+                data: { text, timeTaken },
+              });
+            } else {
+              await db.researchSegment.update({
+                where: { sessionId_seq: { sessionId: dbSessionId, seq } },
+                data: { text, timeTaken },
+              });
+            }
+          } catch {
+            // if update fails (row not found), fallback to create
+            try {
+              if (isChild) {
+                await db.subagentSegment.create({ data: { sessionId: sid, seq, kind: "tool", text, toolId, timeTaken } });
+              } else {
+                await db.researchSegment.create({ data: { sessionId: dbSessionId, seq, kind: "tool", text, toolId, timeTaken } });
+              }
+            } catch {}
           }
         },
       };
