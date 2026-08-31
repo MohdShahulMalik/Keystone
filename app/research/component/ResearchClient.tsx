@@ -65,6 +65,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         countries: countries.length > 0 ? countries : ["Current"],
         skills: skills.length > 0 ? skills : ["General"],
         notes: preferences.notes || undefined,
+        model: preferences.model,
       });
       router.replace(`?sessionId=${newSessionId}`);
     } catch (err) {
@@ -116,7 +117,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
                       <span className="font-medium text-foreground-900">
                         Model:
                       </span>{" "}
-                      {userPreferences.model}
+                      {userPreferences.modelLabel ?? `${userPreferences.model.providerID}/${userPreferences.model.id}${userPreferences.model.variant ? `:${userPreferences.model.variant}` : ""}`}
                     </div>
                     <div>
                       <span className="font-medium text-foreground-900">
