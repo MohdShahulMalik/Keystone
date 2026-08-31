@@ -118,6 +118,10 @@ export function useResearchStream(sessionId: string | null) {
       thinkingIdRef.current = null;
     };
 
+    const ensureRunning = () => {
+      setState((prev) => (prev.status !== "running" ? { ...prev, status: "running" } : prev));
+    };
+
     const subagentTitleLine = (s: Subagent) =>
       `${toTitleCase(s.subagentType || "general")} Task - ${s.title || s.description || "Subagent"}`;
 
@@ -158,6 +162,7 @@ export function useResearchStream(sessionId: string | null) {
           }
           return;
         }
+        if (tool.tool === "task") return;
         if (!parentSubagent && !toolSegmentsRef.current[id]) {
           const display = webfetchDisplay(tool);
           const segId = appendSegment(display, "tool");
@@ -165,19 +170,8 @@ export function useResearchStream(sessionId: string | null) {
         }
       } else if (status === "completed") {
         if (parentSubagent) {
-          const start = subagentStartsRef.current[id];
-          const durationMs = start ? Date.now() - start : tool.durationMs;
-          const toolCount = Object.values(toolsRef.current).filter(
-            (t) => t.sessionId === parentSubagent.childSessionId && t.id !== id,
-          ).length;
-          const titleLine = subagentTitleLine(parentSubagent);
-          const link = subagentLink(titleLine, parentSubagent.childSessionId);
-          replaceSegment(
-            id,
-            `✓ ${link}\n↳ ${toolCount} tool${
-              toolCount === 1 ? "" : "s"
-            }${durationMs ? ` · ${formatDuration(durationMs)}` : ""}`,
-          );
+          // task tool completed is now handled via subagent.completed, ignore here to avoid duplicate
+          return;
         } else {
           if (isChildTool) {
             const parent = Object.values(prevSubagents).find((s) => s.childSessionId === tool.sessionId);
@@ -225,12 +219,14 @@ export function useResearchStream(sessionId: string | null) {
     };
 
     eventSource.addEventListener("chunk", (e) => {
+      ensureRunning();
       const { text } = JSON.parse(e.data) as ChunkPayload;
       closeThinking();
       appendSegment(text);
     });
 
     eventSource.addEventListener("thinking", (e) => {
+      ensureRunning();
       const { text, done } = JSON.parse(e.data) as ThinkingPayload;
 
       if (!inThinkingRef.current) {
@@ -264,21 +260,25 @@ export function useResearchStream(sessionId: string | null) {
     });
 
     eventSource.addEventListener("tool.started", (e) => {
+      ensureRunning();
       const tool = JSON.parse(e.data) as ToolEvent;
       handleToolEvent({ ...tool, status: "running" });
     });
 
     eventSource.addEventListener("tool.completed", (e) => {
+      ensureRunning();
       const tool = JSON.parse(e.data) as ToolEvent;
       handleToolEvent({ ...tool, status: "completed" });
     });
 
     eventSource.addEventListener("tool.error", (e) => {
+      ensureRunning();
       const tool = JSON.parse(e.data) as ToolEvent;
       handleToolEvent({ ...tool, status: "error" });
     });
 
     eventSource.addEventListener("subagent.started", (e) => {
+      ensureRunning();
       const payload = JSON.parse(e.data) as SubagentStartedPayload;
       const subagent: Subagent = {
         id: payload.id,
@@ -293,6 +293,16 @@ export function useResearchStream(sessionId: string | null) {
         [payload.id]: subagent,
       };
       subagentStartsRef.current[payload.id] = Date.now();
+
+      // remove redundant plain text that is exactly the subagent title (e.g. "Search LinkedIn Rust jobs" before the formatted subagent block)
+      setState((prev) => {
+        const lastSeg = prev.segments[prev.segments.length - 1];
+        const t = (payload.title || payload.description || "").trim();
+        if (lastSeg && lastSeg.kind !== "tool" && lastSeg.kind !== "thinking" && lastSeg.text.trim() === t) {
+          return { ...prev, segments: prev.segments.slice(0, -1) };
+        }
+        return prev;
+      });
 
       const titleLine = subagentTitleLine(subagent);
       const link = subagentLink(titleLine, payload.childSessionId);
