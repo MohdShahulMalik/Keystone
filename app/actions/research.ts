@@ -4,9 +4,11 @@ import { db } from "@/lib/db";
 import { buildResearchPrompt } from "@/lib/opencode/prompts";
 import {
   createResearchSession,
+  listAvailableModels,
   sendResearchPrompt,
 } from "@/lib/opencode/server";
 import { ResearchPreferences } from "@/lib/types/opencode";
+import type { ModelRef } from "@/lib/types/opencode";
 import z from "zod";
 
 const startResearchSchema = z.object({
@@ -15,10 +17,18 @@ const startResearchSchema = z.object({
   skills: z.array(z.string()).min(1, "At least one skill is required"),
   notes: z.string().optional(),
   resumeId: z.string().optional(),
+  model: z
+    .object({
+      providerID: z.string(),
+      id: z.string(),
+      variant: z.string().optional(),
+    })
+    .optional(),
 });
 
 type ResearchPromptInput = Omit<ResearchPreferences, "resumeContent"> & {
   resumeId?: string;
+  model?: ModelRef;
 };
 
 export async function startResearch(preferences: ResearchPromptInput) {
@@ -34,7 +44,7 @@ export async function startResearch(preferences: ResearchPromptInput) {
     resumeContent = resume?.content ?? undefined;
   }
 
-  const openCodeSession = await createResearchSession();
+  const openCodeSession = await createResearchSession(parsedPreferences.model);
   if (!openCodeSession) {
     throw new Error("Failed to create OpenCode session");
   }
@@ -50,7 +60,7 @@ export async function startResearch(preferences: ResearchPromptInput) {
 
   const prompt = buildResearchPrompt({ ...parsedPreferences, resumeContent });
 
-  sendResearchPrompt(openCodeSession.id, prompt).catch(async (error) => {
+  sendResearchPrompt(openCodeSession.id, prompt, parsedPreferences.model).catch(async (error) => {
     console.error("Error sending research prompt:", error);
     await db.searchSession.update({
       where: { id: session.id },
@@ -65,6 +75,10 @@ export async function startResearch(preferences: ResearchPromptInput) {
     sessionId: session.id,
     openCodeSessionId: openCodeSession.id,
   };
+}
+
+export async function getAvailableModelsAction() {
+  return listAvailableModels();
 }
 
 export async function getResearchStatus(sessionId: string) {

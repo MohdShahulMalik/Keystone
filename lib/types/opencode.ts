@@ -1,7 +1,21 @@
-export interface AIModel {
+export type ModelRef = {
+  id: string;
   providerID: string;
-  modelID: string;
-}
+  variant?: string;
+};
+
+// keep AIModel alias for compat - use ModelRef going forward
+export type AIModel = ModelRef & { modelID?: string };
+
+export type ModelV2Info = {
+  id: string;
+  providerID: string;
+  name: string;
+  variants: Array<{ id: string; headers: Record<string, string>; body: Record<string, unknown> }>;
+  status: "alpha" | "beta" | "deprecated" | "active";
+  limit?: { context: number; output: number };
+  cost?: unknown;
+};
 
 export interface ResearchPreferences {
   jobTypes: string[]; // ["remote", "hybrid", "onsite"]

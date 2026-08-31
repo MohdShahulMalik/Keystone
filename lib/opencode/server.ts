@@ -1,8 +1,25 @@
-import type { AIModel } from "../types/opencode";
+import type { ModelRef, ModelV2Info } from "../types/opencode";
 import { getOpencodeClient } from "./client";
 
-export async function createResearchSession() {
+export async function listAvailableModels(): Promise<ModelV2Info[]> {
   const client = await getOpencodeClient();
+  // v2 is source of truth for variants per docs/opencode-model-variants.md
+  const result = await (client as unknown as { v2: { model: { list: () => Promise<{ data?: ModelV2Info[]; error?: unknown }> } } }).v2.model.list();
+  if ((result as { error?: unknown }).error) throw (result as { error: unknown }).error;
+  return (result as { data?: ModelV2Info[] }).data ?? [];
+}
+
+export async function createResearchSession(model?: ModelRef) {
+  const client = await getOpencodeClient();
+
+  // Prefer v2 for variant support - docs/opencode-model-variants.md
+  if (model) {
+    const v2 = (client as unknown as { v2: { session: { create: (o: unknown) => Promise<{ data?: unknown }> } } }).v2;
+    if (v2?.session?.create) {
+      const res = await v2.session.create({ model } as never);
+      return (res as { data: unknown }).data as Awaited<ReturnType<typeof createResearchSession>>;
+    }
+  }
 
   const session = await client.session.create({
     body: {
@@ -16,17 +33,25 @@ export async function createResearchSession() {
 export async function sendResearchPrompt(
   sessionId: string,
   prompt: string,
-  model?: AIModel,
+  model?: ModelRef,
 ) {
   const client = await getOpencodeClient();
+
+  // If variant is needed, switch model for v2 sessions first per docs
+  if (model?.variant) {
+    try {
+      const v2 = (client as unknown as { v2: { session: { switchModel: (o: unknown) => Promise<unknown> } } }).v2;
+      await v2.session.switchModel({ sessionID: sessionId, model } as never);
+    } catch {}
+  }
 
   const result = await client.session.prompt({
     path: { id: sessionId },
     body: {
-      model: model,
+      model: model ? { providerID: model.providerID, modelID: model.id } : undefined,
       parts: [{ type: "text", text: prompt }],
     },
-  });
+  } as never);
 
   return result.data;
 }
