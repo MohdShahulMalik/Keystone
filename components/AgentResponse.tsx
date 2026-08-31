@@ -26,6 +26,16 @@ const streamdownLink = {
   },
 } as React.ComponentProps<typeof Streamdown>["components"];
 
+function JumpingDots() {
+  return (
+    <span className="inline-flex items-end gap-1 align-middle" aria-label="Agent is responding">
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:0ms]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:150ms]" />
+      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:300ms]" />
+    </span>
+  );
+}
+
 function SegmentStream({ segments }: { segments: TextSegment[] }) {
   const blocks: React.ReactNode[] = [];
   let markdown = "";
@@ -95,18 +105,23 @@ type AgentResponseProps = {
 };
 
 export function AgentResponse({ segments, status, error }: AgentResponseProps) {
+  const isStreaming = status === "running" || status === "connecting";
   return (
     <div className="flex justify-start">
       <div className="max-w-2xl">
         <div className="text-sm leading-relaxed text-foreground-600">
           {segments.length > 0 ? (
-            <SegmentStream segments={segments} />
+            <>
+              <SegmentStream segments={segments} />
+              {isStreaming ? (
+                <span className="mt-3 inline-block">
+                  <JumpingDots />
+                </span>
+              ) : null}
+            </>
           ) : (
-            "Waiting for agent output..."
+            <JumpingDots />
           )}
-          {status !== "completed" && status !== "error" ? (
-            <span className="ml-1 inline-block h-4 w-2 bg-accent align-middle" />
-          ) : null}
         </div>
         {error ? (
           <p className="mt-4 rounded-lg border border-rose-500/30 bg-rose-500/15 px-4 py-2 text-sm text-rose-400">
