@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
         send: sendText,
         openSegments: new Map(),
         seq: new Map(),
+        lastSent: new Map(),
         pendingTools: new Map(),
         persist: async (
           sid: string,

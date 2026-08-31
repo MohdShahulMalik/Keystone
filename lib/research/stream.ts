@@ -42,6 +42,7 @@ export interface StreamCtx {
     { kind: SegmentKind; text: string; toolId?: string }
   >; // sessionId (opencode) -> coalesced segment buffer
   seq: Map<string, number>; // sessionId (opencode) -> last seq written
+  lastSent: Map<string, number>; // sessionId -> index already sent via flush
   pendingTools: Map<string, { sessionID: string; seq: number; text: string }>; // toolId -> pending running tool for in-place update
   persist: (
     sessionId: string,
@@ -145,19 +146,26 @@ async function commitOpenSegment(ctx: StreamCtx, sessionID: string) {
   const buf = ctx.openSegments.get(sessionID);
   if (!buf || !buf.text) return;
   const isChild = ctx.childSessions.has(sessionID);
+  const last = ctx.lastSent.get(sessionID) ?? 0;
+  if (buf.text.length > last) {
+    const delta = buf.text.slice(last);
+    if (buf.kind === "thinking") {
+      if (isChild) ctx.send(sse("subagent.thinking", { id: sessionID, childSessionId: sessionID, text: delta, done: false, seq: ctx.seq.get(sessionID) ?? 0 }));
+      else ctx.send(sse("thinking", { text: delta, done: false, seq: ctx.seq.get(sessionID) ?? 0 }));
+    } else if (buf.kind === "text") {
+      if (isChild) ctx.send(sse("subagent.chunk", { id: sessionID, childSessionId: sessionID, text: delta, seq: ctx.seq.get(sessionID) ?? 0 }));
+      else ctx.send(sse("chunk", { text: delta, seq: ctx.seq.get(sessionID) ?? 0, id: sessionID }));
+    }
+  }
   const seq = (ctx.seq.get(sessionID) ?? 0) + 1;
   ctx.seq.set(sessionID, seq);
-
-  // persist - text/thinking have no timeTaken, tool uses commitOpenSegmentWithDuration
   await ctx.persist(sessionID, buf.kind, buf.text, buf.toolId, undefined);
-
-  if (isChild) {
-    emitChildSegment(ctx, buf, sessionID, seq);
-  } else {
-    emitParentSegment(ctx, buf, sessionID, seq);
+  if (buf.kind === "thinking") {
+    if (isChild) ctx.send(sse("subagent.thinking", { id: sessionID, childSessionId: sessionID, text: "", done: true, seq }));
+    else ctx.send(sse("thinking", { text: "", done: true, seq }));
   }
-
   ctx.openSegments.delete(sessionID);
+  ctx.lastSent.delete(sessionID);
 }
 
 function appendToOpenSegment(
@@ -215,27 +223,30 @@ export function handlePartDelta(ctx: StreamCtx, props: PartDeltaProperties) {
 }
 
 export async function flush(ctx: StreamCtx) {
-  // commit any open text/thinking segments as single coalesced row
-  const sessions = Array.from(ctx.openSegments.keys());
-  for (const sid of sessions) {
-    const buf = ctx.openSegments.get(sid);
-    if (!buf) continue;
-    // only flush text/thinking via periodic flush; tool segments are committed on tool completion
-    if (buf.kind === "text" || buf.kind === "thinking") {
-      await commitOpenSegment(ctx, sid);
+  for (const [sid, buf] of ctx.openSegments) {
+    if (buf.kind !== "text" && buf.kind !== "thinking") continue;
+    const last = ctx.lastSent.get(sid) ?? 0;
+    if (buf.text.length <= last) continue;
+    const delta = buf.text.slice(last);
+    const isChild = ctx.childSessions.has(sid);
+    if (buf.kind === "thinking") {
+      if (isChild) ctx.send(sse("subagent.thinking", { id: sid, childSessionId: sid, text: delta, done: false, seq: ctx.seq.get(sid) ?? 0 }));
+      else ctx.send(sse("thinking", { text: delta, done: false, seq: ctx.seq.get(sid) ?? 0 }));
+    } else {
+      if (isChild) ctx.send(sse("subagent.chunk", { id: sid, childSessionId: sid, text: delta, seq: ctx.seq.get(sid) ?? 0 }));
+      else ctx.send(sse("chunk", { text: delta, seq: ctx.seq.get(sid) ?? 0, id: sid }));
     }
+    ctx.lastSent.set(sid, buf.text.length);
   }
 
   // legacy buffers kept for compat - drain if anything remains there
   if (ctx.buffers.chunk) {
     appendToOpenSegment(ctx, ctx.sessionId, "text", ctx.buffers.chunk);
     ctx.buffers.chunk = "";
-    await commitOpenSegment(ctx, ctx.sessionId);
   }
   if (ctx.buffers.thinking) {
     appendToOpenSegment(ctx, ctx.sessionId, "thinking", ctx.buffers.thinking);
     ctx.buffers.thinking = "";
-    await commitOpenSegment(ctx, ctx.sessionId);
   }
 }
 
@@ -449,8 +460,11 @@ export async function handlePartUpdated(
 
   registerPart(ctx, part);
 
-  if (part.type === "text") handleTextPart(ctx, part, delta);
-  else if (part.type === "reasoning")
-    await handleReasoningPart(ctx, part, delta);
-  else if (part.type === "tool") await handleToolPart(ctx, part, isChild);
+  if (part.type === "tool") {
+    await handleToolPart(ctx, part, isChild);
+  } else if (part.type === "reasoning") {
+    const reasoning = part as ReasoningPart;
+    if (reasoning.time?.end) await commitOpenSegment(ctx, part.sessionID);
+  }
+  // text/reasoning deltas are handled solely via handlePartDelta -> deliverDelta
 }
