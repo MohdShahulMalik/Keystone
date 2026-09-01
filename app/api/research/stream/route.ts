@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { subscribeToEvents } from "@/lib/opencode/server";
 import {
   flush,
+  flushJobPersistQueue,
+  flushPendingJobs,
   handlePartDelta,
   handlePartUpdated,
   type SegmentKind,
@@ -33,10 +35,12 @@ export async function GET(req: NextRequest) {
       });
       const dbSessionId = searchSession?.id ?? sessionId;
       const openCodeSessionId = searchSession?.openCodeSessionId ?? sessionId;
+      const userId = searchSession?.userId ?? "maxum";
 
       const ctx: StreamCtx = {
         sessionId: openCodeSessionId,
         dbSessionId,
+        userId,
         childSessions,
         buffers: { chunk: "", thinking: "" },
         parts: new Map(),
@@ -47,6 +51,11 @@ export async function GET(req: NextRequest) {
         seq: new Map(),
         lastSent: new Map(),
         pendingTools: new Map(),
+        jobBuffers: new Map(),
+        jobSeq: new Map(),
+        emittedJobKeys: new Set(),
+        jobPersistQueue: new Map(),
+        jobPersistTimers: new Map(),
         persist: async (
           sid: string,
           kind: SegmentKind,
@@ -134,6 +143,8 @@ export async function GET(req: NextRequest) {
               msg.time.completed
             ) {
               await flush(ctx);
+              flushPendingJobs(ctx);
+              await flushJobPersistQueue(ctx);
               sendText(sse("message.completed", { messageId: msg.id }));
             }
             continue;
@@ -149,6 +160,8 @@ export async function GET(req: NextRequest) {
           if (event.type === "session.idle") {
             if (event.properties.sessionID === openCodeSessionId) {
               await flush(ctx);
+              flushPendingJobs(ctx);
+              await flushJobPersistQueue(ctx);
               sendText(sse("status", { status: "idle" }));
             }
             continue;
@@ -157,6 +170,10 @@ export async function GET(req: NextRequest) {
           if (event.type === "session.error") {
             if (event.properties.sessionID === openCodeSessionId) {
               await flush(ctx);
+              flushPendingJobs(ctx);
+              await flushJobPersistQueue(ctx);
+              for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
+              ctx.jobPersistTimers.clear();
               sendText(sse("error", { message: event.properties.error }));
               clearInterval(intervalId);
               controller.close();
@@ -165,10 +182,19 @@ export async function GET(req: NextRequest) {
         }
 
         await flush(ctx);
+        flushPendingJobs(ctx);
+        await flushJobPersistQueue(ctx);
+        for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
+        ctx.jobPersistTimers.clear();
         sendText(sse("done", {}));
         clearInterval(intervalId);
         controller.close();
       } catch (error) {
+        try {
+          await flushJobPersistQueue(ctx);
+        } catch {}
+        for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
+        ctx.jobPersistTimers.clear();
         sendText(
           sse("error", {
             message: error instanceof Error ? error.message : "Stream error",

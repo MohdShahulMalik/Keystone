@@ -9,6 +9,7 @@ import type {
   ToolStateRunning,
 } from "@opencode-ai/sdk";
 import { db } from "@/lib/db";
+import type { StreamedJob } from "./job-schema";
 
 export function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -31,6 +32,7 @@ export type SegmentKind = "text" | "thinking" | "tool";
 export interface StreamCtx {
   sessionId: string; // opencode parent session id
   dbSessionId: string; // SearchSession.id for FK
+  userId: string; // owner of the SearchSession — used for JobListing writes
   childSessions: Map<string, string>; // childSessionId (opencode) -> parentToolId (task tool id)
   buffers: { chunk: string; thinking: string };
   parts: Map<string, { sessionId: string; type: string }>; // partId -> {sessionId, type: "text" | "reasoning" | "tool"}
@@ -44,6 +46,13 @@ export interface StreamCtx {
   seq: Map<string, number>; // sessionId (opencode) -> last seq written
   lastSent: Map<string, number>; // sessionId -> index already sent via flush
   pendingTools: Map<string, { sessionID: string; seq: number; text: string }>; // toolId -> pending running tool for in-place update
+  // incremental job streaming
+  jobBuffers: Map<string, string>; // sessionID -> incomplete tail for JOB_JSON line
+  jobSeq: Map<string, number>; // sessionID -> monotonic seq for jobs
+  emittedJobKeys: Set<string>; // dedup key: title|company|url
+  // queued DB persist via app/actions/jobs.ts bulkCreateJobsFromResearch
+  jobPersistQueue: Map<string, StreamedJob[]>;
+  jobPersistTimers: Map<string, ReturnType<typeof setTimeout>>;
   persist: (
     sessionId: string,
     kind: SegmentKind,
@@ -179,6 +188,196 @@ function appendToOpenSegment(
   seg.text += delta;
 }
 
+const JOB_PREFIX = "JOB_JSON:";
+const JOB_PREFIX_TRIMMED = JOB_PREFIX; // we check trimmedStart
+
+function makeJobKey(job: { title: string; company: string; url?: string | null }): string {
+  return `${job.title.toLowerCase().trim()}|${job.company.toLowerCase().trim()}|${(job.url ?? "").toLowerCase().trim()}`;
+}
+
+// ---- queued persist via app/actions/jobs.ts (bulkCreateJobsFromResearch) ----
+const JOB_PERSIST_BATCH_SIZE = 8;
+const JOB_PERSIST_FLUSH_MS = 1200;
+
+function enqueueJobForPersist(ctx: StreamCtx, job: StreamedJob) {
+  const key = ctx.dbSessionId;
+  const q = ctx.jobPersistQueue.get(key) ?? [];
+  q.push(job);
+  ctx.jobPersistQueue.set(key, q);
+
+  if (q.length >= JOB_PERSIST_BATCH_SIZE) {
+    void flushJobPersistQueue(ctx);
+  } else {
+    scheduleJobPersistFlush(ctx);
+  }
+}
+
+function scheduleJobPersistFlush(ctx: StreamCtx) {
+  const key = ctx.dbSessionId;
+  if (ctx.jobPersistTimers.has(key)) return;
+  const t = setTimeout(() => {
+    ctx.jobPersistTimers.delete(key);
+    void flushJobPersistQueue(ctx);
+  }, JOB_PERSIST_FLUSH_MS);
+  // allow process to exit even if timer pending
+  if (typeof (t as unknown as { unref?: () => void }).unref === "function") {
+    (t as unknown as { unref: () => void }).unref();
+  }
+  ctx.jobPersistTimers.set(key, t);
+}
+
+export async function flushJobPersistQueue(ctx: StreamCtx): Promise<void> {
+  const key = ctx.dbSessionId;
+  const timer = ctx.jobPersistTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    ctx.jobPersistTimers.delete(key);
+  }
+  const batch = ctx.jobPersistQueue.get(key);
+  if (!batch || batch.length === 0) return;
+  ctx.jobPersistQueue.set(key, []);
+  const toPersist = [...batch];
+  try {
+    // dynamic import to avoid circular dep: stream.ts <-> app/actions/jobs.ts
+    const { bulkCreateJobsFromResearch } = await import("@/app/actions/jobs");
+    await bulkCreateJobsFromResearch(ctx.userId, toPersist);
+  } catch (e) {
+    console.error("[research] flushJobPersistQueue failed", e);
+    // re-queue on failure (avoid loss) — prepend
+    const existing = ctx.jobPersistQueue.get(key) ?? [];
+    ctx.jobPersistQueue.set(key, [...toPersist, ...existing]);
+  }
+}
+
+export async function flushAllJobPersistQueues(ctx: StreamCtx): Promise<void> {
+  await flushJobPersistQueue(ctx);
+}
+
+function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
+  const trimmed = jsonStr.trim();
+  if (!trimmed) return;
+  // allow both object and JSON with trailing chars; extract first {...}
+  let obj: unknown;
+  try {
+    obj = JSON.parse(trimmed);
+  } catch {
+    // try to recover: find first { and last } (handles stray prefix/suffix)
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start === -1 || end === -1) return;
+    try {
+      obj = JSON.parse(trimmed.slice(start, end + 1));
+    } catch {
+      return;
+    }
+  }
+  // lazy import to avoid cycle - validate shape minimally here, full Zod on client
+  const maybe = obj as Record<string, unknown>;
+  if (typeof maybe.title !== "string" || typeof maybe.company !== "string") return;
+  const key = makeJobKey(maybe as { title: string; company: string; url?: string | null });
+  if (ctx.emittedJobKeys.has(key)) return;
+  ctx.emittedJobKeys.add(key);
+  const seq = (ctx.jobSeq.get(sessionID) ?? 0) + 1;
+  ctx.jobSeq.set(sessionID, seq);
+  // normalize minimal fields for client; client will re-validate via StreamedJobSchema
+  const payload = {
+    id: `${sessionID}-${seq}-${Date.now()}`,
+    sessionId: sessionID,
+    seq,
+    title: String(maybe.title),
+    company: String(maybe.company),
+    location: String(maybe.location ?? ""),
+    url: (maybe.url as string | null) ?? null,
+    description: String(maybe.description ?? ""),
+    salary: (maybe.salary as string | null) ?? null,
+    experience: String(maybe.experience ?? "Mid"),
+    visa: (maybe.visa as string | null) ?? null,
+    type: String(maybe.type ?? "remote"),
+    country: (maybe.country as string | null) ?? null,
+    notes: (maybe.notes as string | null) ?? null,
+  };
+  ctx.send(sse("job", payload));
+  // queue for DB via app/actions/jobs.ts bulkCreateJobsFromResearch + keep lightweight searchResult for history
+  const streamedForDb: StreamedJob = {
+    title: payload.title,
+    company: payload.company,
+    location: payload.location,
+    url: payload.url,
+    description: payload.description,
+    salary: payload.salary,
+    experience: payload.experience,
+    visa: payload.visa,
+    type: payload.type as StreamedJob["type"],
+    country: payload.country,
+    notes: payload.notes,
+  };
+  enqueueJobForPersist(ctx, streamedForDb);
+  void db.searchResult
+    .create({
+      data: {
+        sessionId: ctx.dbSessionId,
+        jobListingJson: payload as unknown as object,
+      },
+    })
+    .catch(() => {});
+}
+
+function stripJobLines(ctx: StreamCtx, sessionID: string, rawDelta: string): string {
+  // combine with any pending tail from previous incomplete JOB_JSON line
+  const prevTail = ctx.jobBuffers.get(sessionID) ?? "";
+  let pending = prevTail + rawDelta;
+  let filtered = "";
+
+  // process complete lines (terminated by \n)
+  while (true) {
+    const nlIdx = pending.indexOf("\n");
+    if (nlIdx === -1) break;
+    const line = pending.slice(0, nlIdx + 1); // include newline
+    pending = pending.slice(nlIdx + 1);
+    const trimmedStart = line.trimStart();
+    if (trimmedStart.startsWith(JOB_PREFIX_TRIMMED)) {
+      const jsonStr = trimmedStart.slice(JOB_PREFIX_TRIMMED.length);
+      tryEmitSingleJob(ctx, sessionID, jsonStr);
+      // drop this line from narrative entirely
+      continue;
+    }
+    filtered += line;
+  }
+
+  // pending is remainder without \n
+  // Heuristic: if remainder looks like it could be the start/middle of a JOB_JSON line, buffer it
+  // covers splits like "JOB", "JOB_JSON:", "JOB_JSON: {\"title\""
+  const trimmedPending = pending.trimStart();
+  const isPotentialJobStart =
+    pending.length > 0 &&
+    (trimmedPending.length === 0 ||
+      JOB_PREFIX.startsWith(trimmedPending) ||
+      trimmedPending.startsWith(JOB_PREFIX) ||
+      trimmedPending.startsWith("JOB") ||
+      // already inside JSON fragment after prefix but no newline yet: keep buffered only if we saw prefix earlier
+      // we detect that prevTail already held a JOB prefix and we never completed
+      (prevTail.trimStart().startsWith(JOB_PREFIX) && pending.length > prevTail.length));
+
+  // More robust: if previous tail was a partial job line, keep buffering until newline
+  const wasInJob = prevTail.trimStart().startsWith(JOB_PREFIX) && !prevTail.includes("\n");
+  if (wasInJob) {
+    // pending still part of same job line
+    ctx.jobBuffers.set(sessionID, pending);
+    return filtered;
+  }
+
+  if (isPotentialJobStart && trimmedPending.startsWith("JOB")) {
+    // Could be "JOB_JSON: ..." split across chunks without newline yet
+    ctx.jobBuffers.set(sessionID, pending);
+    return filtered;
+  }
+
+  // normal text fragment without newline -> forward immediately (don't buffer)
+  filtered += pending;
+  ctx.jobBuffers.set(sessionID, "");
+  return filtered;
+}
+
 function deliverDelta(
   ctx: StreamCtx,
   type: string,
@@ -189,7 +388,8 @@ function deliverDelta(
     appendToOpenSegment(ctx, sessionID, "thinking", delta);
     return;
   }
-  appendToOpenSegment(ctx, sessionID, "text", delta);
+  const filtered = stripJobLines(ctx, sessionID, delta);
+  if (filtered) appendToOpenSegment(ctx, sessionID, "text", filtered);
 }
 
 function registerPart(ctx: StreamCtx, part: Part) {
@@ -222,7 +422,23 @@ export function handlePartDelta(ctx: StreamCtx, props: PartDeltaProperties) {
   deliverDelta(ctx, part.type, props.sessionID, props.delta);
 }
 
+export function flushPendingJobs(ctx: StreamCtx) {
+  for (const [sid, tail] of ctx.jobBuffers) {
+    const trimmed = tail.trimStart();
+    if (trimmed.startsWith(JOB_PREFIX)) {
+      const jsonStr = trimmed.slice(JOB_PREFIX.length);
+      if (jsonStr.trim()) {
+        tryEmitSingleJob(ctx, sid, jsonStr);
+      }
+      ctx.jobBuffers.set(sid, "");
+    }
+  }
+}
+
 export async function flush(ctx: StreamCtx) {
+  // emit any job line that got buffered without trailing newline (end of stream)
+  // we only flush jobs when no open text delta remains, to avoid premature emit of incomplete JSON
+  // caller should call flushPendingJobs explicitly at idle/done; here we just flush text segments
   for (const [sid, buf] of ctx.openSegments) {
     if (buf.kind !== "text" && buf.kind !== "thinking") continue;
     const last = ctx.lastSent.get(sid) ?? 0;
