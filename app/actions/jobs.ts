@@ -7,6 +7,7 @@ import {
   deleteJobSchema,
   updateJobSchema,
 } from "@/lib/schemas/jobs";
+import type { StreamedJob } from "@/lib/research/job-schema";
 import type {
   JobActionResponse,
   JobImportResponse,
@@ -115,4 +116,69 @@ export async function importJobs(
   }
 
   return { imported: valid.length, errors };
+}
+
+/**
+ * Queued incremental persist for streamed research jobs.
+ * Called from the SSE pipeline (`lib/research/stream.ts`) as jobs are parsed.
+ * Batches are validated via `addJobSchema`, deduped against existing rows
+ * (title+company+url per user) and inserted via `createMany`.
+ * This is the single write path for research -> JobListing.
+ */
+export async function bulkCreateJobsFromResearch(
+  userId: string,
+  jobs: StreamedJob[],
+): Promise<{ created: number; skipped: number }> {
+  if (jobs.length === 0) return { created: 0, skipped: 0 };
+
+  // ensure user exists — research was hardcoded to "maxum" without prior upsert
+  await db.user.upsert({
+    where: { id: userId },
+    update: {},
+    create: { id: userId },
+  });
+
+  const parsed = jobs
+    .map((j) => addJobSchema.safeParse({ ...j, status: "OPEN" as const }))
+    .filter((r): r is Extract<typeof r, { success: true }> => r.success)
+    .map((r) => r.data);
+
+  if (parsed.length === 0) return { created: 0, skipped: jobs.length };
+
+  // dedupe within batch (title+company+url)
+  const seen = new Set<string>();
+  const deduped = parsed.filter((j) => {
+    const key = `${j.title.toLowerCase()}|${j.company.toLowerCase()}|${(j.url ?? "").toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // dedupe against DB — fetch existing candidates for this user
+  const existing = await db.jobListing.findMany({
+    where: {
+      userId,
+      OR: deduped.map((j) => ({
+        title: j.title,
+        company: j.company,
+      })),
+    },
+    select: { title: true, company: true, url: true },
+  });
+  const existingKeys = new Set(
+    existing.map((e) => `${e.title.toLowerCase()}|${e.company.toLowerCase()}|${(e.url ?? "").toLowerCase()}`),
+  );
+
+  const toCreate = deduped.filter((j) => {
+    const key = `${j.title.toLowerCase()}|${j.company.toLowerCase()}|${(j.url ?? "").toLowerCase()}`;
+    return !existingKeys.has(key);
+  });
+
+  if (toCreate.length > 0) {
+    await db.jobListing.createMany({
+      data: toCreate.map((j) => ({ userId, ...j })),
+    });
+  }
+
+  return { created: toCreate.length, skipped: jobs.length - toCreate.length };
 }
