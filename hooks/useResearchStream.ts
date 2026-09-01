@@ -350,6 +350,35 @@ export function useResearchStream(sessionId: string | null) {
       replaceSegment(segId, `✓ ${link}\n↳ ${toolCount} tool${toolCount === 1 ? "" : "s"}${timeTaken ? ` · ${timeTaken}` : ""}`);
     });
 
+    eventSource.addEventListener("job", (e) => {
+      ensureRunning();
+      try {
+        const raw = JSON.parse(e.data) as JobPayload & Record<string, unknown>;
+        // client-side Zod validation + dedup (server already dedups, but re-validate)
+        const parsed = StreamedJobSchema.safeParse(raw);
+        if (!parsed.success) return;
+        const job: JobPayload = {
+          id: String((raw as { id?: unknown }).id ?? `job-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
+          sessionId: String((raw as { sessionId?: unknown }).sessionId ?? sessionId ?? ""),
+          seq: Number((raw as { seq?: unknown }).seq ?? 0),
+          ...parsed.data,
+          url: (parsed.data.url as string | null) ?? null,
+          salary: parsed.data.salary ?? null,
+          visa: parsed.data.visa ?? null,
+          country: parsed.data.country ?? null,
+          notes: parsed.data.notes ?? null,
+        };
+        setState((prev) => {
+          // dedup by title+company+url
+          const key = `${job.title.toLowerCase()}|${job.company.toLowerCase()}|${(job.url ?? "").toLowerCase()}`;
+          if (prev.jobs.some((j) => `${j.title.toLowerCase()}|${j.company.toLowerCase()}|${(j.url ?? "").toLowerCase()}` === key)) {
+            return prev;
+          }
+          return { ...prev, jobs: [...prev.jobs, job] };
+        });
+      } catch {}
+    });
+
     eventSource.addEventListener("message.completed", (e) => {
       const { messageId } = JSON.parse(e.data) as MessageCompletedPayload;
       setState((prev) => ({
