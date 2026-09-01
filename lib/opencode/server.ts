@@ -1,5 +1,6 @@
 import type { ModelRef, ModelV2Info } from "../types/opencode";
 import { getOpencodeClient } from "./client";
+import { RESEARCH_SYSTEM_PROMPT } from "./prompts";
 
 export async function listAvailableModels(): Promise<ModelV2Info[]> {
   const client = await getOpencodeClient();
@@ -9,7 +10,7 @@ export async function listAvailableModels(): Promise<ModelV2Info[]> {
   return (result as { data?: ModelV2Info[] }).data ?? [];
 }
 
-export async function createResearchSession(model?: ModelRef) {
+export async function createResearchSession(model?: ModelRef): Promise<{ id: string } & Record<string, unknown> | undefined> {
   const client = await getOpencodeClient();
 
   // Prefer v2 for variant support - docs/opencode-model-variants.md
@@ -34,6 +35,7 @@ export async function sendResearchPrompt(
   sessionId: string,
   prompt: string,
   model?: ModelRef,
+  systemPrompt: string = RESEARCH_SYSTEM_PROMPT,
 ) {
   const client = await getOpencodeClient();
 
@@ -49,6 +51,8 @@ export async function sendResearchPrompt(
     path: { id: sessionId },
     body: {
       model: model ? { providerID: model.providerID, modelID: model.id } : undefined,
+      // system prompt: SDK field `body.system` (see gen/types.gen.d.ts:2253 and v2/gen/types.gen.d.ts:8371)
+      system: systemPrompt,
       parts: [{ type: "text", text: prompt }],
     },
   } as never);
