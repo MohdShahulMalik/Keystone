@@ -10,6 +10,7 @@ import {
 import { AgentResponse } from "@/components/AgentResponse";
 import { JobListingCard } from "@/components/cards/listings";
 import { useResearchStream } from "@/hooks/useResearchStream";
+import type { JobPayload } from "@/lib/research/job-schema";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -27,7 +28,27 @@ const statuses: JobStatus[] = [
   "DECLINED",
 ];
 
-const mockJobResults: JobListing[] = [];
+function toJobListing(job: JobPayload): JobListing {
+  return {
+    id: job.id,
+    userId: "local",
+    title: job.title,
+    company: job.company,
+    location: job.location,
+    url: job.url ?? null,
+    description: job.description,
+    salary: job.salary ?? null,
+    experience: job.experience,
+    visa: job.visa ?? null,
+    type: job.type,
+    country: job.country ?? null,
+    status: "OPEN",
+    notes: job.notes ?? null,
+    appliedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
 
 function toList(value: string): string[] {
   return value
@@ -47,8 +68,14 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
     useState<UserPreferences | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
 
-  const { status, segments, error, reset } =
+  const { status, segments, jobs, error, reset } =
     useResearchStream(openCodeSessionId);
+
+  const [visibleCount, setVisibleCount] = useState(20);
+  const listings: JobListing[] = jobs.map(toJobListing);
+  const visibleListings = listings.slice(0, visibleCount);
+  const hasMore = listings.length > visibleCount;
+  const isStreaming = status === "running" || status === "connecting";
 
   const startResearchHandler = async (preferences: UserPreferences) => {
     setUserPreferences(preferences);
@@ -165,12 +192,43 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             />
           </div>
 
-          {mode === "job" && status === "completed" ? (
+          {mode === "job" && (jobs.length > 0 || isStreaming) ? (
             <section className="mt-12 space-y-4" aria-label="Job matches">
-              <h3 className="text-lg font-semibold text-foreground-900">
-                Matched jobs
-              </h3>
-              {mockJobResults.map((listing) => (
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-foreground-900">
+                  Matched jobs{" "}
+                  <span className="ml-2 rounded-full bg-surface-800 px-2.5 py-1 text-xs font-medium text-foreground-600">
+                    {jobs.length}
+                    {isStreaming ? " · streaming…" : ""}
+                  </span>
+                </h3>
+                {jobs.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(listings.length)}
+                    className="text-xs font-medium text-accent underline-offset-4 hover:underline"
+                  >
+                    Show all ({listings.length})
+                  </button>
+                ) : null}
+              </div>
+
+              {jobs.length === 0 && isStreaming ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse rounded-2xl border border-stroke bg-surface-800 p-7"
+                    >
+                      <div className="mb-3 h-5 w-1/3 rounded bg-surface-700" />
+                      <div className="mb-4 h-4 w-1/2 rounded bg-surface-700" />
+                      <div className="h-3 w-full rounded bg-surface-700" />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {visibleListings.map((listing) => (
                 <JobListingCard
                   key={listing.id}
                   listing={listing}
@@ -178,6 +236,24 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
                   statuses={statuses}
                 />
               ))}
+
+              {hasMore ? (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((c) => c + 20)}
+                    className="rounded-xl border border-stroke bg-surface-800 px-6 py-2.5 text-sm font-semibold text-foreground-900 transition hover:bg-surface-700"
+                  >
+                    Load more ({listings.length - visibleCount} remaining)
+                  </button>
+                </div>
+              ) : null}
+
+              {jobs.length > 0 && isStreaming ? (
+                <p className="text-center text-xs text-foreground-600-subtle">
+                  Jobs appear as they&apos;re verified — summary follows when all subagents finish.
+                </p>
+              ) : null}
             </section>
           ) : null}
         </div>
