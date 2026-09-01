@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { JobPayload } from "@/lib/research/job-schema";
+import { StreamedJobSchema } from "@/lib/research/job-schema";
 import type {
   ChunkPayload,
   ErrorPayload,
@@ -17,6 +19,7 @@ import type {
 const initialState: ResearchSession = {
   status: "idle",
   segments: [],
+  jobs: [],
 };
 
 const SUBAGENT_ROUTE = "/research/job";
