@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { updateStatus } from "@/app/actions/status";
 import { JobListingCard } from "@/components/cards/listings";
-import { type FilterGroup, Filters } from "@/components/filters";
+import { type FilterGroup, Filters } from "@/components/Filters";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
 
