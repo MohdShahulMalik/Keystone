@@ -28,12 +28,17 @@ export interface Subagent {
   text: string;
 }
 
+import type { JobPayload } from "@/lib/research/job-schema";
+
 export interface ResearchSession {
   status: ResearchStatus;
   segments: TextSegment[];
+  jobs: JobPayload[];
   error?: string;
   messageId?: string;
 }
+
+export interface JobPayloadForStream extends JobPayload {}
 
 export interface ChunkPayload {
   text: string;
