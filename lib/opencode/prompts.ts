@@ -46,5 +46,7 @@ export function buildResearchPrompt(preferences: ResearchPreferences): string {
     prompt += `\nResume Content: ${resumeContent}`;
   }
 
+  prompt += `\n\nRemember: delegate to parallel subagents per slice and stream each job as JOB_JSON: {...} — then a short summary only.`;
+
   return prompt;
 }
