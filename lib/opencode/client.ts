@@ -66,3 +66,9 @@ export async function getOpencodeClient(): Promise<OpencodeClient> {
   const server = await getOpencodeServer();
   return createOpencodeClient({ baseUrl: server.url });
 }
+
+export async function getOpencodeClientV2() {
+  const { createOpencodeClient: createV2Client } = await import("@opencode-ai/sdk/v2");
+  const server = await getOpencodeServer();
+  return createV2Client({ baseUrl: server.url });
+}
