@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getAvailableModelsAction } from "@/app/actions/research";
 import type { ModelRef, ModelV2Info } from "@/lib/types/opencode";
+import { MUSE_SPARK_1_2_FREE_REF } from "@/lib/types/opencode";
 
 const jobTypes = ["Remote", "Hybrid", "Onsite"];
 
@@ -49,14 +50,17 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
         if (cancelled) return;
         setModels(data);
         if (data.length > 0) {
-          // Default: Muse Spark 1.2 Free / OpenCode Zen / high (Free is part of name, not variant)
+          // Default: Muse Spark 1.2 Free — verified via bun run /tmp/check_muse2.ts:
+          // opencode/muse-spark-1.2-contributor-free — Muse Spark 1.2 Free — variants:[]
+          // Hardcoded ref is MUSE_SPARK_1_2_FREE_REF but still dynamic so user can pick others.
           const preferred =
+            data.find((m) => m.providerID === MUSE_SPARK_1_2_FREE_REF.providerID && m.id === MUSE_SPARK_1_2_FREE_REF.id) ??
             data.find((m) => m.name === "Muse Spark 1.2 Free" && m.providerID.toLowerCase().includes("opencode")) ??
-            data.find((m) => m.id.toLowerCase().includes("muse-spark") && m.name.toLowerCase().includes("free")) ??
+            data.find((m) => m.id.toLowerCase().includes("muse-spark-1.2-contributor-free")) ??
             data.find((m) => m.id.toLowerCase().includes("muse-spark")) ??
             data[0];
           setSelectedModelId(`${preferred.providerID}/${preferred.id}`);
-          const preferredVariant = preferred.variants.find((v) => v.id === "high")?.id ?? preferred.variants.find((v) => v.id === "medium")?.id ?? preferred.variants[0]?.id;
+          const preferredVariant = preferred.variants.find((v) => v.id === "high")?.id ?? preferred.variants[0]?.id;
           setVariant(preferredVariant);
         }
       } catch (e) {
@@ -103,7 +107,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
     };
     onStart?.({
       model: modelRef,
-      modelLabel: `${selectedModel.providerID}/${selectedModel.id}${variant ? `:${variant}` : ""} — ${selectedModel.name}`,
+      modelLabel: selectedModel.name.split(" — ").slice(-1)[0].trim() + (variant ? ` — ${variant}` : ""),
       jobTypes: selectedJobTypes,
       countries,
       skills,
@@ -123,7 +127,8 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
             value={selectedModelId}
             onChange={(event) => selectModel(event.target.value)}
             disabled={loadingModels}
-            className="w-full rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)] disabled:opacity-50"
+            style={{ scrollbarWidth: "none" } as React.CSSProperties}
+            className="w-full rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)] disabled:opacity-50 overflow-y-hidden [&::-webkit-scrollbar]:hidden"
           >
             {loadingModels ? (
               <option>Loading models...</option>
@@ -132,27 +137,23 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
             ) : (
               models.map((m) => (
                 <option key={`${m.providerID}/${m.id}`} value={`${m.providerID}/${m.id}`}>
-                  {m.providerID}/{m.id} — {m.name} {m.variants.length > 0 ? `(${m.variants.map((v) => v.id).join(", ")})` : ""}
+                  {m.name}
                 </option>
               ))
             )}
           </select>
-          {selectedModel ? (
-            <span className="mt-1 block text-xs text-foreground-600-subtle">
-              {selectedModel.status} · context {selectedModel.limit?.context ?? "?"} · {hasVariants ? `${availableVariants.length} variants` : "no variants"}
-            </span>
-          ) : null}
           {modelsError ? <span className="mt-1 block text-xs text-rose-400">{modelsError}</span> : null}
         </label>
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-foreground-600">
-            Variant {hasVariants ? "" : "(no variants)"}
+            Variant
           </span>
           <select
             value={variant ?? ""}
             onChange={(event) => setVariant(event.target.value || undefined)}
             disabled={!hasVariants || loadingModels}
-            className="w-full rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)] disabled:opacity-50"
+            style={{ scrollbarWidth: "none" } as React.CSSProperties}
+            className="w-full rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)] disabled:opacity-50 overflow-y-hidden [&::-webkit-scrollbar]:hidden"
           >
             {!hasVariants ? (
               <option value="">No variant (default)</option>
@@ -160,9 +161,6 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
               availableVariants.map((v) => <option key={v} value={v}>{v}</option>)
             )}
           </select>
-          <span className="mt-1 block text-xs text-foreground-600-subtle">
-            {hasVariants ? "From ModelV2Info.variants[].id — variant is reasoning effort" : "This model ignores variant"}
-          </span>
         </label>
       </div>
 
