@@ -17,6 +17,20 @@ export type ModelV2Info = {
   cost?: unknown;
 };
 
+export const MUSE_SPARK_1_2_FREE_REF: ModelRef = {
+  providerID: "opencode",
+  id: "muse-spark-1.2-contributor-free",
+} as const;
+
+export const MUSE_SPARK_1_2_FREE_INFO: ModelV2Info = {
+  id: "muse-spark-1.2-contributor-free",
+  providerID: "opencode",
+  name: "Muse Spark 1.2 Free",
+  variants: [],
+  status: "active",
+  limit: { context: 1048576, output: 131072 },
+};
+
 export interface ResearchPreferences {
   jobTypes: string[]; // ["remote", "hybrid", "onsite"]
   countries: string[]; // ["USA", "UK", "Canada"]
