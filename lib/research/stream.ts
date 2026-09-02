@@ -254,6 +254,8 @@ export async function flushAllJobPersistQueues(ctx: StreamCtx): Promise<void> {
 }
 
 function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
+  // ONLY main agent jobs should be sent to client / stored — ignore subagent JOB_JSON
+  if (sessionID !== ctx.sessionId) return;
   const trimmed = jsonStr.trim();
   if (!trimmed) return;
   // allow both object and JSON with trailing chars; extract first {...}
@@ -431,6 +433,9 @@ export function flushPendingJobs(ctx: StreamCtx) {
         tryEmitSingleJob(ctx, sid, jsonStr);
       }
       ctx.jobBuffers.set(sid, "");
+    } else {
+      // subagent tails that look like JOB_JSON are dropped silently (no emit)
+      if (sid !== ctx.sessionId) ctx.jobBuffers.set(sid, "");
     }
   }
 }
