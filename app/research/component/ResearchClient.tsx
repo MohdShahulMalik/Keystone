@@ -192,7 +192,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             />
           </div>
 
-          {mode === "job" && (jobs.length > 0 || isStreaming) ? (
+          {mode === "job" && jobs.length > 0 ? (
             <section className="mt-12 space-y-4" aria-label="Job matches">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-foreground-900">
@@ -213,7 +213,16 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
                 ) : null}
               </div>
 
-              {jobs.length === 0 && isStreaming ? (
+              {visibleListings.map((listing) => (
+                <JobListingCard
+                  key={listing.id}
+                  listing={listing}
+                  onStatusChange={() => {}}
+                  statuses={statuses}
+                />
+              ))}
+
+              {isStreaming ? (
                 <div className="space-y-3">
                   {Array.from({ length: 3 }).map((_, i) => (
                     <div
@@ -227,15 +236,6 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
                   ))}
                 </div>
               ) : null}
-
-              {visibleListings.map((listing) => (
-                <JobListingCard
-                  key={listing.id}
-                  listing={listing}
-                  onStatusChange={() => {}}
-                  statuses={statuses}
-                />
-              ))}
 
               {hasMore ? (
                 <div className="flex justify-center pt-2">
