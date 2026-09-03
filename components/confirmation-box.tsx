@@ -1,39 +1,46 @@
 "use client";
 
 import {
-  forwardRef,
   useImperativeHandle,
   useRef,
   useState,
   type ReactNode,
+  type Ref,
 } from "react";
+import type { ResponseAction } from "@/lib/types/response";
+
+export type ConfirmationBoxHandle = {
+  open: () => void;
+};
 
 type ConfirmationBoxProps = {
   title: string;
   message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirm: () => void | Promise<void>;
+  onConfirmAction: () => Promise<ResponseAction<unknown>> | Promise<void> | void;
+  ref?: Ref<ConfirmationBoxHandle>;
 };
 
-export const ConfirmationBox = forwardRef<
-  HTMLDialogElement,
-  ConfirmationBoxProps
->(function ConfirmationBox(
-  {
-    title,
-    message,
-    confirmLabel = "Confirm",
-    cancelLabel = "Cancel",
-    onConfirm,
-  },
-  forwardedRef,
-) {
+export function ConfirmationBox({
+  title,
+  message,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  onConfirmAction: onConfirm,
+  ref,
+}: ConfirmationBoxProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useImperativeHandle(forwardedRef, () => dialogRef.current!, []);
+  useImperativeHandle(
+    ref,
+    () => ({
+      open: () => dialogRef.current?.showModal(),
+    }),
+    [],
+  );
 
   const closeDialog = () => {
     if (isPending) return;
@@ -46,7 +53,18 @@ export const ConfirmationBox = forwardRef<
     setError(null);
 
     try {
-      await onConfirm();
+      const result = (await onConfirm()) as ResponseAction<unknown> | void;
+
+      if (
+        result &&
+        typeof result === "object" &&
+        "success" in result &&
+        !result.success
+      ) {
+        setError((result as { error: string }).error);
+        return;
+      }
+
       dialogRef.current?.close();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -113,4 +131,4 @@ export const ConfirmationBox = forwardRef<
       </div>
     </dialog>
   );
-});
+}

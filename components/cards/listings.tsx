@@ -2,7 +2,10 @@
 
 import { useRef, useState } from "react";
 import { deleteJobListing } from "@/app/actions/jobs";
-import { ConfirmationBox } from "@/components/confirmation-box";
+import {
+  ConfirmationBox,
+  type ConfirmationBoxHandle,
+} from "@/components/confirmation-box";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -48,7 +51,7 @@ export function JobListingCard({
   const buttonSpanRef = useRef<HTMLSpanElement | null>(null);
   const buttonSvgRef = useRef<SVGSVGElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const confirmationRef = useRef<HTMLDialogElement | null>(null);
+  const confirmationRef = useRef<ConfirmationBoxHandle | null>(null);
 
   const secondaryButtonClass =
     "flex items-center gap-2 rounded-lg border border-visit-border bg-transparent px-6 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
@@ -74,10 +77,13 @@ export function JobListingCard({
     const result = await deleteJobListing(listing.userId, listing.id);
 
     if (!result.success) {
-      throw new Error(getActionError(result.error));
+      return { success: false as const, error: getActionError(result.error) };
     }
 
+    // revalidatePath("/listings") in jobs.ts:94 already invalidates the RSC cache
+    // — Next.js will auto-refetch /listings after the action settles, no manual refresh needed
     setIsDeleted(true);
+    return { success: true as const, data: result.data };
   };
 
   if (isDeleted) return null;
@@ -265,7 +271,7 @@ export function JobListingCard({
               aria-label={`Delete ${listing.title} at ${listing.company}`}
               title="Delete job listing"
               className="mt-auto rounded-lg p-2 text-foreground-600-subtle transition-colors hover:bg-rose-500/15 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60"
-              onClick={() => confirmationRef.current?.showModal()}
+              onClick={() => confirmationRef.current?.open()}
             >
               <svg
                 className="h-5 w-5"
@@ -299,7 +305,7 @@ export function JobListingCard({
           </>
         }
         confirmLabel="Delete"
-        onConfirm={handleDelete}
+        onConfirmAction={handleDelete}
       />
     </>
   );
