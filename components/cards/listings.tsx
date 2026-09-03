@@ -90,21 +90,21 @@ export function JobListingCard({
 
   return (
     <>
-      <article className="group rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-7 shadow-lg transition-all duration-200 hover:border-(--color-card-border-hover) hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)]">
+      <article className="group rounded-2xl border border-card-border bg-card-bg p-7 shadow-lg transition-all duration-200 hover:border-card-border-hover hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)]">
         <div className="flex items-stretch justify-between">
           <div className="flex-1">
             <div className="mb-2 flex items-center gap-3">
-              <h3 className="text-xl font-bold text-(--color-card-title)">
+              <h3 className="text-xl font-bold text-card-title">
                 {listing.company}
               </h3>
             </div>
 
-            <h4 className="mb-3 text-lg font-semibold text-[var(--color-card-subtitle)]">
+            <h4 className="mb-3 text-lg font-semibold text-card-subtitle">
               {listing.title}
             </h4>
 
             <div className="mb-4 flex items-center gap-4 text-sm">
-              <span className="flex items-center gap-2 text-[var(--color-card-text)]">
+              <span className="flex items-center gap-2 text-card-text">
                 <svg
                   className="h-5 w-5"
                   fill="none"
@@ -121,8 +121,8 @@ export function JobListingCard({
                 </svg>
                 <span className="font-semibold">{listing.salary || "N.A."}</span>
               </span>
-              <span className="text-[hsl(194_65%_62%_/_0.4)]">•</span>
-              <span className="flex items-center gap-2 text-[var(--color-card-text)]">
+              <span className="text-[hsl(194_65%_62%/0.4)]">•</span>
+              <span className="flex items-center gap-2 text-card-text">
                 <svg
                   className="h-5 w-5"
                   fill="none"
@@ -142,7 +142,7 @@ export function JobListingCard({
             </div>
 
             <div className="mb-4 flex flex-wrap items-center gap-2.5">
-              <span className="flex items-center gap-2 rounded-lg border border-[var(--color-badge-border)] bg-[var(--color-badge-bg)] px-3.5 py-1.5 text-xs font-medium text-[var(--color-badge-text)]">
+              <span className="flex items-center gap-2 rounded-lg border border-badge-border bg-badge-bg px-3.5 py-1.5 text-xs font-medium text-badge-text">
                 <span>📍</span>
                 {listing.location}
               </span>
@@ -165,11 +165,11 @@ export function JobListingCard({
             {listing.description ? (
               <div>
                 <p className="text-sm leading-relaxed text-foreground-600">
-                  {isExpanded || listing.description.length <= 250
+                  {isExpanded || listing.description.length <= 200
                     ? listing.description
-                    : `${listing.description.slice(0, 250)}...`}
+                    : `${listing.description.slice(0, 200)}...`}
                 </p>
-                {listing.description.length > 250 ? (
+                {listing.description.length > 200 ? (
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="mt-2 text-sm font-medium text-[var(--color-card-subtitle)] transition"
@@ -299,9 +299,9 @@ export function JobListingCard({
           <>
             Are you sure you want to delete{" "}
             <strong className="rounded bg-accent/15 px-1.5 py-0.5 font-semibold text-accent">
-              {listing.title}
+              {listing.title} at {listing.company}?
             </strong>{" "}
-            at {listing.company}? This action cannot be undone.
+              This action cannot be undone.
           </>
         }
         confirmLabel="Delete"
