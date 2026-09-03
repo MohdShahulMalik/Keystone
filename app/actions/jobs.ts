@@ -14,6 +14,7 @@ import type {
   JobImportResult,
   JobListing,
 } from "@/lib/types/jobs";
+import { revalidatePath } from "next/cache";
 
 export async function getJobListings(userId: string): Promise<JobListing[]> {
   return db.jobListing.findMany({
@@ -30,6 +31,7 @@ export async function addJobListing(userId: string, formData: FormData) {
     return { error: z.flattenError(parsed.error).fieldErrors };
   }
 
+  revalidatePath("/listings");
   return db.jobListing.create({
     data: {
       userId,
@@ -63,6 +65,7 @@ export async function updateJobListing(
     data: parsed.data,
   });
 
+  revalidatePath("/listings");
   return { success: true, data: updated };
 }
 
@@ -88,6 +91,7 @@ export async function deleteJobListing(
     where: { id: parsed.data.jobId },
   });
 
+  revalidatePath("/listings");
   return { success: true, data: job };
 }
 
