@@ -1,5 +1,10 @@
 import type { z } from "zod";
 import type { addJobSchema, updateJobSchema } from "@/lib/schemas/jobs";
+import type {
+  ResponseAction,
+  ResponseActionError,
+  ResponseActionSuccess,
+} from "./response";
 import type { JobStatus } from "./status";
 
 type AddJobInput = z.infer<typeof addJobSchema>;
@@ -44,17 +49,12 @@ export interface JobImportResponse {
   errors: JobImportError[];
 }
 
-export interface JobActionSuccess {
-  success: true;
-  data: JobListing;
-}
+export interface JobActionSuccess
+  extends ResponseActionSuccess<JobListing> {}
 
-export interface JobActionError {
-  success: false;
-  error: string;
-}
+export interface JobActionError extends ResponseActionError {}
 
-export type JobActionResponse = JobActionSuccess | JobActionError;
+export type JobActionResponse = ResponseAction<JobListing>;
 
 export interface Tab {
   location: string;

@@ -1,3 +1,9 @@
+import type {
+  ResponseAction,
+  ResponseActionError,
+  ResponseActionSuccess,
+} from "./response";
+
 export interface Resume {
   id: string;
   userId: string;
@@ -8,14 +14,8 @@ export interface Resume {
   createdAt: Date;
 }
 
-export interface ResumeUploadSuccess {
-  success: true;
-  data: Resume;
-}
+export interface ResumeUploadSuccess extends ResponseActionSuccess<Resume> {}
 
-export interface ResumeActionError {
-  success: false;
-  error: string;
-}
+export interface ResumeActionError extends ResponseActionError {}
 
-export type ResumeActionResponse = ResumeUploadSuccess | ResumeActionError;
+export type ResumeActionResponse = ResponseAction<Resume>;
