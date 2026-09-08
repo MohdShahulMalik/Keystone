@@ -27,6 +27,7 @@ model SearchSession {
   userId            String
   query             String
   preferences       Json?
+  title             String?
   mode              SearchMode          @default(job)
   resultCount       Int                 @default(0)
   status            SearchSessionStatus @default(running)
