@@ -1,16 +1,20 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { SearchSessionTitle } from "@/lib/types/search";
 
-type SearchSessionIds = string[];
-
-export async function getSearchSessions(): Promise<SearchSessionIds> {
+export async function getSearchSessions(
+  userId: string,
+): Promise<SearchSessionTitle[]> {
   const sessions = await db.searchSession.findMany({
     select: {
       id: true,
       title: true,
     },
+    where: {
+      userId: userId,
+    },
   });
 
-  return sessions.map((session) => session.id);
+  return sessions;
 }
