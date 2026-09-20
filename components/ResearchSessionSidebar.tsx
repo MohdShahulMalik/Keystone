@@ -1,16 +1,10 @@
 "use client";
 
+import { SearchSessionTitle } from "@/lib/types/search";
 import { useState } from "react";
 
-export type ResearchSession = {
-  id: string;
-  title: string;
-  detail?: string;
-  updatedAt: string;
-};
-
 type ResearchSessionSidebarProps = {
-  sessions: ResearchSession[];
+  sessions: SearchSessionTitle[];
   activeSessionId?: string;
   onNewSession?: () => void;
   onSelectSession?: (sessionId: string) => void;
