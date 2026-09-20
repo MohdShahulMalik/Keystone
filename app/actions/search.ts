@@ -5,7 +5,7 @@ import { SearchSessionTitle } from "@/lib/types/search";
 import { SearchSession } from "../generated/prisma";
 
 export async function getSearchSessions(
-  userId: string,
+  userId: string, mode: "job" | "dsa"
 ): Promise<SearchSessionTitle[]> {
   const sessions = await db.searchSession.findMany({
     select: {
@@ -13,7 +13,8 @@ export async function getSearchSessions(
       title: true,
     },
     where: {
-      userId: userId,
+      userId,
+      mode,
     },
   });
 
