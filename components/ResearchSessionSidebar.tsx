@@ -1,24 +1,51 @@
 "use client";
 
-import { SearchSessionTitle } from "@/lib/types/search";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { SearchSessionTitle } from "@/lib/types/search";
 
 type ResearchSessionSidebarProps = {
   sessions: SearchSessionTitle[];
   activeSessionId?: string;
-  onNewSession?: () => void;
-  onSelectSession?: (sessionId: string) => void;
+  mode: string;
   title?: string;
 };
+
+function formatRelativeTime(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  if (Number.isNaN(diffMs)) return "";
+
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d`;
+
+  return date.toLocaleDateString();
+}
 
 export function ResearchSessionSidebar({
   sessions,
   activeSessionId,
-  onNewSession,
-  onSelectSession,
+  mode,
   title = "Research",
 }: ResearchSessionSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const router = useRouter();
+  const onNewSession = () => {
+    router.push(`/research/${mode}`);
+  };
+
+  const onSelectSession = (sessionId: string) => {
+    router.push(`/research/${mode}?sessionId=${sessionId}`);
+  };
 
   return (
     <>
@@ -149,11 +176,17 @@ export function ResearchSessionSidebar({
                   }`}
                 >
                   <span className="truncate text-sm font-medium">
-                    {session.title}
+                    {session.title ?? "Untitled session"}
                   </span>
                   <span className="mt-1 flex items-center justify-between gap-3 text-xs text-foreground-600-subtle">
-                    <span className="truncate">{session.detail}</span>
-                    <span className="shrink-0">{session.updatedAt}</span>
+                    <span className="truncate">
+                      {session.resultCount > 0
+                        ? `${session.resultCount} result${session.resultCount === 1 ? "" : "s"}`
+                        : "No results yet"}
+                    </span>
+                    <span className="shrink-0">
+                      {formatRelativeTime(session.updatedAt)}
+                    </span>
                   </span>
                 </button>
               );
