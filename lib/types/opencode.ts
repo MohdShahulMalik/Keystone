@@ -17,15 +17,15 @@ export type ModelV2Info = {
   cost?: unknown;
 };
 
-export const MUSE_SPARK_1_2_FREE_REF: ModelRef = {
+export const MUSE_SPARK_1_3_FREE_REF: ModelRef = {
   providerID: "opencode",
-  id: "muse-spark-1.2-contributor-free",
+  id: "muse-spark-1.3-contributor-free",
 } as const;
 
-export const MUSE_SPARK_1_2_FREE_INFO: ModelV2Info = {
-  id: "muse-spark-1.2-contributor-free",
+export const MUSE_SPARK_1_3_FREE_INFO: ModelV2Info = {
+  id: "muse-spark-1.3-contributor-free",
   providerID: "opencode",
-  name: "Muse Spark 1.2 Free",
+  name: "Muse Spark 1.3 Free",
   variants: [],
   status: "active",
   limit: { context: 1048576, output: 131072 },

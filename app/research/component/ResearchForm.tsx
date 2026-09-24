@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getAvailableModelsAction } from "@/app/actions/research";
 import type { ModelRef, ModelV2Info } from "@/lib/types/opencode";
-import { MUSE_SPARK_1_2_FREE_REF } from "@/lib/types/opencode";
+import { MUSE_SPARK_1_3_FREE_REF } from "@/lib/types/opencode";
 
 const jobTypes = ["Remote", "Hybrid", "Onsite"];
 
@@ -54,7 +54,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
           // opencode/muse-spark-1.2-contributor-free — Muse Spark 1.2 Free — variants:[]
           // Hardcoded ref is MUSE_SPARK_1_2_FREE_REF but still dynamic so user can pick others.
           const preferred =
-            data.find((m) => m.providerID === MUSE_SPARK_1_2_FREE_REF.providerID && m.id === MUSE_SPARK_1_2_FREE_REF.id) ??
+            data.find((m) => m.providerID === MUSE_SPARK_1_3_FREE_REF.providerID && m.id === MUSE_SPARK_1_3_FREE_REF.id) ??
             data.find((m) => m.name === "Muse Spark 1.2 Free" && m.providerID.toLowerCase().includes("opencode")) ??
             data.find((m) => m.id.toLowerCase().includes("muse-spark-1.2-contributor-free")) ??
             data.find((m) => m.id.toLowerCase().includes("muse-spark")) ??
