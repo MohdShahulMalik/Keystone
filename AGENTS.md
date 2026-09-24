@@ -9,4 +9,3 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Things to keep in mind
  - This project utilize "bun" and not npm, always use bun commands and not npm or npx commands
-
