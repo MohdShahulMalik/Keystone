@@ -1,20 +1,26 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { SearchSessionTitle } from "@/lib/types/search";
-import { SearchSession } from "../generated/prisma";
+import type { SearchSessionTitle } from "@/lib/types/search";
+import type { SearchSession } from "../generated/prisma";
 
 export async function getSearchSessions(
-  userId: string, mode: "job" | "dsa"
+  userId: string,
+  mode: "job" | "dsa",
 ): Promise<SearchSessionTitle[]> {
   const sessions = await db.searchSession.findMany({
     select: {
       id: true,
       title: true,
+      resultCount: true,
+      updatedAt: true,
     },
     where: {
       userId,
       mode,
+    },
+    orderBy: {
+      updatedAt: "desc",
     },
   });
 
