@@ -4,12 +4,13 @@ import { db } from "@/lib/db";
 import { buildResearchPrompt } from "@/lib/opencode/prompts";
 import {
   createResearchSession,
+  deleteResearchSession,
   listAvailableModels,
   sendResearchPrompt,
 } from "@/lib/opencode/server";
-import { ResearchPreferences } from "@/lib/types/opencode";
+import type { ResearchPreferences } from "@/lib/types/opencode";
 import type { ModelRef } from "@/lib/types/opencode";
-import z from "zod";
+import { z } from "zod";
 
 const startResearchSchema = z.object({
   jobTypes: z.array(z.string()).min(1, "At least one job type is required"),
@@ -32,33 +33,58 @@ type ResearchPromptInput = Omit<ResearchPreferences, "resumeContent"> & {
 };
 
 export async function startResearch(preferences: ResearchPromptInput) {
-  const parsedPreferences = startResearchSchema.parse(preferences);
+  const parsed = startResearchSchema.safeParse(preferences);
+  if (!parsed.success) {
+    console.error("[research] stage=validate error=", z.flattenError(parsed.error));
+    throw new Error(`Invalid research input: ${parsed.error.issues[0]?.message ?? "validation failed"}`);
+  }
+  const parsedPreferences = parsed.data;
 
   const user = "maxum"; // Replace with actual user identification logic
 
   let resumeContent: string | undefined;
   if (parsedPreferences.resumeId) {
-    const resume = await db.resume.findUnique({
-      where: { id: parsedPreferences.resumeId },
-    });
-    resumeContent = resume?.content ?? undefined;
+    try {
+      const resume = await db.resume.findUnique({
+        where: { id: parsedPreferences.resumeId },
+      });
+      resumeContent = resume?.content ?? undefined;
+    } catch (error) {
+      console.error("[research] stage=resume-lookup error=", error);
+      throw new Error("Failed to load resume");
+    }
   }
 
-  const openCodeSession = await createResearchSession(parsedPreferences.model);
-  if (!openCodeSession) {
-    throw new Error("Failed to create OpenCode session");
+  // createResearchSession already retries internally (cold-boot) and throws
+  // with cause instead of returning undefined.
+  let openCodeSession: { id: string } & Record<string, unknown>;
+  try {
+    const created = await createResearchSession(parsedPreferences.model);
+    if (!created) throw new Error("Empty session response");
+    openCodeSession = created;
+  } catch (error) {
+    console.error("[research] stage=opencode-create error=", error);
+    throw new Error(`Failed to create OpenCode session: ${error instanceof Error ? error.message : String(error)}`);
   }
-
-  const session = await db.searchSession.create({
-    data: {
-      userId: user,
-      query: buildResearchPrompt({ ...parsedPreferences, resumeContent }),
-      status: "running",
-      openCodeSessionId: openCodeSession.id,
-    },
-  });
 
   const prompt = buildResearchPrompt({ ...parsedPreferences, resumeContent });
+
+  let session: { id: string };
+  try {
+    session = await db.searchSession.create({
+      data: {
+        userId: user,
+        query: prompt,
+        status: "running",
+        openCodeSessionId: openCodeSession.id,
+      },
+    });
+  } catch (error) {
+    console.error("[research] stage=db-create error=", error);
+    // Avoid orphaned remote session costing money/time.
+    await deleteResearchSession(openCodeSession.id);
+    throw new Error("Failed to save research session");
+  }
 
   sendResearchPrompt(openCodeSession.id, prompt, parsedPreferences.model).catch(async (error) => {
     console.error("Error sending research prompt:", error);
