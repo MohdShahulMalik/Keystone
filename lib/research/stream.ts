@@ -154,27 +154,34 @@ function emitParentSegment(
 async function commitOpenSegment(ctx: StreamCtx, sessionID: string) {
   const buf = ctx.openSegments.get(sessionID);
   if (!buf || !buf.text) return;
+  // Snapshot + detach synchronously BEFORE any await so the 100ms
+  // interval flush() can never resend the same tail (duplicate "chunk").
+  const { kind, toolId, text } = buf;
   const isChild = ctx.childSessions.has(sessionID);
   const last = ctx.lastSent.get(sessionID) ?? 0;
-  if (buf.text.length > last) {
-    const delta = buf.text.slice(last);
-    if (buf.kind === "thinking") {
+  if (text.length > last) {
+    const delta = text.slice(last);
+    if (kind === "thinking") {
       if (isChild) ctx.send(sse("subagent.thinking", { id: sessionID, childSessionId: sessionID, text: delta, done: false, seq: ctx.seq.get(sessionID) ?? 0 }));
       else ctx.send(sse("thinking", { text: delta, done: false, seq: ctx.seq.get(sessionID) ?? 0 }));
-    } else if (buf.kind === "text") {
+    } else if (kind === "text") {
       if (isChild) ctx.send(sse("subagent.chunk", { id: sessionID, childSessionId: sessionID, text: delta, seq: ctx.seq.get(sessionID) ?? 0 }));
       else ctx.send(sse("chunk", { text: delta, seq: ctx.seq.get(sessionID) ?? 0, id: sessionID }));
     }
   }
   const seq = (ctx.seq.get(sessionID) ?? 0) + 1;
   ctx.seq.set(sessionID, seq);
-  await ctx.persist(sessionID, buf.kind, buf.text, buf.toolId, undefined);
-  if (buf.kind === "thinking") {
+  if (kind === "thinking") {
     if (isChild) ctx.send(sse("subagent.thinking", { id: sessionID, childSessionId: sessionID, text: "", done: true, seq }));
     else ctx.send(sse("thinking", { text: "", done: true, seq }));
   }
   ctx.openSegments.delete(sessionID);
   ctx.lastSent.delete(sessionID);
+  try {
+    await ctx.persist(sessionID, kind, text, toolId, undefined);
+  } catch (error) {
+    console.error("[research] persist segment failed", { sessionID, kind, seq, error });
+  }
 }
 
 function appendToOpenSegment(
