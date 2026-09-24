@@ -36,6 +36,7 @@ model SearchSession {
   children          SubagentSession[]
   segments          ResearchSegment[]
   createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   completedAt       DateTime?
 
   user    User           @relation(fields: [userId], references: [id])
