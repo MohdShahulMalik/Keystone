@@ -170,7 +170,10 @@ export async function bulkCreateJobsFromResearch(
     select: { title: true, company: true, url: true },
   });
   const existingKeys = new Set(
-    existing.map((e) => `${e.title.toLowerCase()}|${e.company.toLowerCase()}|${(e.url ?? "").toLowerCase()}`),
+    existing.map(
+      (e) =>
+        `${e.title.toLowerCase()}|${e.company.toLowerCase()}|${(e.url ?? "").toLowerCase()}`,
+    ),
   );
 
   const toCreate = deduped.filter((j) => {
