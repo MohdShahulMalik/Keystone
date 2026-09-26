@@ -2,10 +2,49 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getAvailableModelsAction } from "@/app/actions/research";
+import { TagInput } from "@/app/research/component/TagInput";
 import type { ModelRef, ModelV2Info } from "@/lib/types/opencode";
 import { MUSE_SPARK_1_3_FREE_REF } from "@/lib/types/opencode";
 
 const jobTypes = ["Remote", "Hybrid", "Onsite"];
+
+const SUGGESTED_SKILLS = [
+  "React",
+  "TypeScript",
+  "JavaScript",
+  "Node.js",
+  "Next.js",
+  "Python",
+  "Java",
+  "Go",
+  "Rust",
+  "SQL",
+  "PostgreSQL",
+  "AWS",
+  "Docker",
+  "Kubernetes",
+  "System Design",
+  "GraphQL",
+  "Tailwind CSS",
+  "Prisma",
+];
+
+const SUGGESTED_COUNTRIES = [
+  "USA",
+  "UK",
+  "Canada",
+  "Germany",
+  "Netherlands",
+  "Ireland",
+  "France",
+  "Spain",
+  "Portugal",
+  "Poland",
+  "India",
+  "Singapore",
+  "Australia",
+  "Remote",
+];
 
 export type UserPreferences = {
   model: ModelRef;
@@ -32,10 +71,10 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
   const [selectedJobTypes, setSelectedJobTypes] = useState<string[]>([
     "Remote",
   ]);
-  const [skills, setSkills] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
   const [resumeName, setResumeName] = useState<string>();
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [countries, setCountries] = useState("");
+  const [countries, setCountries] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
 
   const selectedModel = models.find((m) => `${m.providerID}/${m.id}` === selectedModelId) ?? null;
@@ -109,8 +148,8 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
       model: modelRef,
       modelLabel: selectedModel.name.split(" — ").slice(-1)[0].trim() + (variant ? ` — ${variant}` : ""),
       jobTypes: selectedJobTypes,
-      countries,
-      skills,
+      countries: countries.join(", "),
+      skills: skills.join(", "),
       notes,
       resumeName,
     });
@@ -165,19 +204,14 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
       </div>
 
       <div>
-        <div className="mb-2 flex items-baseline justify-between gap-3">
-          <label
-            htmlFor="skills"
-            className="text-sm font-semibold text-foreground-600"
-          >
-            Skills / resume
-          </label>
-          <span className="text-xs text-foreground-600-subtle">
-            Type skills or attach a PDF
-          </span>
-        </div>
+        <label
+          htmlFor="skills"
+          className="mb-2 block text-sm font-semibold text-foreground-600"
+        >
+          Skills / resume
+        </label>
         <fieldset
-          className={`rounded-xl border bg-surface-800 p-2 transition-[border-color,box-shadow] ${
+          className={`rounded-xl border bg-surface-800 transition-[border-color,box-shadow] focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--color-primary-ring)] ${
             isDraggingFile
               ? "border-accent shadow-[0_0_0_3px_var(--color-primary-ring)]"
               : "border-stroke"
@@ -194,15 +228,15 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
             selectResume(event.dataTransfer.files[0]);
           }}
         >
-          <textarea
+          <TagInput
             id="skills"
             value={skills}
-            onChange={(event) => setSkills(event.target.value)}
-            placeholder="React, TypeScript, Node.js, system design..."
-            rows={3}
-            className="block w-full resize-none bg-transparent px-2 py-1.5 text-base leading-relaxed text-foreground-900 outline-none placeholder:text-foreground-600-subtle"
+            onChange={setSkills}
+            suggestions={SUGGESTED_SKILLS}
+            placeholder="React, TypeScript, Node.js..."
+            bare
           />
-          <div className="flex items-center justify-between gap-3 border-t border-stroke px-2 pt-2">
+          <div className="flex items-center justify-between gap-3 border-t border-stroke px-3 py-2">
             <span className="truncate text-sm text-foreground-600-subtle">
               {resumeName ?? "Drop a resume here, or browse to attach one"}
             </span>
@@ -266,18 +300,18 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
             </div>
           </fieldset>
 
-          <label className="block">
+          <div>
             <span className="mb-2 block text-sm font-semibold text-foreground-600">
               Countries
             </span>
-            <input
-              type="text"
+            <TagInput
+              id="countries"
               value={countries}
-              onChange={(e) => setCountries(e.target.value)}
-              placeholder="USA, UK, Canada"
-              className="w-full rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] placeholder:text-foreground-600-subtle focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)]"
+              onChange={setCountries}
+              suggestions={SUGGESTED_COUNTRIES}
+              placeholder="USA, UK, Canada..."
             />
-          </label>
+          </div>
         </>
       ) : null}
 
@@ -289,7 +323,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional instructions for the research agent..."
-          rows={3}
+          rows={2}
           className="w-full resize-none rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-foreground-900 outline-none transition-[border-color,box-shadow] placeholder:text-foreground-600-subtle focus:border-accent focus:shadow-[0_0_0_3px_var(--color-primary-ring)]"
         />
       </label>
