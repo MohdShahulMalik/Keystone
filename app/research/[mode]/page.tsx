@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getSearchSessions } from "@/app/actions/search";
+import { getSearchSessionsWithMetaData } from "@/app/actions/search";
 import { ResearchClient } from "@/app/research/component/ResearchClient";
 import { ResearchSessionSidebar } from "@/components/ResearchSessionSidebar";
 
@@ -15,7 +15,7 @@ export default async function ResearchPage({
   if (mode !== "job" && mode !== "dsa") notFound();
 
   const userId = "maxum";
-  const sessions = await getSearchSessions(userId, mode);
+  const sessions = await getSearchSessionsWithMetaData(userId, mode);
 
   return (
     <div className="min-h-screen bg-surface-900 text-foreground-900 lg:flex">

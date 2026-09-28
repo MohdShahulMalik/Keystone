@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import type { SearchSessionTitle } from "@/lib/types/search";
 import type { SearchSession } from "../generated/prisma";
 
-export async function getSearchSessions(
+export async function getSearchSessionsWithMetaData(
   userId: string,
   mode: "job" | "dsa",
 ): Promise<SearchSessionTitle[]> {
