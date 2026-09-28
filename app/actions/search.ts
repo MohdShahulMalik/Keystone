@@ -27,12 +27,12 @@ export async function getSearchSessionsWithMetaData(
   return sessions;
 }
 
-export async function getSearchSessionById(
+export async function getSearchSessionByAnyId(
   sessionId: string,
 ): Promise<SearchSession | null> {
-  const session = await db.searchSession.findUnique({
+  const session = await db.searchSession.findFirst({
     where: {
-      id: sessionId,
+      OR: [{ id: sessionId }, { openCodeSessionId: sessionId }],
     },
   });
 
