@@ -124,9 +124,27 @@ export async function GET(req: NextRequest) {
             // if update fails (row not found), fallback to create
             try {
               if (isChild) {
-                await db.subagentSegment.create({ data: { sessionId: sid, seq, kind: "tool", text, toolId, timeTaken } });
+                await db.subagentSegment.create({
+                  data: {
+                    sessionId: sid,
+                    seq,
+                    kind: "tool",
+                    text,
+                    toolId,
+                    timeTaken,
+                  },
+                });
               } else {
-                await db.researchSegment.create({ data: { sessionId: dbSessionId, seq, kind: "tool", text, toolId, timeTaken } });
+                await db.researchSegment.create({
+                  data: {
+                    sessionId: dbSessionId,
+                    seq,
+                    kind: "tool",
+                    text,
+                    toolId,
+                    timeTaken,
+                  },
+                });
               }
             } catch {}
           }
