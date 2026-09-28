@@ -18,7 +18,10 @@ type ConfirmationBoxProps = {
   message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirmAction: () => Promise<ResponseAction<unknown>> | Promise<void> | void;
+  onConfirmAction: () =>
+    | Promise<ResponseAction<unknown>>
+    | Promise<void>
+    | void;
   ref?: Ref<ConfirmationBoxHandle>;
 };
 
