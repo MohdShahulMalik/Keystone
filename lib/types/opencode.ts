@@ -11,7 +11,11 @@ export type ModelV2Info = {
   id: string;
   providerID: string;
   name: string;
-  variants: Array<{ id: string; headers: Record<string, string>; body: Record<string, unknown> }>;
+  variants: Array<{
+    id: string;
+    headers: Record<string, string>;
+    body: Record<string, unknown>;
+  }>;
   status: "alpha" | "beta" | "deprecated" | "active";
   limit?: { context: number; output: number };
   cost?: unknown;
