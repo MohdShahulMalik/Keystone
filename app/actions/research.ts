@@ -35,8 +35,13 @@ type ResearchPromptInput = Omit<ResearchPreferences, "resumeContent"> & {
 export async function startResearch(preferences: ResearchPromptInput) {
   const parsed = startResearchSchema.safeParse(preferences);
   if (!parsed.success) {
-    console.error("[research] stage=validate error=", z.flattenError(parsed.error));
-    throw new Error(`Invalid research input: ${parsed.error.issues[0]?.message ?? "validation failed"}`);
+    console.error(
+      "[research] stage=validate error=",
+      z.flattenError(parsed.error),
+    );
+    throw new Error(
+      `Invalid research input: ${parsed.error.issues[0]?.message ?? "validation failed"}`,
+    );
   }
   const parsedPreferences = parsed.data;
 
@@ -64,7 +69,9 @@ export async function startResearch(preferences: ResearchPromptInput) {
     openCodeSession = created;
   } catch (error) {
     console.error("[research] stage=opencode-create error=", error);
-    throw new Error(`Failed to create OpenCode session: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Failed to create OpenCode session: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
   const prompt = buildResearchPrompt({ ...parsedPreferences, resumeContent });
@@ -86,16 +93,18 @@ export async function startResearch(preferences: ResearchPromptInput) {
     throw new Error("Failed to save research session");
   }
 
-  sendResearchPrompt(openCodeSession.id, prompt, parsedPreferences.model).catch(async (error) => {
-    console.error("Error sending research prompt:", error);
-    await db.searchSession.update({
-      where: { id: session.id },
-      data: {
-        status: "failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-    });
-  });
+  sendResearchPrompt(openCodeSession.id, prompt, parsedPreferences.model).catch(
+    async (error) => {
+      console.error("Error sending research prompt:", error);
+      await db.searchSession.update({
+        where: { id: session.id },
+        data: {
+          status: "failed",
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+      });
+    },
+  );
 
   return {
     sessionId: session.id,
