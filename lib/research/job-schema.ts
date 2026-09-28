@@ -6,7 +6,12 @@ export const StreamedJobSchema = z.object({
   title: z.string().min(1),
   company: z.string().min(1),
   location: z.string().min(1),
-  url: z.string().url().nullable().optional().or(z.literal("").transform(() => null)),
+  url: z
+    .string()
+    .url()
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
   description: z.string().min(1),
   salary: z.string().nullable().optional(),
   experience: z.string().min(1).default("Mid"),
