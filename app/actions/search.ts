@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { SearchSessionTitle } from "@/lib/types/search";
+import { SearchSession } from "../generated/prisma";
 
 export async function getSearchSessions(
   userId: string,
@@ -17,4 +18,16 @@ export async function getSearchSessions(
   });
 
   return sessions;
+}
+
+export async function getSearchSessionById(
+  sessionId: string,
+): Promise<SearchSession | null> {
+  const session = await db.searchSession.findUnique({
+    where: {
+      id: sessionId,
+    },
+  });
+
+  return session;
 }
