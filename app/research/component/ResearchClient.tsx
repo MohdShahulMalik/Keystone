@@ -88,7 +88,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
   const [startError, setStartError] = useState<string | null>(null);
 
   const { status, segments, jobs, error, reset } =
-    useResearchStream(openCodeSessionId);
+    useResearchStream(check === "found" && session?.status === "running" || check === "not-found"? openCodeSessionId : null);
 
   const [visibleCount, setVisibleCount] = useState(20);
   const listings: JobListing[] = jobs.map(toJobListing);
@@ -163,7 +163,8 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
                       <span className="font-medium text-foreground-900">
                         Model:
                       </span>{" "}
-                      {userPreferences.modelLabel ?? `${userPreferences.model.providerID}/${userPreferences.model.id}${userPreferences.model.variant ? `:${userPreferences.model.variant}` : ""}`}
+                      {userPreferences.modelLabel ??
+                        `${userPreferences.model.providerID}/${userPreferences.model.id}${userPreferences.model.variant ? `:${userPreferences.model.variant}` : ""}`}
                     </div>
                     <div>
                       <span className="font-medium text-foreground-900">
@@ -270,7 +271,8 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
 
               {jobs.length > 0 && isStreaming ? (
                 <p className="text-center text-xs text-foreground-600-subtle">
-                  Jobs appear as they&apos;re verified — summary follows when all subagents finish.
+                  Jobs appear as they&apos;re verified — summary follows when
+                  all subagents finish.
                 </p>
               ) : null}
             </section>
