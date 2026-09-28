@@ -100,7 +100,13 @@ export async function GET(req: NextRequest) {
             // ignore duplicate seq races - will be retried on next commit
           }
         },
-        persistToolUpdate: async (sid: string, seq: number, text: string, toolId: string, timeTaken?: string) => {
+        persistToolUpdate: async (
+          sid: string,
+          seq: number,
+          text: string,
+          toolId: string,
+          timeTaken?: string,
+        ) => {
           const isChild = ctx.childSessions.has(sid);
           try {
             if (isChild) {
