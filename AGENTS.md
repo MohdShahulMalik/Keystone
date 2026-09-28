@@ -9,3 +9,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Things to keep in mind
  - This project utilize "bun" and not npm, always use bun commands and not npm or npx commands
+
+## Intructions When Asked A Question
+ - DON'T just go and start changing or writting code in the codebase, use every other tool than that the write tool and ONLY answer the question!
+ - DON'T make assumptions about things that you are not sure about, if you are not sure about something then just ask me and I will clarify it for you.
