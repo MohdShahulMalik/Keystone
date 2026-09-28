@@ -67,7 +67,6 @@ export interface SubagentStartedPayload {
   title: string;
   description?: string;
   subagentType?: string;
-
 }
 
 export interface SubagentChunkPayload {
