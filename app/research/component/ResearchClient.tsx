@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { startResearch } from "@/app/actions/research";
 import {
   ResearchForm,
@@ -13,6 +13,8 @@ import { useResearchStream } from "@/hooks/useResearchStream";
 import type { JobPayload } from "@/lib/research/job-schema";
 import type { JobListing } from "@/lib/types/jobs";
 import type { JobStatus } from "@/lib/types/status";
+import { getSearchSessionByAnyId } from "@/app/actions/search";
+import { SearchSession } from "@/app/generated/prisma";
 
 type ResearchClientProps = {
   mode: "job" | "dsa";
@@ -63,6 +65,23 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
   // Session is driven by the URL: the agent response view only renders when
   // the path contains a `sessionId` query param.
   const openCodeSessionId = searchParams.get("sessionId");
+  const [check, setCheck] = useState<"checking" | "found" | "not-found">("checking");
+  const [session, setSession] = useState<SearchSession | null>(null);
+
+  useEffect(() => {
+    if (!openCodeSessionId) {
+      return;
+    }
+    setCheck("checking");
+    getSearchSessionByAnyId(openCodeSessionId).then((session) => {
+      if (session) {
+        setSession(session);
+        setCheck("found");
+      } else {
+        setCheck("not-found");
+      }
+    });
+  }, [openCodeSessionId]);
 
   const [userPreferences, setUserPreferences] =
     useState<UserPreferences | null>(null);
