@@ -1,11 +1,17 @@
 export interface SearchSessionTitle {
   id: string;
   title: string | null;
+  resultCount: number;
+  updatedAt: Date;
 }
 
 export type SearchMode = "job" | "dsa";
 
-export type SearchSessionStatus = "pending" | "running" | "completed" | "failed";
+export type SearchSessionStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed";
 
 export type SubagentStatus = "running" | "completed" | "failed";
 
