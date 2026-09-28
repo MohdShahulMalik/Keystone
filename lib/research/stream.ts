@@ -83,13 +83,19 @@ function toTitleCase(tool: string): string {
 
 function webfetchDisplayText(part: ToolPart): string {
   if (part.tool === "webfetch") {
-    const url = (part.state as ToolStateRunning).input?.url as string | undefined;
+    const url = (part.state as ToolStateRunning).input?.url as
+      | string
+      | undefined;
     const name = toTitleCase(part.tool);
     if (url) return `${name} ↳ ${url}`;
     return name;
   }
   const state: unknown = part.state;
-  if (state && typeof state === "object" && "title" in (state as Record<string, unknown>)) {
+  if (
+    state &&
+    typeof state === "object" &&
+    "title" in (state as Record<string, unknown>)
+  ) {
     const t = (state as { title?: string }).title;
     if (t) return t;
   }
@@ -162,17 +168,57 @@ async function commitOpenSegment(ctx: StreamCtx, sessionID: string) {
   if (text.length > last) {
     const delta = text.slice(last);
     if (kind === "thinking") {
-      if (isChild) ctx.send(sse("subagent.thinking", { id: sessionID, childSessionId: sessionID, text: delta, done: false, seq: ctx.seq.get(sessionID) ?? 0 }));
-      else ctx.send(sse("thinking", { text: delta, done: false, seq: ctx.seq.get(sessionID) ?? 0 }));
+      if (isChild)
+        ctx.send(
+          sse("subagent.thinking", {
+            id: sessionID,
+            childSessionId: sessionID,
+            text: delta,
+            done: false,
+            seq: ctx.seq.get(sessionID) ?? 0,
+          }),
+        );
+      else
+        ctx.send(
+          sse("thinking", {
+            text: delta,
+            done: false,
+            seq: ctx.seq.get(sessionID) ?? 0,
+          }),
+        );
     } else if (kind === "text") {
-      if (isChild) ctx.send(sse("subagent.chunk", { id: sessionID, childSessionId: sessionID, text: delta, seq: ctx.seq.get(sessionID) ?? 0 }));
-      else ctx.send(sse("chunk", { text: delta, seq: ctx.seq.get(sessionID) ?? 0, id: sessionID }));
+      if (isChild)
+        ctx.send(
+          sse("subagent.chunk", {
+            id: sessionID,
+            childSessionId: sessionID,
+            text: delta,
+            seq: ctx.seq.get(sessionID) ?? 0,
+          }),
+        );
+      else
+        ctx.send(
+          sse("chunk", {
+            text: delta,
+            seq: ctx.seq.get(sessionID) ?? 0,
+            id: sessionID,
+          }),
+        );
     }
   }
   const seq = (ctx.seq.get(sessionID) ?? 0) + 1;
   ctx.seq.set(sessionID, seq);
   if (kind === "thinking") {
-    if (isChild) ctx.send(sse("subagent.thinking", { id: sessionID, childSessionId: sessionID, text: "", done: true, seq }));
+    if (isChild)
+      ctx.send(
+        sse("subagent.thinking", {
+          id: sessionID,
+          childSessionId: sessionID,
+          text: "",
+          done: true,
+          seq,
+        }),
+      );
     else ctx.send(sse("thinking", { text: "", done: true, seq }));
   }
   ctx.openSegments.delete(sessionID);
@@ -180,7 +226,12 @@ async function commitOpenSegment(ctx: StreamCtx, sessionID: string) {
   try {
     await ctx.persist(sessionID, kind, text, toolId, undefined);
   } catch (error) {
-    console.error("[research] persist segment failed", { sessionID, kind, seq, error });
+    console.error("[research] persist segment failed", {
+      sessionID,
+      kind,
+      seq,
+      error,
+    });
   }
 }
 
@@ -198,7 +249,11 @@ function appendToOpenSegment(
 const JOB_PREFIX = "JOB_JSON:";
 const JOB_PREFIX_TRIMMED = JOB_PREFIX; // we check trimmedStart
 
-function makeJobKey(job: { title: string; company: string; url?: string | null }): string {
+function makeJobKey(job: {
+  title: string;
+  company: string;
+  url?: string | null;
+}): string {
   return `${job.title.toLowerCase().trim()}|${job.company.toLowerCase().trim()}|${(job.url ?? "").toLowerCase().trim()}`;
 }
 
@@ -282,8 +337,11 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
   }
   // lazy import to avoid cycle - validate shape minimally here, full Zod on client
   const maybe = obj as Record<string, unknown>;
-  if (typeof maybe.title !== "string" || typeof maybe.company !== "string") return;
-  const key = makeJobKey(maybe as { title: string; company: string; url?: string | null });
+  if (typeof maybe.title !== "string" || typeof maybe.company !== "string")
+    return;
+  const key = makeJobKey(
+    maybe as { title: string; company: string; url?: string | null },
+  );
   if (ctx.emittedJobKeys.has(key)) return;
   ctx.emittedJobKeys.add(key);
   const seq = (ctx.jobSeq.get(sessionID) ?? 0) + 1;
@@ -331,7 +389,11 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
     .catch(() => {});
 }
 
-function stripJobLines(ctx: StreamCtx, sessionID: string, rawDelta: string): string {
+function stripJobLines(
+  ctx: StreamCtx,
+  sessionID: string,
+  rawDelta: string,
+): string {
   // combine with any pending tail from previous incomplete JOB_JSON line
   const prevTail = ctx.jobBuffers.get(sessionID) ?? "";
   let pending = prevTail + rawDelta;
@@ -365,10 +427,12 @@ function stripJobLines(ctx: StreamCtx, sessionID: string, rawDelta: string): str
       trimmedPending.startsWith("JOB") ||
       // already inside JSON fragment after prefix but no newline yet: keep buffered only if we saw prefix earlier
       // we detect that prevTail already held a JOB prefix and we never completed
-      (prevTail.trimStart().startsWith(JOB_PREFIX) && pending.length > prevTail.length));
+      (prevTail.trimStart().startsWith(JOB_PREFIX) &&
+        pending.length > prevTail.length));
 
   // More robust: if previous tail was a partial job line, keep buffering until newline
-  const wasInJob = prevTail.trimStart().startsWith(JOB_PREFIX) && !prevTail.includes("\n");
+  const wasInJob =
+    prevTail.trimStart().startsWith(JOB_PREFIX) && !prevTail.includes("\n");
   if (wasInJob) {
     // pending still part of same job line
     ctx.jobBuffers.set(sessionID, pending);
@@ -458,11 +522,38 @@ export async function flush(ctx: StreamCtx) {
     const delta = buf.text.slice(last);
     const isChild = ctx.childSessions.has(sid);
     if (buf.kind === "thinking") {
-      if (isChild) ctx.send(sse("subagent.thinking", { id: sid, childSessionId: sid, text: delta, done: false, seq: ctx.seq.get(sid) ?? 0 }));
-      else ctx.send(sse("thinking", { text: delta, done: false, seq: ctx.seq.get(sid) ?? 0 }));
+      if (isChild)
+        ctx.send(
+          sse("subagent.thinking", {
+            id: sid,
+            childSessionId: sid,
+            text: delta,
+            done: false,
+            seq: ctx.seq.get(sid) ?? 0,
+          }),
+        );
+      else
+        ctx.send(
+          sse("thinking", {
+            text: delta,
+            done: false,
+            seq: ctx.seq.get(sid) ?? 0,
+          }),
+        );
     } else {
-      if (isChild) ctx.send(sse("subagent.chunk", { id: sid, childSessionId: sid, text: delta, seq: ctx.seq.get(sid) ?? 0 }));
-      else ctx.send(sse("chunk", { text: delta, seq: ctx.seq.get(sid) ?? 0, id: sid }));
+      if (isChild)
+        ctx.send(
+          sse("subagent.chunk", {
+            id: sid,
+            childSessionId: sid,
+            text: delta,
+            seq: ctx.seq.get(sid) ?? 0,
+          }),
+        );
+      else
+        ctx.send(
+          sse("chunk", { text: delta, seq: ctx.seq.get(sid) ?? 0, id: sid }),
+        );
     }
     ctx.lastSent.set(sid, buf.text.length);
   }
@@ -515,7 +606,11 @@ export async function handleToolRunning(
   const seq = (ctx.seq.get(part.sessionID) ?? 0) + 1;
   ctx.seq.set(part.sessionID, seq);
   const displayText = webfetchDisplayText(part);
-  ctx.pendingTools.set(part.id, { sessionID: part.sessionID, seq, text: displayText });
+  ctx.pendingTools.set(part.id, {
+    sessionID: part.sessionID,
+    seq,
+    text: displayText,
+  });
   await ctx.persist(part.sessionID, "tool", displayText, part.id, undefined);
 
   ctx.send(
@@ -581,15 +676,28 @@ export async function handleToolCompleted(ctx: StreamCtx, part: ToolPart) {
   const seq = pending?.seq ?? (ctx.seq.get(part.sessionID) ?? 0) + 1;
   if (!pending) ctx.seq.set(part.sessionID, seq);
   const displayText =
-    part.tool === "webfetch" && typeof (state.input as Record<string, unknown>)?.url === "string"
+    part.tool === "webfetch" &&
+    typeof (state.input as Record<string, unknown>)?.url === "string"
       ? `${toTitleCase(part.tool)} ↳ ${(state.input as Record<string, unknown>).url as string}`
-      : state.title ?? toTitleCase(part.tool);
+      : (state.title ?? toTitleCase(part.tool));
   const completedText = `✓ ${displayText} (${durationStr})`;
   if (pending) {
-    await ctx.persistToolUpdate(part.sessionID, seq, completedText, part.id, durationStr);
+    await ctx.persistToolUpdate(
+      part.sessionID,
+      seq,
+      completedText,
+      part.id,
+      durationStr,
+    );
     ctx.pendingTools.delete(part.id);
   } else {
-    await ctx.persist(part.sessionID, "tool", completedText, part.id, durationStr);
+    await ctx.persist(
+      part.sessionID,
+      "tool",
+      completedText,
+      part.id,
+      durationStr,
+    );
   }
 
   ctx.send(
@@ -609,9 +717,13 @@ export async function handleToolCompleted(ctx: StreamCtx, part: ToolPart) {
   if (part.tool === "task" && typeof state.metadata?.sessionId === "string") {
     const childSessionId = state.metadata.sessionId as string;
     const input = state.input as Record<string, unknown>;
-    const title = (state.title as string) || (input.description as string) || "Subagent";
+    const title =
+      (state.title as string) || (input.description as string) || "Subagent";
     const description = input.description as string | undefined;
-    const subagentType = (input.subagent_type as string) || (input.subagent as string) || undefined;
+    const subagentType =
+      (input.subagent_type as string) ||
+      (input.subagent as string) ||
+      undefined;
     ctx.send(
       sse("subagent.completed", {
         id: part.id,
@@ -626,7 +738,11 @@ export async function handleToolCompleted(ctx: StreamCtx, part: ToolPart) {
     try {
       await db.subagentSession.update({
         where: { sessionId: childSessionId },
-        data: { status: "completed", completedAt: new Date(), timeTaken: durationStr },
+        data: {
+          status: "completed",
+          completedAt: new Date(),
+          timeTaken: durationStr,
+        },
       });
     } catch {}
   }
@@ -642,7 +758,13 @@ export async function handleToolError(ctx: StreamCtx, part: ToolPart) {
   if (!pending) ctx.seq.set(part.sessionID, seq);
   const errorText = `✗ ${toTitleCase(part.tool)}: ${state.error}`;
   if (pending) {
-    await ctx.persistToolUpdate(part.sessionID, seq, errorText, part.id, durationStr);
+    await ctx.persistToolUpdate(
+      part.sessionID,
+      seq,
+      errorText,
+      part.id,
+      durationStr,
+    );
     ctx.pendingTools.delete(part.id);
   } else {
     await ctx.persist(part.sessionID, "tool", errorText, part.id, durationStr);
