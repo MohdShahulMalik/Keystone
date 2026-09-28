@@ -58,7 +58,9 @@ function toTitleCase(tool: string): string {
 
 function webfetchDisplay(tool: ToolEvent): string {
   const name = toTitleCase(tool.tool);
-  const url = (tool.input as Record<string, unknown> | undefined)?.url as string | undefined;
+  const url = (tool.input as Record<string, unknown> | undefined)?.url as
+    | string
+    | undefined;
   if (tool.tool === "webfetch" && url) {
     return `${name} ↳ ${url}`;
   }
@@ -122,17 +124,24 @@ export function useResearchStream(sessionId: string | null) {
     };
 
     const ensureRunning = () => {
-      setState((prev) => (prev.status !== "running" ? { ...prev, status: "running" } : prev));
+      setState((prev) =>
+        prev.status !== "running" ? { ...prev, status: "running" } : prev,
+      );
     };
 
     const subagentTitleLine = (s: Subagent) =>
       `${toTitleCase(s.subagentType || "general")} Task - ${s.title || s.description || "Subagent"}`;
 
     const subagentToolLine = (tool: ToolEvent): string => {
-      const url = (tool.input as Record<string, unknown> | undefined)?.url as string | undefined;
-      const query = (tool.input as Record<string, unknown> | undefined)?.query as string | undefined;
-      if (tool.tool === "webfetch" && url) return `${toTitleCase(tool.tool)} ${url}${tool.title && tool.title !== url ? ` (${tool.title})` : ""}`.trim();
-      if (tool.tool === "websearch" && query) return `${toTitleCase(tool.tool)} ${tool.title || query}`.trim();
+      const url = (tool.input as Record<string, unknown> | undefined)?.url as
+        | string
+        | undefined;
+      const query = (tool.input as Record<string, unknown> | undefined)
+        ?.query as string | undefined;
+      if (tool.tool === "webfetch" && url)
+        return `${toTitleCase(tool.tool)} ${url}${tool.title && tool.title !== url ? ` (${tool.title})` : ""}`.trim();
+      if (tool.tool === "websearch" && query)
+        return `${toTitleCase(tool.tool)} ${tool.title || query}`.trim();
       return tool.title ?? toTitleCase(tool.tool);
     };
 
@@ -149,11 +158,17 @@ export function useResearchStream(sessionId: string | null) {
       const parentSubagent = Object.values(prevSubagents).find(
         (s) => s.id === id,
       );
-      const isChildTool = !!tool.sessionId && Object.values(prevSubagents).some((s) => s.childSessionId === tool.sessionId);
+      const isChildTool =
+        !!tool.sessionId &&
+        Object.values(prevSubagents).some(
+          (s) => s.childSessionId === tool.sessionId,
+        );
 
       if (status === "running") {
         if (isChildTool) {
-          const parent = Object.values(prevSubagents).find((s) => s.childSessionId === tool.sessionId);
+          const parent = Object.values(prevSubagents).find(
+            (s) => s.childSessionId === tool.sessionId,
+          );
           if (parent) {
             const segId = toolSegmentsRef.current[parent.id];
             if (segId) {
@@ -177,7 +192,9 @@ export function useResearchStream(sessionId: string | null) {
           return;
         } else {
           if (isChildTool) {
-            const parent = Object.values(prevSubagents).find((s) => s.childSessionId === tool.sessionId);
+            const parent = Object.values(prevSubagents).find(
+              (s) => s.childSessionId === tool.sessionId,
+            );
             if (parent) {
               const segId = toolSegmentsRef.current[parent.id];
               if (segId) {
@@ -186,7 +203,10 @@ export function useResearchStream(sessionId: string | null) {
                 const toolLine = subagentToolLine(tool);
                 const prefix = tool.status === "error" ? "✗" : "✓";
                 // keep ∴ while parent still running, show last tool with status
-                replaceSegment(segId, `∴ ${link}\n↳ ${toolLine}${tool.status === "error" ? ` · ${tool.error}` : ""}`);
+                replaceSegment(
+                  segId,
+                  `∴ ${link}\n↳ ${toolLine}${tool.status === "error" ? ` · ${tool.error}` : ""}`,
+                );
               }
             }
             return;
@@ -200,14 +220,19 @@ export function useResearchStream(sessionId: string | null) {
         }
       } else if (status === "error") {
         if (isChildTool) {
-          const parent = Object.values(prevSubagents).find((s) => s.childSessionId === tool.sessionId);
+          const parent = Object.values(prevSubagents).find(
+            (s) => s.childSessionId === tool.sessionId,
+          );
           if (parent) {
             const segId = toolSegmentsRef.current[parent.id];
             if (segId) {
               const titleLine = subagentTitleLine(parent);
               const link = subagentLink(titleLine, parent.childSessionId);
               const toolLine = subagentToolLine(tool);
-              replaceSegment(segId, `∴ ${link}\n↳ ✗ ${toolLine}: ${tool.error ?? "error"}`);
+              replaceSegment(
+                segId,
+                `∴ ${link}\n↳ ✗ ${toolLine}: ${tool.error ?? "error"}`,
+              );
             }
           }
           return;
@@ -301,7 +326,12 @@ export function useResearchStream(sessionId: string | null) {
       setState((prev) => {
         const lastSeg = prev.segments[prev.segments.length - 1];
         const t = (payload.title || payload.description || "").trim();
-        if (lastSeg && lastSeg.kind !== "tool" && lastSeg.kind !== "thinking" && lastSeg.text.trim() === t) {
+        if (
+          lastSeg &&
+          lastSeg.kind !== "tool" &&
+          lastSeg.kind !== "thinking" &&
+          lastSeg.text.trim() === t
+        ) {
           return { ...prev, segments: prev.segments.slice(0, -1) };
         }
         return prev;
@@ -340,14 +370,25 @@ export function useResearchStream(sessionId: string | null) {
       const segId = toolSegmentsRef.current[payload.id];
       if (!subagent || !segId) return;
       const start = subagentStartsRef.current[payload.id];
-      const durationMs = payload.durationMs ?? (start ? Date.now() - start : undefined);
+      const durationMs =
+        payload.durationMs ?? (start ? Date.now() - start : undefined);
       const toolCount = Object.values(toolsRef.current).filter(
         (t) => t.sessionId === payload.childSessionId,
       ).length;
-      const titleLine = subagentTitleLine({ ...subagent, title: payload.title, description: payload.description, subagentType: payload.subagentType } as Subagent);
+      const titleLine = subagentTitleLine({
+        ...subagent,
+        title: payload.title,
+        description: payload.description,
+        subagentType: payload.subagentType,
+      } as Subagent);
       const link = subagentLink(titleLine, payload.childSessionId);
-      const timeTaken = payload.timeTaken ?? (durationMs ? formatDuration(durationMs) : undefined);
-      replaceSegment(segId, `✓ ${link}\n↳ ${toolCount} tool${toolCount === 1 ? "" : "s"}${timeTaken ? ` · ${timeTaken}` : ""}`);
+      const timeTaken =
+        payload.timeTaken ??
+        (durationMs ? formatDuration(durationMs) : undefined);
+      replaceSegment(
+        segId,
+        `✓ ${link}\n↳ ${toolCount} tool${toolCount === 1 ? "" : "s"}${timeTaken ? ` · ${timeTaken}` : ""}`,
+      );
     });
 
     eventSource.addEventListener("job", (e) => {
@@ -358,8 +399,13 @@ export function useResearchStream(sessionId: string | null) {
         const parsed = StreamedJobSchema.safeParse(raw);
         if (!parsed.success) return;
         const job: JobPayload = {
-          id: String((raw as { id?: unknown }).id ?? `job-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`),
-          sessionId: String((raw as { sessionId?: unknown }).sessionId ?? sessionId ?? ""),
+          id: String(
+            (raw as { id?: unknown }).id ??
+              `job-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          ),
+          sessionId: String(
+            (raw as { sessionId?: unknown }).sessionId ?? sessionId ?? "",
+          ),
           seq: Number((raw as { seq?: unknown }).seq ?? 0),
           ...parsed.data,
           url: (parsed.data.url as string | null) ?? null,
@@ -371,7 +417,13 @@ export function useResearchStream(sessionId: string | null) {
         setState((prev) => {
           // dedup by title+company+url
           const key = `${job.title.toLowerCase()}|${job.company.toLowerCase()}|${(job.url ?? "").toLowerCase()}`;
-          if (prev.jobs.some((j) => `${j.title.toLowerCase()}|${j.company.toLowerCase()}|${(j.url ?? "").toLowerCase()}` === key)) {
+          if (
+            prev.jobs.some(
+              (j) =>
+                `${j.title.toLowerCase()}|${j.company.toLowerCase()}|${(j.url ?? "").toLowerCase()}` ===
+                key,
+            )
+          ) {
             return prev;
           }
           return { ...prev, jobs: [...prev.jobs, job] };
