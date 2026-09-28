@@ -49,8 +49,7 @@ export interface JobImportResponse {
   errors: JobImportError[];
 }
 
-export interface JobActionSuccess
-  extends ResponseActionSuccess<JobListing> {}
+export interface JobActionSuccess extends ResponseActionSuccess<JobListing> {}
 
 export interface JobActionError extends ResponseActionError {}
 
