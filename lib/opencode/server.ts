@@ -45,28 +45,67 @@ export async function listAvailableModels(): Promise<ModelV2Info[]> {
         .filter((m) => m.providerID.toLowerCase() !== "google");
       return merged;
     }
-  } catch {}
+  } catch (error) {
+    console.warn("[opencode] model.list failed, using fallback", error);
+  }
   return [MUSE_SPARK_1_3_FREE_INFO];
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function createResearchSession(model?: ModelRef): Promise<{ id: string } & Record<string, unknown> | undefined> {
+  // v2 create carries the model; retry once since the local server may still be cold-booting.
   if (model) {
-    try {
-      const v2client = await getOpencodeClientV2();
-      const res = await (v2client as unknown as { v2: { session: { create: (o: unknown) => Promise<{ data?: unknown }> } } }).v2.session.create({ model } as never);
-      const data = (res as { data?: unknown }).data as { id?: string } | undefined;
-      if (data?.id) return data as { id: string } & Record<string, unknown>;
-    } catch {}
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const v2client = await getOpencodeClientV2();
+        const res = await (v2client as unknown as { v2: { session: { create: (o: unknown) => Promise<{ data?: unknown }> } } }).v2.session.create({ model } as never);
+        const data = (res as { data?: unknown }).data as { id?: string } | undefined;
+        if (data?.id) return data as { id: string } & Record<string, unknown>;
+        break;
+      } catch (error) {
+        console.warn(`[opencode] v2 session.create failed (attempt ${attempt}/2)`, error);
+        if (attempt === 2) break;
+        await sleep(500 * attempt);
+      }
+    }
   }
 
-  const client = await getOpencodeClient();
-  const session = await client.session.create({
-    body: {
-      title: "Research Session",
-    },
-  });
+  // Fallback: plain v1 session. Retry — first call after idle spins up the server.
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const client = await getOpencodeClient();
+      const session = await client.session.create({
+        body: {
+          title: "Research Session",
+        },
+      });
+      if (session.data) return session.data;
+      lastError = new Error("Empty session response");
+    } catch (error) {
+      lastError = error;
+      console.warn(`[opencode] v1 session.create failed (attempt ${attempt}/3)`, error);
+    }
+    if (attempt < 3) await sleep(500 * attempt);
+  }
+  throw new Error(
+    `Failed to create OpenCode session: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  );
+}
 
-  return session.data;
+export async function deleteResearchSession(sessionId: string): Promise<void> {
+  try {
+    const client = await getOpencodeClient();
+    await (client.session as unknown as { delete: (o: unknown) => Promise<unknown> }).delete({
+      path: { id: sessionId },
+    });
+  } catch (error) {
+    // Best-effort orphan cleanup — never throw.
+    console.warn(`[opencode] session.delete failed for ${sessionId}`, error);
+  }
 }
 
 export async function sendResearchPrompt(
@@ -80,7 +119,9 @@ export async function sendResearchPrompt(
     try {
       const v2client = await getOpencodeClientV2();
       await (v2client as unknown as { v2: { session: { switchModel: (o: unknown) => Promise<unknown> } } }).v2.session.switchModel({ sessionID: sessionId, model } as never);
-    } catch {}
+    } catch (error) {
+      console.warn(`[opencode] session.switchModel failed for ${sessionId}`, error);
+    }
   }
   const client = await getOpencodeClient();
 
