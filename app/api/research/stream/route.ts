@@ -29,6 +29,20 @@ export async function GET(req: NextRequest) {
         controller.enqueue(encoder.encode(text));
       }
 
+      async function completeSearchSession() {
+        const resultCount = await db.searchResult.count({
+          where: { sessionId: dbSessionId },
+        });
+        await db.searchSession.update({
+          where: { id: dbSessionId },
+          data: {
+            status: "completed",
+            completedAt: new Date(),
+            resultCount,
+          },
+        });
+      }
+
       // resolve dbSessionId vs openCodeSessionId (supports ?sessionId=dbId or opencodeId)
       const searchSession = await db.searchSession.findFirst({
         where: { OR: [{ id: sessionId }, { openCodeSessionId: sessionId }] },
@@ -145,6 +159,7 @@ export async function GET(req: NextRequest) {
               await flush(ctx);
               flushPendingJobs(ctx);
               await flushJobPersistQueue(ctx);
+              await completeSearchSession();
               sendText(sse("message.completed", { messageId: msg.id }));
             }
             continue;
@@ -162,6 +177,7 @@ export async function GET(req: NextRequest) {
               await flush(ctx);
               flushPendingJobs(ctx);
               await flushJobPersistQueue(ctx);
+              await completeSearchSession();
               sendText(sse("status", { status: "idle" }));
             }
             continue;
@@ -186,6 +202,7 @@ export async function GET(req: NextRequest) {
         await flushJobPersistQueue(ctx);
         for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
         ctx.jobPersistTimers.clear();
+        await completeSearchSession();
         sendText(sse("done", {}));
         clearInterval(intervalId);
         controller.close();
