@@ -77,7 +77,8 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
   const [countries, setCountries] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
 
-  const selectedModel = models.find((m) => `${m.providerID}/${m.id}` === selectedModelId) ?? null;
+  const selectedModel =
+    models.find((m) => `${m.providerID}/${m.id}` === selectedModelId) ?? null;
   const availableVariants = selectedModel?.variants.map((v) => v.id) ?? [];
   const hasVariants = availableVariants.length > 0;
 
@@ -93,17 +94,32 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
           // opencode/muse-spark-1.2-contributor-free — Muse Spark 1.2 Free — variants:[]
           // Hardcoded ref is MUSE_SPARK_1_2_FREE_REF but still dynamic so user can pick others.
           const preferred =
-            data.find((m) => m.providerID === MUSE_SPARK_1_3_FREE_REF.providerID && m.id === MUSE_SPARK_1_3_FREE_REF.id) ??
-            data.find((m) => m.name === "Muse Spark 1.2 Free" && m.providerID.toLowerCase().includes("opencode")) ??
-            data.find((m) => m.id.toLowerCase().includes("muse-spark-1.2-contributor-free")) ??
+            data.find(
+              (m) =>
+                m.providerID === MUSE_SPARK_1_3_FREE_REF.providerID &&
+                m.id === MUSE_SPARK_1_3_FREE_REF.id,
+            ) ??
+            data.find(
+              (m) =>
+                m.name === "Muse Spark 1.2 Free" &&
+                m.providerID.toLowerCase().includes("opencode"),
+            ) ??
+            data.find((m) =>
+              m.id.toLowerCase().includes("muse-spark-1.2-contributor-free"),
+            ) ??
             data.find((m) => m.id.toLowerCase().includes("muse-spark")) ??
             data[0];
           setSelectedModelId(`${preferred.providerID}/${preferred.id}`);
-          const preferredVariant = preferred.variants.find((v) => v.id === "high")?.id ?? preferred.variants[0]?.id;
+          const preferredVariant =
+            preferred.variants.find((v) => v.id === "high")?.id ??
+            preferred.variants[0]?.id;
           setVariant(preferredVariant);
         }
       } catch (e) {
-        if (!cancelled) setModelsError(e instanceof Error ? e.message : "Failed to load models");
+        if (!cancelled)
+          setModelsError(
+            e instanceof Error ? e.message : "Failed to load models",
+          );
       } finally {
         if (!cancelled) setLoadingModels(false);
       }
@@ -146,7 +162,9 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
     };
     onStart?.({
       model: modelRef,
-      modelLabel: selectedModel.name.split(" — ").slice(-1)[0].trim() + (variant ? ` — ${variant}` : ""),
+      modelLabel:
+        selectedModel.name.split(" — ").slice(-1)[0].trim() +
+        (variant ? ` — ${variant}` : ""),
       jobTypes: selectedJobTypes,
       countries: countries.join(", "),
       skills: skills.join(", "),
@@ -175,13 +193,20 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
               <option>Failed to load models</option>
             ) : (
               models.map((m) => (
-                <option key={`${m.providerID}/${m.id}`} value={`${m.providerID}/${m.id}`}>
+                <option
+                  key={`${m.providerID}/${m.id}`}
+                  value={`${m.providerID}/${m.id}`}
+                >
                   {m.name}
                 </option>
               ))
             )}
           </select>
-          {modelsError ? <span className="mt-1 block text-xs text-rose-400">{modelsError}</span> : null}
+          {modelsError ? (
+            <span className="mt-1 block text-xs text-rose-400">
+              {modelsError}
+            </span>
+          ) : null}
         </label>
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-foreground-600">
@@ -197,7 +222,11 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
             {!hasVariants ? (
               <option value="">No variant (default)</option>
             ) : (
-              availableVariants.map((v) => <option key={v} value={v}>{v}</option>)
+              availableVariants.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))
             )}
           </select>
         </label>
