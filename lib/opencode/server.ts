@@ -1,5 +1,5 @@
 import type { ModelRef, ModelV2Info } from "../types/opencode";
-import { MUSE_SPARK_1_2_FREE_INFO } from "../types/opencode";
+import { MUSE_SPARK_1_3_FREE_INFO } from "../types/opencode";
 import { getOpencodeClient, getOpencodeClientV2 } from "./client";
 import { RESEARCH_SYSTEM_PROMPT } from "./prompts";
 
@@ -46,7 +46,7 @@ export async function listAvailableModels(): Promise<ModelV2Info[]> {
       return merged;
     }
   } catch {}
-  return [MUSE_SPARK_1_2_FREE_INFO];
+  return [MUSE_SPARK_1_3_FREE_INFO];
 }
 
 export async function createResearchSession(model?: ModelRef): Promise<{ id: string } & Record<string, unknown> | undefined> {
