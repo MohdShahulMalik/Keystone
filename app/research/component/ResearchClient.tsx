@@ -12,9 +12,10 @@ import { JobListingCard } from "@/components/cards/listings";
 import { useResearchStream } from "@/hooks/useResearchStream";
 import type { JobPayload } from "@/lib/research/job-schema";
 import type { JobListing } from "@/lib/types/jobs";
+import type { TextSegment } from "@/lib/types/research";
 import type { JobStatus } from "@/lib/types/status";
-import { getSearchSessionByAnyId } from "@/app/actions/search";
-import { SearchSession } from "@/app/generated/prisma";
+import { getSearchSessionByAnyId, getSearchSessionHistory } from "@/app/actions/search";
+import type { SearchSession } from "@/app/generated/prisma";
 
 type ResearchClientProps = {
   mode: "job" | "dsa";
@@ -63,34 +64,104 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Session is driven by the URL: the agent response view only renders when
-  // the path contains a `sessionId` query param.
-  const openCodeSessionId = searchParams.get("sessionId");
-  const [check, setCheck] = useState<"checking" | "found" | "not-found">("checking");
+  // the path contains a `sessionId` query param. Accepts DB id (sidebar)
+  // or legacy openCodeSessionId (old form links) — resolved via
+  // getSearchSessionByAnyId.
+  const urlSessionId = searchParams.get("sessionId");
+  const [check, setCheck] = useState<"idle" | "checking" | "found" | "not-found">(
+    urlSessionId ? "checking" : "idle",
+  );
   const [session, setSession] = useState<SearchSession | null>(null);
-
-  useEffect(() => {
-    if (!openCodeSessionId) {
-      return;
-    }
-    setCheck("checking");
-    getSearchSessionByAnyId(openCodeSessionId).then((session) => {
-      if (session) {
-        setSession(session);
-        setCheck("found");
-      } else {
-        setCheck("not-found");
-      }
-    });
-  }, [openCodeSessionId]);
-
+  const [historySegments, setHistorySegments] = useState<TextSegment[]>([]);
+  const [historyJobs, setHistoryJobs] = useState<JobPayload[]>([]);
   const [userPreferences, setUserPreferences] =
     useState<UserPreferences | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
-
-  const { status, segments, jobs, error, reset } =
-    useResearchStream(check === "found" && session?.status === "running" || check === "not-found"? openCodeSessionId : null);
-
   const [visibleCount, setVisibleCount] = useState(20);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!urlSessionId) {
+      setCheck("idle");
+      setSession(null);
+      setHistorySegments([]);
+      setHistoryJobs([]);
+      return;
+    }
+
+    setCheck("checking");
+    (async () => {
+      try {
+        const s = await getSearchSessionByAnyId(urlSessionId);
+        if (cancelled) return;
+        if (!s) {
+          setCheck("not-found");
+          setSession(null);
+          setHistorySegments([]);
+          setHistoryJobs([]);
+          return;
+        }
+
+        setSession(s);
+        const h = await getSearchSessionHistory(s.id);
+        if (cancelled) return;
+        setHistorySegments(
+          h.segments.map((r) => ({
+            id: `db-${r.seq}`,
+            text: r.text,
+            kind: r.kind as TextSegment["kind"],
+          })),
+        );
+
+        setHistoryJobs(
+          h.results.map((r, i) => {
+            const j = r.jobListingJson as unknown as JobPayload;
+            return {
+              ...j,
+              id: String(j.id ?? `${s.id}-db-${i}`),
+              sessionId: String(j.sessionId ?? s.openCodeSessionId),
+              seq: Number(j.seq ?? i),
+            };
+          }),
+        );
+        setCheck("found");
+      } catch (err) {
+        if (!cancelled) {
+          setCheck("not-found");
+          setStartError(
+            err instanceof Error ? err.message : "Failed to load session",
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlSessionId]);
+
+  const isRunningDb = check === "found" && session?.status === "running";
+  const streamId = isRunningDb && session ? session.openCodeSessionId : null;
+  const live = useResearchStream(streamId, {
+    segments: historySegments,
+    jobs: historyJobs,
+  });
+
+  // Hook seeds DB history, then appends live tail. Completed/failed:
+  // streamId is null so live holds DB only. Running: live holds
+  // DB seed + new SSE events (job dedupe happens inside the hook).
+  const liveStatus = live.status;
+  const status = isRunningDb
+    ? liveStatus === "idle"
+      ? "connecting"
+      : liveStatus
+    : check === "found"
+      ? session?.status === "failed"
+        ? "error"
+        : "completed"
+      : liveStatus;
+  const segments = live.segments;
+  const jobs = live.jobs;
   const listings: JobListing[] = jobs.map(toJobListing);
   const visibleListings = listings.slice(0, visibleCount);
   const hasMore = listings.length > visibleCount;
@@ -99,13 +170,16 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
   const startResearchHandler = async (preferences: UserPreferences) => {
     setUserPreferences(preferences);
     setStartError(null);
-    reset();
+    live.reset();
+    setHistorySegments([]);
+    setHistoryJobs([]);
+    setVisibleCount(20);
 
     try {
       const skills = toList(preferences.skills);
       const countries = toList(preferences.countries);
 
-      const { openCodeSessionId: newSessionId } = await startResearch({
+      const { sessionId: newDbSessionId } = await startResearch({
         jobTypes:
           preferences.jobTypes.length > 0 ? preferences.jobTypes : ["Any"],
         countries: countries.length > 0 ? countries : ["Current"],
@@ -113,7 +187,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         notes: preferences.notes || undefined,
         model: preferences.model,
       });
-      router.replace(`?sessionId=${newSessionId}`);
+      router.replace(`?sessionId=${newDbSessionId}`);
     } catch (err) {
       setStartError(
         err instanceof Error ? err.message : "Failed to start research",
@@ -121,16 +195,21 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
     }
   };
 
-  const started = openCodeSessionId !== null;
-  const displayError = startError ?? error;
+  const started = urlSessionId !== null;
+  const displayError = startError ?? live.error;
 
-  return (
-    <div className="mx-auto max-w-3xl">
-      {!started ? (
+  if (!started || check === "idle" || check === "not-found") {
+    return (
+      <div className="mx-auto max-w-3xl">
         <section
           className="rounded-2xl border border-stroke bg-surface-700 p-5 shadow-lg sm:p-7"
           aria-label={`${label} configuration`}
         >
+          {check === "not-found" ? (
+            <p className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/15 px-4 py-2 text-sm text-amber-400">
+              Session not found. Start a new research below.
+            </p>
+          ) : null}
           {startError ? (
             <p className="mb-4 rounded-lg border border-rose-500/30 bg-rose-500/15 px-4 py-2 text-sm text-rose-400">
               {startError}
@@ -138,7 +217,20 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
           ) : null}
           <ResearchForm researchType={mode} onStart={startResearchHandler} />
         </section>
-      ) : (
+      </div>
+    );
+  }
+
+  if (check === "checking") {
+    return (
+      <div className="mx-auto max-w-3xl animate-pulse rounded-2xl border border-stroke bg-surface-800 p-7 text-sm text-foreground-600-subtle">
+        Loading session…
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl">
         <div className="space-y-8">
           <div className="flex items-center">
             <span
@@ -278,7 +370,6 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             </section>
           ) : null}
         </div>
-      )}
     </div>
   );
 }
