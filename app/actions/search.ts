@@ -38,3 +38,21 @@ export async function getSearchSessionByAnyId(
 
   return session;
 }
+
+export async function getSearchSessionHistory(
+  dbSessionId: string
+) {
+  const [segments, results] = await Promise.all([
+    db.researchSegment.findMany({
+      select: {seq: true, kind: true, text: true, toolId: true, timeTaken: true },
+      where: {sessionId: dbSessionId},
+      orderBy: {seq: "asc"},
+    }),
+    db.searchResult.findMany({
+      select: { id: true, jobListingJson: true },
+      where: { sessionId: dbSessionId }
+    })
+  ]);
+
+  return { segments, results }
+}
