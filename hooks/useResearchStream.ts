@@ -76,7 +76,10 @@ function uniqueId(): string {
   return `seg-${++segmentCounter}-${Date.now()}`;
 }
 
-export function useResearchStream(sessionId: string | null) {
+export function useResearchStream(
+  sessionId: string | null,
+  initial?: { segments?: ResearchSession["segments"]; jobs?: JobPayload[] },
+) {
   const [state, setState] = useState<ResearchSession>(initialState);
   const thinkingIdRef = useRef<string | null>(null);
   const inThinkingRef = useRef(false);
@@ -85,18 +88,41 @@ export function useResearchStream(sessionId: string | null) {
   const subagentsRef = useRef<Record<string, Subagent>>({});
   const subagentStartsRef = useRef<Record<string, number>>({});
 
-  useEffect(() => {
-    if (!sessionId) return;
+  const seedSegments = initial?.segments ?? [];
+  const seedJobs = initial?.jobs ?? [];
+  const seedSegLen = seedSegments.length;
+  const seedJobLen = seedJobs.length;
 
+  // Seed from DB history: runs once per sessionId / history load, before
+  // live SSE appends. Server creates a fresh seq map per SSE connection
+  // (route.ts), so we append live on top of DB instead of seq-filtering.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seed by length only to avoid refires on array identity
+  useEffect(() => {
     inThinkingRef.current = false;
     thinkingIdRef.current = null;
     toolsRef.current = {};
     toolSegmentsRef.current = {};
     subagentsRef.current = {};
     subagentStartsRef.current = {};
+    setState({
+      status:
+        seedSegLen > 0 || seedJobLen > 0
+          ? sessionId
+            ? "connecting"
+            : "completed"
+          : sessionId
+            ? "connecting"
+            : "idle",
+      segments: seedSegments,
+      jobs: seedJobs,
+    });
+  }, [sessionId, seedSegLen, seedJobLen]);
+
+  useEffect(() => {
+    if (!sessionId) return;
 
     const eventSource = new EventSource(
-      `/api/research/stream?sessionId=${sessionId}`,
+      `/api/research/stream?sessionId=${encodeURIComponent(sessionId)}`,
     );
 
     const appendSegment = (
