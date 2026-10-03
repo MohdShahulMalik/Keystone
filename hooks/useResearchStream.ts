@@ -7,11 +7,14 @@ import type {
   MessageCompletedPayload,
   ResearchSession,
   ResearchStatus,
+  SequencedSegment,
   StatusPayload,
   Subagent,
   SubagentChunkPayload,
   SubagentCompletedPayload,
+  SubagentLive,
   SubagentStartedPayload,
+  SubagentThinkingPayload,
   ThinkingPayload,
   ToolEvent,
 } from "@/lib/types/research";
@@ -22,7 +25,21 @@ const initialState: ResearchSession = {
   jobs: [],
 };
 
-const SUBAGENT_ROUTE = "/research/job";
+// Text/thinking deltas are emitted with the pre-increment seq (server persists
+// the segment at seq + 1), so persisted/live segments line up at seq + 1.
+function liveSeq(seq: number | undefined): number {
+  return (seq ?? 0) + 1;
+}
+
+export function parseSubagentIdFromHref(href: string): string | null {
+  const match = /[?&]subagentId=([^&]+)/.exec(href);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
 
 function normalizeStatus(raw: unknown): ResearchStatus | null {
   if (
@@ -67,8 +84,16 @@ function webfetchDisplay(tool: ToolEvent): string {
   return tool.title ?? name;
 }
 
-function subagentLink(text: string, childSessionId: string): string {
-  return `[${text}](${SUBAGENT_ROUTE}?sessionId=${encodeURIComponent(childSessionId)})`;
+function subagentLink(
+  text: string,
+  childSessionId: string,
+  mode: string,
+  parentSessionId: string | null,
+): string {
+  const params = new URLSearchParams();
+  if (parentSessionId) params.set("sessionId", parentSessionId);
+  params.set("subagentId", childSessionId);
+  return `[${text}](/research/${mode}?${params.toString()})`;
 }
 
 let segmentCounter = 0;
@@ -79,8 +104,12 @@ function uniqueId(): string {
 export function useResearchStream(
   sessionId: string | null,
   initial?: { segments?: ResearchSession["segments"]; jobs?: JobPayload[] },
+  options?: { mode?: "job" | "dsa" },
 ) {
   const [state, setState] = useState<ResearchSession>(initialState);
+  const [subagentLive, setSubagentLive] = useState<
+    Record<string, SubagentLive>
+  >({});
   const thinkingIdRef = useRef<string | null>(null);
   const inThinkingRef = useRef(false);
   const toolsRef = useRef<Record<string, ToolEvent>>({});
@@ -88,10 +117,52 @@ export function useResearchStream(
   const subagentsRef = useRef<Record<string, Subagent>>({});
   const subagentStartsRef = useRef<Record<string, number>>({});
 
+  const mode = options?.mode ?? "job";
+
   const seedSegments = initial?.segments ?? [];
   const seedJobs = initial?.jobs ?? [];
   const seedSegLen = seedSegments.length;
   const seedJobLen = seedJobs.length;
+
+  // text/thinking deltas append into the segment at their live seq; tool
+  // events replace the segment at their own seq (server already bumps ctx.seq
+  // before persisting tools, so tool seq needs no offset).
+  const upsertSubagentSegment = useCallback(
+    (
+      childSessionId: string,
+      seq: number,
+      kind: SequencedSegment["kind"],
+      text: string,
+      merge: "append" | "replace",
+    ) => {
+      setSubagentLive((prev) => {
+        const existing = prev[childSessionId];
+        if (!existing) return prev;
+        const segments = [...existing.segments];
+        const at = segments.findIndex((s) => s.seq === seq);
+        if (at === -1) {
+          segments.push({
+            id: `live-${childSessionId}-${seq}`,
+            seq,
+            kind,
+            text,
+          });
+        } else if (merge === "replace") {
+          segments[at] = { ...segments[at], kind, text };
+        } else if (text) {
+          segments[at] = { ...segments[at], text: segments[at].text + text };
+        } else {
+          return prev;
+        }
+        segments.sort((a, b) => a.seq - b.seq);
+        return {
+          ...prev,
+          [childSessionId]: { ...existing, segments },
+        };
+      });
+    },
+    [],
+  );
 
   // Seed from DB history: runs once per sessionId / history load, before
   // live SSE appends. Server creates a fresh seq map per SSE connection
@@ -104,6 +175,7 @@ export function useResearchStream(
     toolSegmentsRef.current = {};
     subagentsRef.current = {};
     subagentStartsRef.current = {};
+    setSubagentLive({});
     setState({
       status:
         seedSegLen > 0 || seedJobLen > 0
@@ -180,6 +252,30 @@ export function useResearchStream(
         [id]: { ...(toolsRef.current[id] ?? tool), ...tool, status },
       };
 
+      // child-session tools belong to the subagent's own transcript: mirror
+      // them into its live segments so the subagent view updates in place.
+      const childForTool = tool.sessionId
+        ? Object.values(subagentsRef.current).find(
+            (s) => s.childSessionId === tool.sessionId,
+          )
+        : undefined;
+      if (childForTool && tool.seq !== undefined) {
+        const base = subagentToolLine(tool);
+        const text =
+          status === "completed"
+            ? `✓ ${base}${tool.durationMs ? ` (${formatDuration(tool.durationMs)})` : ""}`
+            : status === "error"
+              ? `✗ ${base}: ${tool.error ?? "error"}`
+              : base;
+        upsertSubagentSegment(
+          childForTool.childSessionId,
+          tool.seq,
+          "tool",
+          text,
+          "replace",
+        );
+      }
+
       const prevSubagents = subagentsRef.current;
       const parentSubagent = Object.values(prevSubagents).find(
         (s) => s.id === id,
@@ -199,7 +295,12 @@ export function useResearchStream(
             const segId = toolSegmentsRef.current[parent.id];
             if (segId) {
               const titleLine = subagentTitleLine(parent);
-              const link = subagentLink(titleLine, parent.childSessionId);
+              const link = subagentLink(
+                titleLine,
+                parent.childSessionId,
+                mode,
+                sessionId,
+              );
               const toolLine = subagentToolLine(tool);
               replaceSegment(segId, `∴ ${link}\n↳ ${toolLine}`);
             }
@@ -225,7 +326,12 @@ export function useResearchStream(
               const segId = toolSegmentsRef.current[parent.id];
               if (segId) {
                 const titleLine = subagentTitleLine(parent);
-                const link = subagentLink(titleLine, parent.childSessionId);
+                const link = subagentLink(
+                  titleLine,
+                  parent.childSessionId,
+                  mode,
+                  sessionId,
+                );
                 const toolLine = subagentToolLine(tool);
                 const prefix = tool.status === "error" ? "✗" : "✓";
                 // keep ∴ while parent still running, show last tool with status
@@ -253,7 +359,12 @@ export function useResearchStream(
             const segId = toolSegmentsRef.current[parent.id];
             if (segId) {
               const titleLine = subagentTitleLine(parent);
-              const link = subagentLink(titleLine, parent.childSessionId);
+              const link = subagentLink(
+                titleLine,
+                parent.childSessionId,
+                mode,
+                sessionId,
+              );
               const toolLine = subagentToolLine(tool);
               replaceSegment(
                 segId,
@@ -347,6 +458,18 @@ export function useResearchStream(
         [payload.id]: subagent,
       };
       subagentStartsRef.current[payload.id] = Date.now();
+      setSubagentLive((prev) => ({
+        ...prev,
+        [payload.childSessionId]: {
+          id: payload.id,
+          childSessionId: payload.childSessionId,
+          title: payload.title,
+          description: payload.description,
+          subagentType: payload.subagentType,
+          status: "running",
+          segments: [],
+        },
+      }));
 
       // remove redundant plain text that is exactly the subagent title (e.g. "Search LinkedIn Rust jobs" before the formatted subagent block)
       setState((prev) => {
@@ -364,15 +487,29 @@ export function useResearchStream(
       });
 
       const titleLine = subagentTitleLine(subagent);
-      const link = subagentLink(titleLine, payload.childSessionId);
+      const link = subagentLink(
+        titleLine,
+        payload.childSessionId,
+        mode,
+        sessionId,
+      );
       const segId = appendSegment(`∴ ${link}\n↳ Starting...`, "tool");
       toolSegmentsRef.current[payload.id] = segId;
     });
 
     eventSource.addEventListener("subagent.chunk", (e) => {
-      const { id, childSessionId, text } = JSON.parse(
+      const { id, childSessionId, text, seq } = JSON.parse(
         e.data,
       ) as SubagentChunkPayload;
+      if (text) {
+        upsertSubagentSegment(
+          childSessionId,
+          liveSeq(seq),
+          "text",
+          text,
+          "append",
+        );
+      }
       const key = id || childSessionId;
       const target = subagentsRef.current[key]
         ? key
@@ -390,8 +527,36 @@ export function useResearchStream(
       }
     });
 
+    eventSource.addEventListener("subagent.thinking", (e) => {
+      const { childSessionId, text, seq } = JSON.parse(
+        e.data,
+      ) as SubagentThinkingPayload;
+      if (!text) return;
+      upsertSubagentSegment(
+        childSessionId,
+        liveSeq(seq),
+        "thinking",
+        text,
+        "append",
+      );
+    });
+
     eventSource.addEventListener("subagent.completed", (e) => {
       const payload = JSON.parse(e.data) as SubagentCompletedPayload;
+      setSubagentLive((prev) => {
+        const existing = prev[payload.childSessionId];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [payload.childSessionId]: {
+            ...existing,
+            status: "completed",
+            title: payload.title ?? existing.title,
+            description: payload.description ?? existing.description,
+            subagentType: payload.subagentType ?? existing.subagentType,
+          },
+        };
+      });
       const subagent = subagentsRef.current[payload.id];
       const segId = toolSegmentsRef.current[payload.id];
       if (!subagent || !segId) return;
@@ -407,7 +572,12 @@ export function useResearchStream(
         description: payload.description,
         subagentType: payload.subagentType,
       } as Subagent);
-      const link = subagentLink(titleLine, payload.childSessionId);
+      const link = subagentLink(
+        titleLine,
+        payload.childSessionId,
+        mode,
+        sessionId,
+      );
       const timeTaken =
         payload.timeTaken ??
         (durationMs ? formatDuration(durationMs) : undefined);
@@ -500,7 +670,7 @@ export function useResearchStream(
     return () => {
       eventSource.close();
     };
-  }, [sessionId]);
+  }, [sessionId, mode, upsertSubagentSegment]);
 
   const reset = useCallback(() => {
     inThinkingRef.current = false;
@@ -509,8 +679,9 @@ export function useResearchStream(
     toolSegmentsRef.current = {};
     subagentsRef.current = {};
     subagentStartsRef.current = {};
+    setSubagentLive({});
     setState(initialState);
   }, []);
 
-  return { ...state, reset };
+  return { ...state, subagents: subagentLive, reset };
 }
