@@ -17,6 +17,7 @@ export interface ToolEvent {
   outputPreview?: string;
   error?: string;
   sessionId?: string;
+  seq?: number;
 }
 
 export interface Subagent {
@@ -26,6 +27,23 @@ export interface Subagent {
   description?: string;
   subagentType?: string;
   text: string;
+}
+
+export interface SequencedSegment extends TextSegment {
+  seq: number;
+}
+
+// Live state for one child (subagent) session, harvested from the parent
+// stream's subagent.* / child tool.* events. Used by the subagent view to
+// extend the persisted SubagentSegment history without a second SSE connection.
+export interface SubagentLive {
+  id: string;
+  childSessionId: string;
+  title: string;
+  description?: string;
+  subagentType?: string;
+  status: "running" | "completed";
+  segments: SequencedSegment[];
 }
 
 import type { JobPayload } from "@/lib/research/job-schema";
@@ -73,6 +91,15 @@ export interface SubagentChunkPayload {
   id: string;
   childSessionId: string;
   text: string;
+  seq?: number;
+}
+
+export interface SubagentThinkingPayload {
+  id: string;
+  childSessionId: string;
+  text: string;
+  done: boolean;
+  seq?: number;
 }
 
 export interface SubagentCompletedPayload {
