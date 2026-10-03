@@ -10,18 +10,22 @@ const modeLabels: Record<string, string> = {
 
 export default async function ResearchPage({
   params,
+  searchParams,
 }: PageProps<"/research/[mode]">) {
   const { mode } = await params;
   if (mode !== "job" && mode !== "dsa") notFound();
 
   const userId = "maxum";
   const sessions = await getSearchSessionsWithMetaData(userId, mode);
+  const { sessionId } = await searchParams;
+  const activeSessionId: string | undefined =
+    typeof sessionId === "string" ? sessionId : undefined;
 
   return (
     <div className="min-h-screen bg-surface-900 text-foreground-900 lg:flex">
       <ResearchSessionSidebar
         sessions={sessions}
-        activeSessionId={undefined}
+        activeSessionId={activeSessionId}
         title={modeLabels[mode]}
         mode={mode}
       />
