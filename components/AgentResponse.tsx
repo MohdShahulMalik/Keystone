@@ -1,30 +1,54 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Streamdown } from "streamdown";
+import { parseSubagentIdFromHref } from "@/hooks/useResearchStream";
 import type { ResearchStatus, TextSegment } from "@/lib/types/research";
 
-const streamdownLink = {
-  a: ({
-    href,
-    children,
-    node: _node,
-    ...rest
-  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => {
-    if (href?.startsWith("/")) {
+// When provided, subagent links render as in-place selections instead of
+// navigations so the parent research stream stays connected (no second
+// EventSource, no reload) while the subagent view is shown.
+function makeLinkComponents(
+  onSelectSubagent?: (childSessionId: string) => void,
+): React.ComponentProps<typeof Streamdown>["components"] {
+  return {
+    a: ({
+      href,
+      children,
+      node: _node,
+      ...rest
+    }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => {
+      const childSessionId = href ? parseSubagentIdFromHref(href) : null;
+      if (onSelectSubagent && childSessionId) {
+        return (
+          <a
+            href={href}
+            {...rest}
+            onClick={(e) => {
+              e.preventDefault();
+              onSelectSubagent(childSessionId);
+            }}
+          >
+            {children}
+          </a>
+        );
+      }
+      if (href?.startsWith("/")) {
+        return (
+          <Link href={href as string} {...rest}>
+            {children}
+          </Link>
+        );
+      }
       return (
-        <Link href={href as string} {...rest}>
+        <a href={href} {...rest}>
           {children}
-        </Link>
+        </a>
       );
-    }
-    return (
-      <a href={href} {...rest}>
-        {children}
-      </a>
-    );
-  },
-} as React.ComponentProps<typeof Streamdown>["components"];
+    },
+  } as React.ComponentProps<typeof Streamdown>["components"];
+}
 
 function JumpingDots() {
   return (
@@ -39,7 +63,13 @@ function JumpingDots() {
   );
 }
 
-function SegmentStream({ segments }: { segments: TextSegment[] }) {
+function SegmentStream({
+  segments,
+  components,
+}: {
+  segments: TextSegment[];
+  components: React.ComponentProps<typeof Streamdown>["components"];
+}) {
   const blocks: React.ReactNode[] = [];
   let markdown = "";
 
@@ -52,7 +82,7 @@ function SegmentStream({ segments }: { segments: TextSegment[] }) {
         key={key}
         className="text-sm leading-relaxed text-foreground-600 [&_a]:text-accent [&_a]:underline [&_code]:font-mono [&_code]:text-accent [&_h1]:text-foreground-900 [&_h2]:text-foreground-900 [&_h3]:text-foreground-900 [&_h4]:text-foreground-900 [&_strong]:text-foreground-900 [&_table]:text-xs"
       >
-        <Streamdown components={streamdownLink}>{content}</Streamdown>
+        <Streamdown components={components}>{content}</Streamdown>
       </div>,
     );
   };
@@ -74,7 +104,7 @@ function SegmentStream({ segments }: { segments: TextSegment[] }) {
           className="rounded-r-lg border-l-2 border-info/40 bg-surface-700/40 px-3 py-2 text-xs italic leading-relaxed text-foreground-600-subtle"
         >
           <span className="font-semibold not-italic text-info">Thinking:</span>{" "}
-          <Streamdown components={streamdownLink}>{segment.text}</Streamdown>
+          <Streamdown components={components}>{segment.text}</Streamdown>
         </div>,
       );
       return;
@@ -88,7 +118,7 @@ function SegmentStream({ segments }: { segments: TextSegment[] }) {
           key={segment.id}
           className={`rounded-r-md border-l-2 ${toolTone(segment.text)} bg-surface-800 px-3 py-1.5 font-mono text-xs text-foreground-600-subtle [&_a]:text-accent [&_a]:underline [&_p]:my-0 [&_p]:whitespace-pre-wrap ${running ? "animate-pulse" : ""}`}
         >
-          <Streamdown components={streamdownLink}>{segment.text}</Streamdown>
+          <Streamdown components={components}>{segment.text}</Streamdown>
         </div>,
       );
       return;
@@ -105,17 +135,28 @@ type AgentResponseProps = {
   segments: TextSegment[];
   status: ResearchStatus;
   error?: string | null;
+  // Called instead of navigating when a subagent link is clicked.
+  onSelectSubagent?: (childSessionId: string) => void;
 };
 
-export function AgentResponse({ segments, status, error }: AgentResponseProps) {
+export function AgentResponse({
+  segments,
+  status,
+  error,
+  onSelectSubagent,
+}: AgentResponseProps) {
   const isStreaming = status === "running" || status === "connecting";
+  const components = useMemo(
+    () => makeLinkComponents(onSelectSubagent),
+    [onSelectSubagent],
+  );
   return (
     <div className="flex justify-start">
       <div className="max-w-2xl">
         <div className="text-sm leading-relaxed text-foreground-600">
           {segments.length > 0 ? (
             <>
-              <SegmentStream segments={segments} />
+              <SegmentStream segments={segments} components={components} />
               {isStreaming ? (
                 <span className="mt-3 inline-block">
                   <JumpingDots />
