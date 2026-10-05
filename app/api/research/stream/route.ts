@@ -1,249 +1,183 @@
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { subscribeToEvents } from "@/lib/opencode/server";
-import {
-  flush,
-  flushJobPersistQueue,
-  flushPendingJobs,
-  handlePartDelta,
-  handlePartUpdated,
-  type SegmentKind,
-  type StreamCtx,
-  type StreamEvent,
-  sse,
-} from "@/lib/research/stream";
+import { ensureStarted, register, subscribe } from "@/lib/research/event-hub";
+import { sse } from "@/lib/research/stream";
 
 export async function GET(req: NextRequest) {
   const sessionId = req.nextUrl.searchParams.get("sessionId");
   if (!sessionId) {
     return new Response("Missing sessionId parameter", { status: 400 });
   }
+  const sinceSeqRaw = req.nextUrl.searchParams.get("sinceSeq");
+  const sinceSeq = sinceSeqRaw ? Number.parseInt(sinceSeqRaw, 10) : 0;
+  const since = Number.isFinite(sinceSeq) && sinceSeq > 0 ? sinceSeq : 0;
+
+  // Resolve dbSessionId vs openCodeSessionId (supports ?sessionId=dbId or opencodeId)
+  const searchSession = await db.searchSession.findFirst({
+    where: { OR: [{ id: sessionId }, { openCodeSessionId: sessionId }] },
+  });
+  const dbSessionId = searchSession?.id ?? sessionId;
+  const openCodeSessionId = searchSession?.openCodeSessionId ?? sessionId;
+  const userId = searchSession?.userId ?? "maxum";
+
+  // Lazy-boot the singleton hub (covers dev + HMR with no extra config)
+  // and make sure this session is registered even if the action predates
+  // the hub or the dev server restarted.
+  try {
+    await ensureStarted();
+    await register(dbSessionId, openCodeSessionId, userId);
+  } catch (error) {
+    console.error("[research-stream] hub boot failed", error);
+  }
 
   const encoder = new TextEncoder();
+  let cleanup: (() => void) | null = null;
   const stream = new ReadableStream({
     async start(controller) {
-      const eventsStream = await subscribeToEvents();
-      const childSessions = new Map<string, string>();
-
+      let closed = false;
+      let replaying = true;
+      const liveBuffer: string[] = [];
       function sendText(text: string) {
-        controller.enqueue(encoder.encode(text));
+        if (closed) return;
+        if (replaying) {
+          liveBuffer.push(text);
+          return;
+        }
+        try {
+          controller.enqueue(encoder.encode(text));
+        } catch {
+          closed = true;
+        }
       }
+      const unsubscribe = subscribe(dbSessionId, sendText);
 
-      async function completeSearchSession() {
-        const resultCount = await db.searchResult.count({
-          where: { sessionId: dbSessionId },
-        });
-        await db.searchSession.update({
-          where: { id: dbSessionId },
-          data: {
-            status: "completed",
-            completedAt: new Date(),
-            resultCount,
-          },
-        });
+      function push(text: string) {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(text));
+        } catch {
+          closed = true;
+        }
       }
-
-      // resolve dbSessionId vs openCodeSessionId (supports ?sessionId=dbId or opencodeId)
-      const searchSession = await db.searchSession.findFirst({
-        where: { OR: [{ id: sessionId }, { openCodeSessionId: sessionId }] },
-      });
-      const dbSessionId = searchSession?.id ?? sessionId;
-      const openCodeSessionId = searchSession?.openCodeSessionId ?? sessionId;
-      const userId = searchSession?.userId ?? "maxum";
-
-      const ctx: StreamCtx = {
-        sessionId: openCodeSessionId,
-        dbSessionId,
-        userId,
-        childSessions,
-        buffers: { chunk: "", thinking: "" },
-        parts: new Map(),
-        pendingDeltas: new Map(),
-        emittedTools: new Set(),
-        send: sendText,
-        openSegments: new Map(),
-        seq: new Map(),
-        lastSent: new Map(),
-        pendingTools: new Map(),
-        jobBuffers: new Map(),
-        jobSeq: new Map(),
-        emittedJobKeys: new Set(),
-        jobPersistQueue: new Map(),
-        jobPersistTimers: new Map(),
-        persist: async (
-          sid: string,
-          kind: SegmentKind,
-          text: string,
-          toolId?: string,
-          timeTaken?: string,
-        ) => {
-          const seq = ctx.seq.get(sid) ?? 0;
-          const isChild = ctx.childSessions.has(sid);
-          try {
-            if (isChild) {
-              await db.subagentSegment.create({
-                data: { sessionId: sid, seq, kind, text, toolId, timeTaken },
-              });
-            } else {
-              await db.researchSegment.create({
-                data: {
-                  sessionId: dbSessionId,
-                  seq,
-                  kind,
-                  text,
-                  toolId,
-                  timeTaken,
-                },
-              });
-            }
-          } catch {
-            // ignore duplicate seq races - will be retried on next commit
-          }
-        },
-        persistToolUpdate: async (
-          sid: string,
-          seq: number,
-          text: string,
-          toolId: string,
-          timeTaken?: string,
-        ) => {
-          const isChild = ctx.childSessions.has(sid);
-          try {
-            if (isChild) {
-              await db.subagentSegment.update({
-                where: { sessionId_seq: { sessionId: sid, seq } },
-                data: { text, timeTaken },
-              });
-            } else {
-              await db.researchSegment.update({
-                where: { sessionId_seq: { sessionId: dbSessionId, seq } },
-                data: { text, timeTaken },
-              });
-            }
-          } catch {
-            // if update fails (row not found), fallback to create
-            try {
-              if (isChild) {
-                await db.subagentSegment.create({
-                  data: {
-                    sessionId: sid,
-                    seq,
-                    kind: "tool",
-                    text,
-                    toolId,
-                    timeTaken,
-                  },
-                });
-              } else {
-                await db.researchSegment.create({
-                  data: {
-                    sessionId: dbSessionId,
-                    seq,
-                    kind: "tool",
-                    text,
-                    toolId,
-                    timeTaken,
-                  },
-                });
-              }
-            } catch {}
-          }
-        },
-      };
-
-      const intervalId = setInterval(() => {
-        void flush(ctx);
-      }, 100);
 
       try {
-        for await (const raw of eventsStream) {
-          const event = raw as StreamEvent;
+        // Replay missed rows first (server is the seq authority).
+        const [missed, children, results, current] = await Promise.all([
+          db.researchSegment
+            .findMany({
+              where: { sessionId: dbSessionId, seq: { gt: since } },
+              orderBy: { seq: "asc" },
+            })
+            .catch(() => []),
+          db.subagentSession
+            .findMany({
+              where: { parentId: dbSessionId },
+              select: { sessionId: true },
+            })
+            .catch(() => []),
+          db.searchResult
+            .findMany({ where: { sessionId: dbSessionId } })
+            .catch(() => []),
+          db.searchSession
+            .findUnique({
+              where: { id: dbSessionId },
+              select: { status: true },
+            })
+            .catch(() => null),
+        ]);
 
-          if (event.type === "message.part.delta") {
-            handlePartDelta(ctx, event.properties);
-            continue;
-          }
-
-          if (event.type === "message.part.updated") {
-            await handlePartUpdated(
-              ctx,
-              event.properties.part,
-              event.properties.delta,
+        for (const seg of missed) {
+          if (seg.kind === "thinking") {
+            push(sse("thinking", { text: seg.text, done: true, seq: seg.seq }));
+          } else if (seg.kind === "tool") {
+            push(
+              sse("chunk", {
+                text: seg.text,
+                seq: seg.seq,
+                id: openCodeSessionId,
+                kind: "tool",
+                toolId: seg.toolId,
+              }),
             );
-            continue;
-          }
-
-          if (event.type === "message.updated") {
-            const msg = event.properties.info;
-            if (
-              msg.sessionID === openCodeSessionId &&
-              msg.role === "assistant" &&
-              msg.time.completed
-            ) {
-              await flush(ctx);
-              flushPendingJobs(ctx);
-              await flushJobPersistQueue(ctx);
-              await completeSearchSession();
-              sendText(sse("message.completed", { messageId: msg.id }));
-            }
-            continue;
-          }
-
-          if (event.type === "session.status") {
-            if (event.properties.sessionID === openCodeSessionId) {
-              sendText(sse("status", { status: event.properties.status }));
-            }
-            continue;
-          }
-
-          if (event.type === "session.idle") {
-            if (event.properties.sessionID === openCodeSessionId) {
-              await flush(ctx);
-              flushPendingJobs(ctx);
-              await flushJobPersistQueue(ctx);
-              await completeSearchSession();
-              sendText(sse("status", { status: "idle" }));
-            }
-            continue;
-          }
-
-          if (event.type === "session.error") {
-            if (event.properties.sessionID === openCodeSessionId) {
-              await flush(ctx);
-              flushPendingJobs(ctx);
-              await flushJobPersistQueue(ctx);
-              for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
-              ctx.jobPersistTimers.clear();
-              sendText(sse("error", { message: event.properties.error }));
-              clearInterval(intervalId);
-              controller.close();
-            }
+          } else {
+            push(
+              sse("chunk", {
+                text: seg.text,
+                seq: seg.seq,
+                id: openCodeSessionId,
+              }),
+            );
           }
         }
 
-        await flush(ctx);
-        flushPendingJobs(ctx);
-        await flushJobPersistQueue(ctx);
-        for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
-        ctx.jobPersistTimers.clear();
-        await completeSearchSession();
-        sendText(sse("done", {}));
-        clearInterval(intervalId);
-        controller.close();
+        if (children.length > 0) {
+          try {
+            const childSegs = await db.subagentSegment.findMany({
+              where: { sessionId: { in: children.map((c) => c.sessionId) } },
+              orderBy: { seq: "asc" },
+            });
+            for (const seg of childSegs) {
+              if (seg.kind === "thinking") {
+                push(
+                  sse("subagent.thinking", {
+                    id: seg.sessionId,
+                    childSessionId: seg.sessionId,
+                    text: seg.text,
+                    done: true,
+                    seq: seg.seq,
+                  }),
+                );
+              } else {
+                push(
+                  sse("subagent.chunk", {
+                    id: seg.sessionId,
+                    childSessionId: seg.sessionId,
+                    text: seg.text,
+                    seq: seg.seq,
+                  }),
+                );
+              }
+            }
+          } catch {}
+        }
+
+        for (const r of results) {
+          push(sse("job", r.jobListingJson));
+        }
+
+        if (current && current.status !== "running") {
+          push(sse("status", { status: current.status }));
+          push(sse("done", {}));
+        }
       } catch (error) {
-        try {
-          await flushJobPersistQueue(ctx);
-        } catch {}
-        for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
-        ctx.jobPersistTimers.clear();
-        sendText(
-          sse("error", {
-            message: error instanceof Error ? error.message : "Stream error",
-          }),
-        );
-        clearInterval(intervalId);
-        controller.close();
+        console.error("[research-stream] replay failed", {
+          dbSessionId,
+          error,
+        });
+      } finally {
+        // Order guarantee: replay rows first, then anything the hub
+        // fanned out while we were querying.
+        replaying = false;
+        for (const text of liveBuffer) push(text);
+        liveBuffer.length = 0;
       }
+
+      // Keep the connection open for live fan-out only. Client closes on
+      // done/error; server cleans up the listener on cancel.
+      const keepAlive = setInterval(() => {
+        push(": ping\n\n");
+      }, 25000);
+      const t = keepAlive as unknown as { unref?: () => void };
+      if (typeof t.unref === "function") t.unref();
+
+      cleanup = () => {
+        clearInterval(keepAlive);
+        unsubscribe();
+        closed = true;
+      };
+    },
+    cancel() {
+      cleanup?.();
     },
   });
 
