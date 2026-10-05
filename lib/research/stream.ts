@@ -53,6 +53,10 @@ export interface StreamCtx {
   // queued DB persist via app/actions/jobs.ts bulkCreateJobsFromResearch
   jobPersistQueue: Map<string, StreamedJob[]>;
   jobPersistTimers: Map<string, ReturnType<typeof setTimeout>>;
+  // consecutive flush failures per dbSessionId (bounded retry / dead-letter)
+  jobPersistAttempts: Map<string, number>;
+  // in-flight flush guard per dbSessionId (no overlapping take-drain-requeue)
+  jobPersistInflight: Set<string>;
   persist: (
     sessionId: string,
     kind: SegmentKind,
@@ -260,6 +264,51 @@ function makeJobKey(job: {
 // ---- queued persist via app/actions/jobs.ts (bulkCreateJobsFromResearch) ----
 const JOB_PERSIST_BATCH_SIZE = 8;
 const JOB_PERSIST_FLUSH_MS = 1200;
+// Bounded retry: after this many consecutive failures the batch is
+// dead-lettered (dropped) instead of requeued forever. Must be >5 so a
+// short outage still retries, but <=10 so a sustained outage drains.
+const JOB_PERSIST_MAX_ATTEMPTS = 5;
+
+function getAttempts(ctx: StreamCtx, key: string): number {
+  return ctx.jobPersistAttempts.get(key) ?? 0;
+}
+
+/** Normalize any rejection value (Error, ErrorEvent, string, DOMException…) into a loggable record. */
+export function describePersistError(e: unknown): {
+  name: string;
+  message: string;
+  code?: string;
+  timeStamp?: unknown;
+} {
+  if (e instanceof ErrorEvent) {
+    const ev = e as ErrorEvent & { code?: unknown; timeStamp?: unknown };
+    return {
+      name: "ErrorEvent",
+      message:
+        typeof (e as ErrorEvent).message === "string" &&
+        (e as ErrorEvent).message
+          ? (e as ErrorEvent).message
+          : "DOM ErrorEvent (no message — likely Neon WS transient)",
+      code: typeof ev.code === "string" ? ev.code : undefined,
+      timeStamp: ev.timeStamp,
+    };
+  }
+  if (e instanceof Error) {
+    const withCode = e as Error & { code?: unknown };
+    return {
+      name: e.name || "Error",
+      message: e.message,
+      code:
+        typeof withCode.code === "string" ? withCode.code : undefined,
+    };
+  }
+  if (typeof e === "string") return { name: "StringThrow", message: e };
+  try {
+    return { name: "UnknownThrow", message: JSON.stringify(e) ?? String(e) };
+  } catch {
+    return { name: "UnknownThrow", message: String(e) };
+  }
+}
 
 function enqueueJobForPersist(ctx: StreamCtx, job: StreamedJob) {
   const key = ctx.dbSessionId;
@@ -288,31 +337,91 @@ function scheduleJobPersistFlush(ctx: StreamCtx) {
   ctx.jobPersistTimers.set(key, t);
 }
 
-export async function flushJobPersistQueue(ctx: StreamCtx): Promise<void> {
+export async function flushJobPersistQueue(ctx: StreamCtx): Promise<boolean> {
   const key = ctx.dbSessionId;
+  if (ctx.jobPersistInflight.has(key)) return false;
   const timer = ctx.jobPersistTimers.get(key);
   if (timer) {
     clearTimeout(timer);
     ctx.jobPersistTimers.delete(key);
   }
   const batch = ctx.jobPersistQueue.get(key);
-  if (!batch || batch.length === 0) return;
+  if (!batch || batch.length === 0) return true;
+  ctx.jobPersistInflight.add(key);
   ctx.jobPersistQueue.set(key, []);
   const toPersist = [...batch];
+  const attempt = getAttempts(ctx, key) + 1;
   try {
     // dynamic import to avoid circular dep: stream.ts <-> app/actions/jobs.ts
-    const { bulkCreateJobsFromResearch } = await import("@/app/actions/jobs");
-    await bulkCreateJobsFromResearch(ctx.userId, toPersist);
-  } catch (e) {
-    console.error("[research] flushJobPersistQueue failed", e);
+    let bulkCreateJobsFromResearch: (
+      userId: string,
+      jobs: StreamedJob[],
+    ) => Promise<unknown>;
+    try {
+      ({ bulkCreateJobsFromResearch } = await import("@/app/actions/jobs"));
+    } catch (importError) {
+      const d = describePersistError(importError);
+      console.error("[research] flushJobPersistQueue failed", {
+        dbSessionId: ctx.dbSessionId,
+        userId: ctx.userId,
+        batchSize: toPersist.length,
+        attempt,
+        source: "import",
+        errorName: d.name,
+        errorMessage: d.message,
+        error: importError,
+      });
+      throw importError;
+    }
+    try {
+      await bulkCreateJobsFromResearch(ctx.userId, toPersist);
+    } catch (dbError) {
+      const d = describePersistError(dbError);
+      console.error("[research] flushJobPersistQueue failed", {
+        dbSessionId: ctx.dbSessionId,
+        userId: ctx.userId,
+        batchSize: toPersist.length,
+        attempt,
+        source: "db",
+        errorName: d.name,
+        errorMessage: d.message,
+        errorCode: d.code,
+        error: dbError,
+      });
+      throw dbError;
+    }
+    ctx.jobPersistAttempts.set(key, 0);
+    return true;
+  } catch {
+    // Bounded retry: requeue up to MAX, then dead-letter (drop) so a
+    // transient hiccup retries but a sustained outage can't stall forever.
+    if (attempt > JOB_PERSIST_MAX_ATTEMPTS) {
+      const existing = ctx.jobPersistQueue.get(key) ?? [];
+      // Drop the poisoned batch, keep jobs that arrived during the flush.
+      ctx.jobPersistQueue.set(key, [...existing]);
+      ctx.jobPersistAttempts.set(key, 0);
+      console.error("[research] flushJobPersistQueue dead-lettered", {
+        dbSessionId: ctx.dbSessionId,
+        userId: ctx.userId,
+        dropped: toPersist.length,
+        remaining: existing.length,
+      });
+      return false;
+    }
+    ctx.jobPersistAttempts.set(key, attempt);
     // re-queue on failure (avoid loss) — prepend
     const existing = ctx.jobPersistQueue.get(key) ?? [];
     ctx.jobPersistQueue.set(key, [...toPersist, ...existing]);
+    return false;
+  } finally {
+    ctx.jobPersistInflight.delete(key);
   }
 }
 
-export async function flushAllJobPersistQueues(ctx: StreamCtx): Promise<void> {
-  await flushJobPersistQueue(ctx);
+export async function flushAllJobPersistQueues(
+  ctx: StreamCtx,
+): Promise<boolean> {
+  return flushJobPersistQueue(ctx);
 }
 
 function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
@@ -339,6 +448,7 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
   const maybe = obj as Record<string, unknown>;
   if (typeof maybe.title !== "string" || typeof maybe.company !== "string")
     return;
+  if (!maybe.title.trim() || !maybe.company.trim()) return;
   const key = makeJobKey(
     maybe as { title: string; company: string; url?: string | null },
   );
@@ -346,22 +456,39 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
   ctx.emittedJobKeys.add(key);
   const seq = (ctx.jobSeq.get(sessionID) ?? 0) + 1;
   ctx.jobSeq.set(sessionID, seq);
-  // normalize minimal fields for client; client will re-validate via StreamedJobSchema
+  // normalize minimal fields for client; keep them StreamedJobSchema-compliant
+  // (client re-validates, DB history does not) so live and reload agree.
+  const rawType = String(maybe.type ?? "remote").trim().toLowerCase();
+  const rawUrl =
+    typeof maybe.url === "string" ? maybe.url.trim() : (maybe.url ?? null);
+  let url: string | null = null;
+  if (typeof rawUrl === "string" && rawUrl) {
+    try {
+      url = new URL(rawUrl).toString();
+    } catch {
+      url = null;
+    }
+  }
+  const orNull = (v: unknown): string | null =>
+    typeof v === "string" ? (v.trim() ? v.trim() : null) : (v ?? null);
   const payload = {
     id: `${sessionID}-${seq}-${Date.now()}`,
     sessionId: sessionID,
     seq,
-    title: String(maybe.title),
-    company: String(maybe.company),
-    location: String(maybe.location ?? ""),
-    url: (maybe.url as string | null) ?? null,
-    description: String(maybe.description ?? ""),
-    salary: (maybe.salary as string | null) ?? null,
-    experience: String(maybe.experience ?? "Mid"),
-    visa: (maybe.visa as string | null) ?? null,
-    type: String(maybe.type ?? "remote"),
-    country: (maybe.country as string | null) ?? null,
-    notes: (maybe.notes as string | null) ?? null,
+    title: String(maybe.title).trim(),
+    company: String(maybe.company).trim(),
+    location: String(maybe.location ?? "").trim() || "Unknown",
+    url,
+    description: String(maybe.description ?? "").trim() || "No description provided",
+    salary: orNull(maybe.salary),
+    experience: String(maybe.experience ?? "Mid").trim() || "Mid",
+    visa: orNull(maybe.visa),
+    type:
+      rawType === "remote" || rawType === "hybrid" || rawType === "onsite"
+        ? rawType
+        : "remote",
+    country: orNull(maybe.country),
+    notes: orNull(maybe.notes),
   };
   ctx.send(sse("job", payload));
   // queue for DB via app/actions/jobs.ts bulkCreateJobsFromResearch + keep lightweight searchResult for history
@@ -379,14 +506,20 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
     notes: payload.notes,
   };
   enqueueJobForPersist(ctx, streamedForDb);
+  const searchSessionId = ctx.dbSessionId;
   void db.searchResult
     .create({
       data: {
-        sessionId: ctx.dbSessionId,
+        sessionId: searchSessionId,
         jobListingJson: payload as unknown as object,
       },
     })
-    .catch(() => {});
+    .catch((error) => {
+      console.error("[research] searchResult.create failed", {
+        dbSessionId: searchSessionId,
+        error,
+      });
+    });
 }
 
 function stripJobLines(
@@ -792,6 +925,242 @@ export async function handleToolPart(
   if (state.status === "running") await handleToolRunning(ctx, part, isChild);
   else if (state.status === "completed") await handleToolCompleted(ctx, part);
   else if (state.status === "error") await handleToolError(ctx, part);
+}
+
+export function createStreamCtx(
+  openCodeSessionId: string,
+  dbSessionId: string,
+  userId: string,
+  send: (text: string) => void,
+): StreamCtx {
+  const childSessions = new Map<string, string>();
+  const ctx: StreamCtx = {
+    sessionId: openCodeSessionId,
+    dbSessionId,
+    userId,
+    childSessions,
+    buffers: { chunk: "", thinking: "" },
+    parts: new Map(),
+    pendingDeltas: new Map(),
+    emittedTools: new Set(),
+    send,
+    openSegments: new Map(),
+    seq: new Map(),
+    lastSent: new Map(),
+    pendingTools: new Map(),
+    jobBuffers: new Map(),
+    jobSeq: new Map(),
+    emittedJobKeys: new Set(),
+    jobPersistQueue: new Map(),
+    jobPersistTimers: new Map(),
+    jobPersistAttempts: new Map(),
+    jobPersistInflight: new Set(),
+    persist: async (
+      sid: string,
+      kind: SegmentKind,
+      text: string,
+      toolId?: string,
+      timeTaken?: string,
+    ) => {
+      const seq = ctx.seq.get(sid) ?? 0;
+      const isChild = ctx.childSessions.has(sid);
+      try {
+        if (isChild) {
+          await db.subagentSegment.create({
+            data: { sessionId: sid, seq, kind, text, toolId, timeTaken },
+          });
+        } else {
+          await db.researchSegment.create({
+            data: {
+              sessionId: dbSessionId,
+              seq,
+              kind,
+              text,
+              toolId,
+              timeTaken,
+            },
+          });
+        }
+      } catch {
+        // ignore duplicate seq races - will be retried on next commit
+      }
+    },
+    persistToolUpdate: async (
+      sid: string,
+      seq: number,
+      text: string,
+      toolId: string,
+      timeTaken?: string,
+    ) => {
+      const isChild = ctx.childSessions.has(sid);
+      try {
+        if (isChild) {
+          await db.subagentSegment.update({
+            where: { sessionId_seq: { sessionId: sid, seq } },
+            data: { text, timeTaken },
+          });
+        } else {
+          await db.researchSegment.update({
+            where: { sessionId_seq: { sessionId: dbSessionId, seq } },
+            data: { text, timeTaken },
+          });
+        }
+      } catch {
+        // if update fails (row not found), fallback to create
+        try {
+          if (isChild) {
+            await db.subagentSegment.create({
+              data: {
+                sessionId: sid,
+                seq,
+                kind: "tool",
+                text,
+                toolId,
+                timeTaken,
+              },
+            });
+          } else {
+            await db.researchSegment.create({
+              data: {
+                sessionId: dbSessionId,
+                seq,
+                kind: "tool",
+                text,
+                toolId,
+                timeTaken,
+              },
+            });
+          }
+        } catch {}
+      }
+    },
+  };
+  return ctx;
+}
+
+export async function completeSearchSession(dbSessionId: string) {
+  try {
+    const existing = await db.searchSession.findUnique({
+      where: { id: dbSessionId },
+      select: { status: true },
+    });
+    if (!existing || existing.status === "completed") return;
+    const resultCount = await db.searchResult.count({
+      where: { sessionId: dbSessionId },
+    });
+    await db.searchSession.update({
+      where: { id: dbSessionId },
+      data: {
+        status: "completed",
+        completedAt: new Date(),
+        resultCount,
+      },
+    });
+  } catch {
+    // best-effort — hub retry / route replay covers gaps
+  }
+}
+
+export async function failSearchSession(dbSessionId: string, message: string) {
+  try {
+    const existing = await db.searchSession.findUnique({
+      where: { id: dbSessionId },
+      select: { status: true },
+    });
+    if (!existing || existing.status === "completed") return;
+    await db.searchSession.update({
+      where: { id: dbSessionId },
+      data: { status: "failed", error: message },
+    });
+  } catch {}
+}
+
+/**
+ * Single shared event router used by the background hub (and previously by
+ * the per-connection SSE route). Guards filter by session so it is safe to
+ * call for every registered ctx on every global event.
+ */
+export async function handleHubEvent(ctx: StreamCtx, raw: StreamEvent) {
+  const event = raw as StreamEvent;
+  if (event.type === "message.part.delta") {
+    handlePartDelta(ctx, event.properties);
+    return;
+  }
+  if (event.type === "message.part.updated") {
+    await handlePartUpdated(ctx, event.properties.part, event.properties.delta);
+    return;
+  }
+  if (event.type === "message.updated") {
+    const msg = event.properties.info;
+    if (
+      msg.sessionID === ctx.sessionId &&
+      msg.role === "assistant" &&
+      (msg.time as { completed?: unknown }).completed
+    ) {
+      await flush(ctx);
+      flushPendingJobs(ctx);
+      const persistOk = await flushJobPersistQueue(ctx);
+      const pending = (ctx.jobPersistQueue.get(ctx.dbSessionId)?.length ?? 0) > 0;
+      if (!persistOk || pending) {
+        await failSearchSession(
+          ctx.dbSessionId,
+          "Job persist failed — listings incomplete",
+        );
+        ctx.send(
+          sse("error", { message: "Job persist failed — listings incomplete" }),
+        );
+        return;
+      }
+      await completeSearchSession(ctx.dbSessionId);
+      ctx.send(sse("message.completed", { messageId: msg.id }));
+      ctx.send(sse("done", {}));
+    }
+    return;
+  }
+  if (event.type === "session.status") {
+    if (event.properties.sessionID === ctx.sessionId) {
+      ctx.send(sse("status", { status: event.properties.status }));
+    }
+    return;
+  }
+  if (event.type === "session.idle") {
+    if (event.properties.sessionID === ctx.sessionId) {
+      await flush(ctx);
+      flushPendingJobs(ctx);
+      const persistOk = await flushJobPersistQueue(ctx);
+      const pending = (ctx.jobPersistQueue.get(ctx.dbSessionId)?.length ?? 0) > 0;
+      if (!persistOk || pending) {
+        await failSearchSession(
+          ctx.dbSessionId,
+          "Job persist failed — listings incomplete",
+        );
+        ctx.send(
+          sse("error", { message: "Job persist failed — listings incomplete" }),
+        );
+        return;
+      }
+      await completeSearchSession(ctx.dbSessionId);
+      ctx.send(sse("status", { status: "idle" }));
+      ctx.send(sse("done", {}));
+    }
+    return;
+  }
+  if (event.type === "session.error") {
+    if (event.properties.sessionID === ctx.sessionId) {
+      await flush(ctx);
+      flushPendingJobs(ctx);
+      await flushJobPersistQueue(ctx);
+      for (const t of ctx.jobPersistTimers.values()) clearTimeout(t);
+      ctx.jobPersistTimers.clear();
+      const message =
+        typeof event.properties.error === "string"
+          ? event.properties.error
+          : "Session error";
+      await failSearchSession(ctx.dbSessionId, message);
+      ctx.send(sse("error", { message }));
+    }
+    return;
+  }
 }
 
 export async function handlePartUpdated(

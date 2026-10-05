@@ -60,11 +60,15 @@ export interface JobPayloadForStream extends JobPayload {}
 
 export interface ChunkPayload {
   text: string;
+  seq?: number;
+  kind?: "text" | "thinking" | "tool";
+  id?: string;
 }
 
 export interface ThinkingPayload {
   text: string;
   done: boolean;
+  seq?: number;
 }
 
 export interface StatusPayload {
