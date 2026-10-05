@@ -11,7 +11,10 @@
     "gen": "prisma generate",
     "mig": "prisma migrate dev",
     "seed": "bun run prisma/seed.ts",
-    "push": "prisma db push"
+    "push": "prisma db push",
+    "test": "bun test --preload ./tests/setup.ts tests/",
+    "test:unit": "bun test --preload ./tests/setup.ts tests/unit/",
+    "test:integration": "bun test --preload ./tests/setup.ts tests/integration/"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
