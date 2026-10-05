@@ -17,8 +17,10 @@ import { SubagentView } from "@/app/research/component/SubagentView";
 import { AgentResponse } from "@/components/AgentResponse";
 import { JobListingCard } from "@/components/cards/listings";
 import { useResearchStream } from "@/hooks/useResearchStream";
+import { deriveSessionTitle } from "@/lib/opencode/prompts";
 import type { JobPayload } from "@/lib/research/job-schema";
 import type { JobListing } from "@/lib/types/jobs";
+import { MUSE_SPARK_1_3_FREE_REF } from "@/lib/types/opencode";
 import type { TextSegment } from "@/lib/types/research";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -65,6 +67,59 @@ function toList(value: string): string[] {
     .filter(Boolean);
 }
 
+function toDisplayString(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value))
+    return value.filter((v) => typeof v === "string").join(", ");
+  return "";
+}
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v) => typeof v === "string");
+  if (typeof value === "string") return toList(value);
+  return [];
+}
+
+/** Rebuild the prefs header from the DB row after reload (memory-only otherwise). */
+function prefsFromDb(preferences: unknown): UserPreferences | null {
+  if (!preferences || typeof preferences !== "object") return null;
+  const p = preferences as Record<string, unknown>;
+  const jobTypes = toStringArray(p.jobTypes);
+  const countries = toDisplayString(p.countries);
+  const skills = toDisplayString(p.skills);
+  if (jobTypes.length === 0 && !countries && !skills) return null;
+  const rawModel = p.model as
+    | { providerID?: unknown; id?: unknown; variant?: unknown }
+    | undefined;
+  const model =
+    rawModel &&
+    typeof rawModel.providerID === "string" &&
+    typeof rawModel.id === "string"
+      ? {
+          providerID: rawModel.providerID,
+          id: rawModel.id,
+          ...(typeof rawModel.variant === "string"
+            ? { variant: rawModel.variant }
+            : {}),
+        }
+      : MUSE_SPARK_1_3_FREE_REF;
+  const modelLabel =
+    typeof p.modelLabel === "string" && p.modelLabel
+      ? p.modelLabel
+      : rawModel && typeof rawModel.id === "string"
+        ? `${String(rawModel.providerID ?? "unknown")}/${String(rawModel.id)}`
+        : "Unknown model";
+  return {
+    model,
+    modelLabel,
+    jobTypes: jobTypes.length > 0 ? jobTypes : ["Any"],
+    countries,
+    skills,
+    notes: typeof p.notes === "string" ? p.notes : "",
+    ...(typeof p.resumeName === "string" ? { resumeName: p.resumeName } : {}),
+  };
+}
+
 export function ResearchClient({ mode, label }: ResearchClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,6 +152,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
       setLegacySubagentId(null);
       setHistorySegments([]);
       setHistoryJobs([]);
+      setUserPreferences(null);
       return;
     }
 
@@ -125,6 +181,10 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
 
         setSession(s);
         setLegacySubagentId(null);
+        const dbPrefs = prefsFromDb(
+          (s as { preferences?: unknown }).preferences ?? null,
+        );
+        if (dbPrefs) setUserPreferences(dbPrefs);
         const h = await getSearchSessionHistory(s.id);
         if (cancelled) return;
         setHistorySegments(
@@ -221,6 +281,9 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         skills: skills.length > 0 ? skills : ["General"],
         notes: preferences.notes || undefined,
         model: preferences.model,
+        modelLabel: preferences.modelLabel || undefined,
+        resumeName: preferences.resumeName || undefined,
+        mode,
       });
       router.replace(`?sessionId=${newDbSessionId}`);
     } catch (err) {
@@ -232,6 +295,14 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
 
   const started = urlSessionId !== null;
   const displayError = startError ?? live.error;
+  const sessionTitle =
+    session?.title ??
+    (session
+      ? deriveSessionTitle(
+          (session as { preferences?: unknown }).preferences ?? null,
+          session.query,
+        )
+      : label);
 
   if (activeSubagentId) {
     return (
@@ -277,7 +348,10 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="space-y-8">
-        <div className="flex items-center">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground-900">
+            {sessionTitle}
+          </h2>
           <span
             className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
               status === "completed"
@@ -292,9 +366,9 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         </div>
 
         <div className="space-y-6">
-          <div className="flex justify-end">
-            <div className="max-w-md rounded-2xl border border-stroke bg-surface-800 p-4 text-sm">
-              {userPreferences && (
+          {userPreferences ? (
+            <div className="flex justify-end">
+              <div className="max-w-md rounded-2xl border border-stroke bg-surface-800 p-4 text-sm">
                 <div className="space-y-2 text-foreground-600">
                   <div>
                     <span className="font-medium text-foreground-900">
@@ -338,9 +412,9 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
                     </div>
                   ) : null}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <AgentResponse
             segments={segments}
