@@ -29,12 +29,47 @@ function isPortOpen(port: number, host: string): Promise<boolean> {
   });
 }
 
+/** Port-open ≠ responsive (prod: TCP accepted, headers never arrived).
+ * Any HTTP response — even 404 — proves the server sends headers. */
+async function isHttpResponsive(url: string, timeoutMs = 2500): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    // Consume without throwing on status; headers arrived = responsive.
+    await res.arrayBuffer().catch(() => undefined);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForHttpReady(
+  url: string,
+  attempts = 6,
+  delayMs = 500,
+): Promise<boolean> {
+  for (let i = 1; i <= attempts; i++) {
+    if (await isHttpResponsive(url)) return true;
+    if (i < attempts)
+      await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return false;
+}
+
 export async function getOpencodeServer() {
   if (globalForOpencode.opencodeServer) {
     return globalForOpencode.opencodeServer;
   }
 
   if (await isPortOpen(PORT, HOST)) {
+    const ready = await waitForHttpReady(BASE_URL);
+    if (!ready) {
+      console.warn(
+        `[opencode] port ${PORT} open but HTTP unresponsive — server may be stuck (prior run?)`,
+      );
+    }
     const handle: ServerHandle = { url: BASE_URL, close() {} };
     globalForOpencode.opencodeServer = handle;
     return handle;

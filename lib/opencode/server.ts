@@ -183,6 +183,7 @@ export async function sendResearchPrompt(
   prompt: string,
   model?: ModelRef,
   systemPrompt: string = RESEARCH_SYSTEM_PROMPT,
+  timeoutMs = 60_000,
 ) {
   // If variant is needed, switch model for v2 sessions first per docs
   if (model?.variant) {
@@ -202,19 +203,41 @@ export async function sendResearchPrompt(
   }
   const client = await getOpencodeClient();
 
-  const result = await client.session.prompt({
-    path: { id: sessionId },
-    body: {
-      model: model
-        ? { providerID: model.providerID, modelID: model.id }
-        : undefined,
-      // system prompt: SDK field `body.system` (see gen/types.gen.d.ts:2253 and v2/gen/types.gen.d.ts:8371)
-      system: systemPrompt,
-      parts: [{ type: "text", text: prompt }],
-    },
-  } as never);
-
-  return result.data;
+  const t0 = Date.now();
+  try {
+    const result = await Promise.race([
+      client.session.prompt({
+        path: { id: sessionId },
+        body: {
+          model: model
+            ? { providerID: model.providerID, modelID: model.id }
+            : undefined,
+          // system prompt: SDK field `body.system` (see gen/types.gen.d.ts:2253 and v2/gen/types.gen.d.ts:8371)
+          system: systemPrompt,
+          parts: [{ type: "text", text: prompt }],
+        },
+      } as never),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `prompt send timed out after ${timeoutMs}ms (session ${sessionId})`,
+              ),
+            ),
+          timeoutMs,
+        ),
+      ),
+    ]);
+    return result.data;
+  } catch (error) {
+    console.error("[opencode] session.prompt failed", {
+      sessionId,
+      latencyMs: Date.now() - t0,
+      error,
+    });
+    throw error;
+  }
 }
 
 export async function getSessionMessages(sessionId: string) {
