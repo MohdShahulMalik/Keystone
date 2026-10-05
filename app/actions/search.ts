@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { deriveSessionTitle } from "@/lib/opencode/prompts";
 import type { SearchSessionTitle } from "@/lib/types/search";
 import type {
   SearchMode,
@@ -19,8 +20,11 @@ export async function getSearchSessionsWithMetaData(
     select: {
       id: true,
       title: true,
+      query: true,
+      preferences: true,
       resultCount: true,
       updatedAt: true,
+      _count: { select: { results: true } },
     },
     where: {
       userId,
@@ -31,7 +35,31 @@ export async function getSearchSessionsWithMetaData(
     },
   });
 
-  return sessions;
+  const backfills: Promise<unknown>[] = [];
+  const mapped: SearchSessionTitle[] = sessions.map((s) => {
+    const title = s.title ?? deriveSessionTitle(s.preferences, s.query);
+    const resultCount = Math.max(s.resultCount, s._count.results);
+    // Lazily repair rows created before title/preferences/resultCount were
+    // persisted so the sidebar stops showing "Untitled session" / "No results".
+    if (s.title === null || s.resultCount !== resultCount) {
+      backfills.push(
+        db.searchSession
+          .update({
+            where: { id: s.id },
+            data: {
+              ...(s.title === null ? { title } : {}),
+              ...(s.resultCount !== resultCount ? { resultCount } : {}),
+            },
+          })
+          .catch(() => null),
+      );
+    }
+    return { id: s.id, title, resultCount, updatedAt: s.updatedAt };
+  });
+
+  if (backfills.length > 0) await Promise.allSettled(backfills);
+
+  return mapped;
 }
 
 export async function getSearchSessionByAnyId(
@@ -58,10 +86,12 @@ export async function getSearchSessionHistory(dbSessionId: string) {
       },
       where: { sessionId: dbSessionId },
       orderBy: { seq: "asc" },
+      take: 2000,
     }),
     db.searchResult.findMany({
       select: { id: true, jobListingJson: true },
       where: { sessionId: dbSessionId },
+      take: 2000,
     }),
   ]);
 
