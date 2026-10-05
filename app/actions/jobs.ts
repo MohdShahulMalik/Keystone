@@ -158,17 +158,25 @@ export async function bulkCreateJobsFromResearch(
     return true;
   });
 
-  // dedupe against DB — fetch existing candidates for this user
-  const existing = await db.jobListing.findMany({
-    where: {
-      userId,
-      OR: deduped.map((j) => ({
-        title: j.title,
-        company: j.company,
-      })),
-    },
-    select: { title: true, company: true, url: true },
-  });
+  // dedupe against DB — fetch existing candidates for this user.
+  // Chunk the OR clause so large streamed batches don't build a huge
+  // single query that fails exactly when output volume is highest.
+  const DEDUPE_LOOKUP_CHUNK = 50;
+  const existing: { title: string; company: string; url: string | null }[] = [];
+  for (let i = 0; i < deduped.length; i += DEDUPE_LOOKUP_CHUNK) {
+    const chunk = deduped.slice(i, i + DEDUPE_LOOKUP_CHUNK);
+    const rows = await db.jobListing.findMany({
+      where: {
+        userId,
+        OR: chunk.map((j) => ({
+          title: j.title,
+          company: j.company,
+        })),
+      },
+      select: { title: true, company: true, url: true },
+    });
+    existing.push(...rows);
+  }
   const existingKeys = new Set(
     existing.map(
       (e) =>
@@ -182,9 +190,13 @@ export async function bulkCreateJobsFromResearch(
   });
 
   if (toCreate.length > 0) {
-    await db.jobListing.createMany({
-      data: toCreate.map((j) => ({ userId, ...j })),
-    });
+    const CREATE_CHUNK = 50;
+    for (let i = 0; i < toCreate.length; i += CREATE_CHUNK) {
+      const chunk = toCreate.slice(i, i + CREATE_CHUNK);
+      await db.jobListing.createMany({
+        data: chunk.map((j) => ({ userId, ...j })),
+      });
+    }
   }
 
   return { created: toCreate.length, skipped: jobs.length - toCreate.length };
