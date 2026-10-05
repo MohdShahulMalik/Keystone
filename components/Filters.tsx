@@ -77,40 +77,46 @@ export function Filters({
       {filterGroups.length > 0 ? (
         <div className="mt-5 space-y-5">
           {filterGroups.map((group) => (
-            <div key={group.label} className="border-t border-stroke pt-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-foreground-600">
-                  {group.label}
-                </span>
-                {group.multiSelect ? (
-                  <span className="text-xs text-foreground-600-subtle">
-                    Multi-select
+            <div key={group.label}>
+              <div
+                aria-hidden="true"
+                className="h-px rounded-full bg-secondary [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%_-_16px),transparent)]"
+              />
+              <div className="pt-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-foreground-600">
+                    {group.label}
                   </span>
-                ) : null}
-              </div>
+                  {group.multiSelect ? (
+                    <span className="text-xs text-foreground-600-subtle">
+                      Multi-select
+                    </span>
+                  ) : null}
+                </div>
 
-              <div className="scrollbar-hidden flex items-center gap-2 overflow-x-scroll">
-                {group.options.map((option) => {
-                  const isSelected = group.selectedValues.includes(
-                    option.value,
-                  );
+                <div className="scrollbar-hidden flex items-center gap-2 overflow-x-scroll">
+                  {group.options.map((option) => {
+                    const isSelected = group.selectedValues.includes(
+                      option.value,
+                    );
 
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => group.onToggle(option.value)}
-                      aria-pressed={isSelected}
-                      className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out ${
-                        isSelected
-                          ? "border-filter-chip-active-border bg-gradient-to-br from-filter-chip-active-from to-filter-chip-active-to text-foreground-900 shadow-filter-chip-active"
-                          : "border-stroke bg-surface-800 text-foreground-600 hover:border-filter-chip-active-border"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => group.onToggle(option.value)}
+                        aria-pressed={isSelected}
+                        className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out ${
+                          isSelected
+                            ? "border-filter-chip-active-border bg-gradient-to-br from-filter-chip-active-from to-filter-chip-active-to text-foreground-900 shadow-filter-chip-active"
+                            : "border-stroke bg-surface-800 text-foreground-600 hover:border-filter-chip-active-border"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ))}
