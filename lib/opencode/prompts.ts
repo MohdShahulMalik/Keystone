@@ -44,6 +44,77 @@ How to output (subagents emit, main agent aggregates):
 - If no VERIFIED jobs, emit no JOB_JSON lines and explain why + suggest query tweaks in the summary.
 `;
 
+export interface StoredResearchPreferences {
+  jobTypes: string[];
+  countries: string[];
+  skills: string[];
+  notes?: string;
+  model?: { providerID: string; id: string; variant?: string };
+  modelLabel?: string;
+  resumeName?: string;
+  resumeId?: string;
+}
+
+function cleanList(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Short human-readable title for sidebar + reload header.
+ * e.g. "React, TypeScript · Remote · USA, UK".
+ */
+export function buildSessionTitle(preferences: {
+  jobTypes?: unknown;
+  countries?: unknown;
+  skills?: unknown;
+}): string {
+  const skills = cleanList(preferences.skills).slice(0, 3);
+  const jobTypes = cleanList(preferences.jobTypes).slice(0, 3);
+  const countries = cleanList(preferences.countries).slice(0, 3);
+
+  const parts: string[] = [];
+  if (skills.length > 0) parts.push(skills.join(", "));
+  if (jobTypes.length > 0) parts.push(jobTypes.join("/"));
+  if (countries.length > 0) parts.push(countries.join(", "));
+  const title = parts.join(" · ").trim();
+  if (title) return title.slice(0, 80);
+  return "Research session";
+}
+
+/** Fallback for rows created before preferences/title were persisted. */
+export function deriveSessionTitle(
+  preferences: unknown,
+  query?: string | null,
+): string {
+  if (preferences && typeof preferences === "object") {
+    const title = buildSessionTitle(
+      preferences as {
+        jobTypes?: unknown;
+        countries?: unknown;
+        skills?: unknown;
+      },
+    );
+    if (title !== "Research session") return title;
+  }
+  if (query) {
+    const skillsMatch = query.match(/Skills:\s*([^\n]+)/i)?.[1]?.trim();
+    const countriesMatch = query.match(/Countries:\s*([^\n]+)/i)?.[1]?.trim();
+    const jobTypesMatch = query.match(/Job Types:\s*([^\n]+)/i)?.[1]?.trim();
+    if (skillsMatch || countriesMatch || jobTypesMatch) {
+      return buildSessionTitle({
+        skills: skillsMatch ? skillsMatch.split(",") : [],
+        countries: countriesMatch ? countriesMatch.split(",") : [],
+        jobTypes: jobTypesMatch ? jobTypesMatch.split(",") : [],
+      });
+    }
+  }
+  return "Research session";
+}
+
 export function buildResearchPrompt(preferences: ResearchPreferences): string {
   const { jobTypes, countries, skills, notes, resumeContent } = preferences;
 
