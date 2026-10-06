@@ -22,23 +22,26 @@ AI-powered career companion. Track applications, discover opportunities, and ace
 
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Set up environment variables
 cp .env.example .env.local
 # Edit .env.local with your DATABASE_URL
 
 # Generate Prisma client
-npx prisma generate
+bun run gen
 
 # Push schema to database
-npx prisma db push
+bun run push
+
+# Seed the database with initial data
+bun run seed
 
 # Run development server
-npm run dev
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+Open [http://localhost:5421](http://localhost:5421) to view the app.
 
 ## Status
 
