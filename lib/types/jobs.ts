@@ -47,6 +47,13 @@ export type JobImportResult = JobImportSuccess | JobImportError;
 export interface JobImportResponse {
   imported: number;
   errors: JobImportError[];
+  /** DB-level failure saving the batch (per-row `errors` only cover
+   * validation). Absent on success. */
+  error?: string;
+  /** Serializable connectivity reason. Only present for connection failures. */
+  cause?: string;
+  /** Driver/prisma code when one exists. Plain string. */
+  code?: string;
 }
 
 export interface JobActionSuccess extends ResponseActionSuccess<JobListing> {}
