@@ -27,6 +27,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "streamdown": "^2.5.0",
+    "ws": "^8.21.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -36,6 +37,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "babel-plugin-react-compiler": "1.0.0",
     "prisma": "^7.9.0",
     "tailwindcss": "^4",
