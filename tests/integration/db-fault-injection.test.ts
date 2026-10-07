@@ -18,7 +18,14 @@
 // NOTE (disclaimer): PINPOINT tests are *expected to fail* until the actions
 // handle connection errors. They reproduce the issue; they are not broken.
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { getJobListings } from "@/app/actions/jobs";
+import {
+  addJobListing,
+  bulkCreateJobsFromResearch,
+  deleteJobListing,
+  getJobListings,
+  importJobs,
+  updateJobListing,
+} from "@/app/actions/jobs";
 import { updateStatus } from "@/app/actions/status";
 import { db } from "@/lib/db";
 
@@ -92,30 +99,59 @@ describe("getJobListings under connection failure", () => {
     }
   });
 
-  test("PINPOINT: a 500ms DB hang is not guarded by any timeout", async () => {
+  test("a DB hang beyond the configured timeout degrades to [] (never hangs the stream)", async () => {
     // Mirrors the observed `GET /listings 500 in 4.8s (application-code:
-    // 4.5s)`: nothing bounds the await, so a paused Neon compute holds the
-    // Server Component (and its Flight stream) open until it times out.
+    // 4.5s)`: the await must stay bounded so a paused Neon compute can't hold
+    // the Server Component (and its Flight stream) open indefinitely.
+    // Production default is 8000ms (warm ~600ms, cold wake ~3-5s); the test
+    // overrides via env to keep it fast — the mechanism, not the value, is
+    // what's pinned here.
+    const prev = process.env.DB_READ_TIMEOUT_MS;
+    const prevRetry = process.env.DB_RETRY_ATTEMPTS;
+    process.env.DB_READ_TIMEOUT_MS = "400";
+    // Isolate the per-attempt timeout bound from the retry loop (covered
+    // separately in db-resilience.test.ts) — one attempt only here.
+    process.env.DB_RETRY_ATTEMPTS = "1";
     const restore = stubJobListing({
       findMany: mock(
         () => new Promise((resolve) => setTimeout(() => resolve([]), 500)),
       ),
     });
+    const origError = console.error;
+    console.error = () => {};
     try {
       const start = performance.now();
-      await getJobListings("maxum");
+      const result = await getJobListings("maxum");
       const elapsed = performance.now() - start;
-      // Desired: bounded by a query/statement timeout well under the observed
-      // 4.5s hang. Fails until a timeout is added.
       expect(elapsed).toBeLessThan(500);
+      expect(result).toEqual([]);
     } finally {
+      console.error = origError;
       restore();
+      if (prev === undefined) delete process.env.DB_READ_TIMEOUT_MS;
+      else process.env.DB_READ_TIMEOUT_MS = prev;
+      if (prevRetry === undefined) delete process.env.DB_RETRY_ATTEMPTS;
+      else process.env.DB_RETRY_ATTEMPTS = prevRetry;
+    }
+  });
+
+  test("default timeout tolerates warm queries and cold wakes", async () => {
+    // Guards the production default: it must clear a ~4.5s cold wake with
+    // margin (and warm ~600ms queries trivially). If someone lowers the
+    // default, this fails and the override test above must be rescaled too.
+    const prev = process.env.DB_READ_TIMEOUT_MS;
+    delete process.env.DB_READ_TIMEOUT_MS;
+    try {
+      const { getDbReadTimeoutMs } = await import("@/lib/db-errors");
+      expect(getDbReadTimeoutMs()).toBeGreaterThan(4500);
+    } finally {
+      if (prev !== undefined) process.env.DB_READ_TIMEOUT_MS = prev;
     }
   });
 });
 
 describe("updateStatus (the `Applied?` click path) under connection failure", () => {
-  test("converts a Neon ErrorEvent into a serializable failure (already ok)", async () => {
+  test("converts a Neon ErrorEvent into a serializable failure with cause", async () => {
     const restore = stubJobListing({
       findUnique: mock(async () => {
         throw makeNeonWsErrorEvent();
@@ -128,10 +164,14 @@ describe("updateStatus (the `Applied?` click path) under connection failure", ()
     };
     try {
       const result = await updateStatus("j1", "APPLIED");
-      expect(result).toEqual({
+      // Connectivity failures keep the generic message (never leak internals)
+      // but now also carry a serializable `cause`/`code` so the client can
+      // distinguish "db unreachable" from validation errors.
+      expect(result).toMatchObject({
         success: false,
         error: "Failed to update status",
       });
+      expect(result).toHaveProperty("cause");
       // Round-trips through Flight fine:
       expect(() => structuredClone(result)).not.toThrow();
     } finally {
@@ -160,7 +200,7 @@ describe("updateStatus (the `Applied?` click path) under connection failure", ()
     }
   });
 
-  test("Prisma P1001 (can't reach DB) is also a generic failure", async () => {
+  test("Prisma P1001 (can't reach DB) keeps the generic message with a cause", async () => {
     const p1001 = Object.assign(new Error("Can't reach database server"), {
       code: "P1001",
     });
@@ -173,12 +213,191 @@ describe("updateStatus (the `Applied?` click path) under connection failure", ()
     console.error = () => {};
     try {
       const result = await updateStatus("j1", "APPLIED");
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         success: false,
         error: "Failed to update status",
+        cause: "db_unreachable",
+        code: "P1001",
       });
+      expect(() => structuredClone(result)).not.toThrow();
     } finally {
       console.error = origError;
+      restore();
+    }
+  });
+});
+
+describe("write actions under connection failure", () => {
+  function silenceConsole() {
+    const origError = console.error;
+    console.error = () => {};
+    return () => {
+      console.error = origError;
+    };
+  }
+
+  function formData(fields: Record<string, string>) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+    return fd;
+  }
+
+  const validFields = {
+    title: "Rust Engineer",
+    company: "Acme",
+    location: "Remote - USA",
+    description: "Build things.",
+    experience: "Junior",
+  };
+
+  test("addJobListing returns a serializable failure (never throws raw)", async () => {
+    const restore = stubJobListing({
+      create: mock(async () => {
+        throw makeNeonWsErrorEvent();
+      }),
+    });
+    const unsilence = silenceConsole();
+    try {
+      const result = await addJobListing("user-1", formData(validFields));
+      expect(result).toMatchObject({
+        error: "Failed to create job",
+        cause: "db_unreachable",
+      });
+      expect(() => structuredClone(result)).not.toThrow();
+    } finally {
+      unsilence();
+      restore();
+    }
+  });
+
+  test("updateJobListing returns a serializable failure (never throws raw)", async () => {
+    const restore = stubJobListing({
+      findFirst: mock(async () => ({ id: "j1", userId: "user-1" })),
+      update: mock(async () => {
+        throw makeNeonWsErrorEvent();
+      }),
+    });
+    const unsilence = silenceConsole();
+    try {
+      const result = await updateJobListing(
+        "user-1",
+        "j1",
+        formData({ status: "APPLIED" }),
+      );
+      expect(result).toMatchObject({
+        success: false,
+        error: "Failed to update job",
+        cause: "db_unreachable",
+      });
+      expect(() => structuredClone(result)).not.toThrow();
+    } finally {
+      unsilence();
+      restore();
+    }
+  });
+
+  test("deleteJobListing returns a serializable failure (never throws raw)", async () => {
+    const restore = stubJobListing({
+      findFirst: mock(async () => ({ id: "j1" })),
+      delete: mock(async () => {
+        throw makeNeonWsErrorEvent();
+      }),
+    });
+    const unsilence = silenceConsole();
+    try {
+      const result = await deleteJobListing("user-1", "j1");
+      expect(result).toMatchObject({
+        success: false,
+        error: "Failed to delete job",
+        cause: "db_unreachable",
+      });
+      expect(() => structuredClone(result)).not.toThrow();
+    } finally {
+      unsilence();
+      restore();
+    }
+  });
+
+  test("importJobs reports the batch write failure top-level (never throws raw)", async () => {
+    const good = {
+      title: "T",
+      company: "C",
+      location: "L",
+      description: "D",
+      experience: "Junior",
+    } as never;
+    const restore = stubJobListing({
+      createMany: mock(async () => {
+        throw makeNeonWsErrorEvent();
+      }),
+    });
+    const unsilence = silenceConsole();
+    try {
+      const result = await importJobs("user-1", [good]);
+      expect(result).toMatchObject({
+        imported: 0,
+        error: "Failed to save imported jobs",
+        cause: "db_unreachable",
+      });
+      expect(() => structuredClone(result)).not.toThrow();
+    } finally {
+      unsilence();
+      restore();
+    }
+  });
+
+  test("bulkCreateJobsFromResearch throws a real Error with serializable cause (never the raw ErrorEvent)", async () => {
+    const restore = stubJobListing({
+      findMany: mock(async () => {
+        throw makeNeonWsErrorEvent();
+      }),
+    });
+    (db as unknown as Record<string, object>).user = {
+      upsert: mock(async () => ({})),
+    };
+    const unsilence = silenceConsole();
+    try {
+      const err = await bulkCreateJobsFromResearch("user-1", [
+        {
+          title: "Rust Engineer",
+          company: "Acme",
+          location: "Remote",
+          url: "https://a.example/j/1",
+          description: "Build.",
+          salary: null,
+          experience: "Junior",
+          visa: null,
+          type: "remote",
+          country: "USA",
+          notes: null,
+        } as never,
+      ]).then(
+        () => null,
+        (e: unknown) => e as Error & { cause?: unknown; code?: unknown },
+      );
+      expect(err).toBeInstanceOf(Error);
+      expect(err).not.toBeInstanceOf(ErrorEvent);
+      expect((err as Error).message).toBe("Failed to persist researched jobs");
+      expect((err as { cause?: unknown }).cause).toBe("db_unreachable");
+      // The diagnostic record the pipeline logs (cf. describePersistError in
+      // lib/research/stream.ts) must cross serialization boundaries.
+      // NOTE: asserted via explicit try/catch because bun's
+      // expect(fn).not.toThrow() misfires on fns returning Error clones.
+      const record = {
+        name: (err as Error).name,
+        message: (err as Error).message,
+        cause: (err as { cause?: unknown }).cause,
+        code: (err as { code?: unknown }).code,
+      };
+      let cloneError: unknown = null;
+      try {
+        structuredClone(record);
+      } catch (e) {
+        cloneError = e;
+      }
+      expect(cloneError).toBeNull();
+    } finally {
+      unsilence();
       restore();
     }
   });
