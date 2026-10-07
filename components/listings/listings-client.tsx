@@ -142,7 +142,14 @@ export function ListingsClient({ initialListings }: ListingsClientProps) {
   });
 
   async function updateListingStatus(id: string, status: JobStatus) {
-    await updateStatus(id, status);
+    const result = await updateStatus(id, status);
+    if (!result.success) {
+      // Connectivity failures now carry a serializable `cause`/`code`
+      // ("db_unreachable" | "timeout") so this is distinguishable from
+      // validation errors without scraping server logs.
+      console.error("[listings] updateStatus failed:", result);
+      return;
+    }
     router.refresh();
   }
 

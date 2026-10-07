@@ -11,7 +11,7 @@ import type { JobStatus } from "@/lib/types/status";
 
 interface JobListingCardProps {
   listing: JobListing;
-  onStatusChange: (id: string, status: JobStatus) => void;
+  onStatusChange: (id: string, status: JobStatus) => void | Promise<void>;
   statuses: readonly JobStatus[];
 }
 
@@ -47,29 +47,24 @@ export function JobListingCard({
 }: JobListingCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
+  const [applyClicked, setApplyClicked] = useState(false);
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
 
-  const buttonSpanRef = useRef<HTMLSpanElement | null>(null);
-  const buttonSvgRef = useRef<SVGSVGElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const confirmationRef = useRef<ConfirmationBoxHandle | null>(null);
+
+  const primaryButtonClass =
+    "flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-7 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)]";
 
   const secondaryButtonClass =
     "flex items-center gap-2 rounded-lg border border-visit-border bg-transparent px-6 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
 
-  const processOpenStatus = (listing: JobListing) => {
-    const buttonSpan = buttonSpanRef.current;
-    const buttonSvg = buttonSvgRef.current;
-    const button = buttonRef.current;
-
-    if (!buttonSpan) return;
-
-    if (buttonSpan.textContent === "Apply Now") {
-      window.open(listing.url as string, "_blank");
-      buttonSpan.textContent = "Applied?";
-      if (buttonSvg) buttonSvg.style.display = "none";
-      if (button) button.className = secondaryButtonClass;
-    } else {
-      onStatusChange(listing.id, "APPLIED");
+  const handleStatusChange = async (status: JobStatus) => {
+    if (isStatusUpdating) return;
+    setIsStatusUpdating(true);
+    try {
+      await onStatusChange(listing.id, status);
+    } finally {
+      setIsStatusUpdating(false);
     }
   };
 
@@ -77,6 +72,10 @@ export function JobListingCard({
     const result = await deleteJobListing(listing.userId, listing.id);
 
     if (!result.success) {
+      // Connectivity failures carry `cause`/`code` (`db_unreachable` |
+      // `timeout`) — logged here so "DB down" is distinguishable from
+      // validation errors; the banner keeps the generic message.
+      console.error("[listings] deleteJobListing failed:", result);
       return { success: false as const, error: getActionError(result.error) };
     }
 
@@ -214,8 +213,9 @@ export function JobListingCard({
                       .map((status) => (
                         <button
                           key={`${listing.id}-${status}`}
-                          onClick={() => onStatusChange(listing.id, status)}
-                          className="block w-full px-4 py-3 text-left text-base text-[var(--color-badge-text)] transition-all duration-200 ease-out first:rounded-t-xl last:rounded-b-xl hover:bg-[var(--color-dropdown-hover-bg)] hover:text-[var(--color-dropdown-hover-text)]"
+                          onClick={() => handleStatusChange(status)}
+                          disabled={isStatusUpdating}
+                          className="block w-full px-4 py-3 text-left text-base text-[var(--color-badge-text)] transition-all duration-200 ease-out first:rounded-t-xl last:rounded-b-xl hover:bg-[var(--color-dropdown-hover-bg)] hover:text-[var(--color-dropdown-hover-text)] disabled:cursor-not-allowed disabled:opacity-50"
                           type="button"
                         >
                           {formatStatusLabel(status)}
@@ -242,21 +242,55 @@ export function JobListingCard({
                   </svg>
                 </button>
               </>
-            ) : (
+            ) : applyClicked ? (
               <button
-                className="flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-7 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)]"
+                className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50 disabled:saturate-50 disabled:hover:border-visit-border disabled:hover:bg-transparent disabled:hover:text-[var(--color-visit-text)] disabled:hover:shadow-none`}
                 type="button"
-                ref={buttonRef}
-                onClick={() => processOpenStatus(listing)}
+                onClick={() => handleStatusChange("APPLIED")}
+                disabled={isStatusUpdating}
+                aria-busy={isStatusUpdating}
               >
-                <span ref={buttonSpanRef}>Apply Now</span>
+                <span>{isStatusUpdating ? "Updating..." : "Applied?"}</span>
+              </button>
+            ) : listing.url ? (
+              <a
+                className={primaryButtonClass}
+                href={listing.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setApplyClicked(true)}
+              >
+                <span>Apply Now</span>
                 <svg
                   className="h-4 w-4"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
-                  ref={buttonSvgRef}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+              </a>
+            ) : (
+              <button
+                className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60 disabled:saturate-50 disabled:hover:brightness-100 disabled:hover:shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)]`}
+                type="button"
+                onClick={() => handleStatusChange("APPLIED")}
+                disabled={isStatusUpdating}
+                aria-busy={isStatusUpdating}
+              >
+                <span>{isStatusUpdating ? "Updating..." : "Apply Now"}</span>
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
