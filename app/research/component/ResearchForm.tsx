@@ -174,7 +174,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
   };
 
   return (
-    <form className="space-y-7" onSubmit={handleSubmit}>
+    <form className="min-w-0 space-y-6 sm:space-y-7" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-foreground-600">
@@ -265,8 +265,8 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
             placeholder="React, TypeScript, Node.js..."
             bare
           />
-          <div className="flex items-center justify-between gap-3 border-t border-stroke px-3 py-2">
-            <span className="truncate text-sm text-foreground-600-subtle">
+          <div className="flex min-w-0 items-center justify-between gap-3 border-t border-stroke px-3 py-2">
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground-600-subtle">
               {resumeName ?? "Drop a resume here, or browse to attach one"}
             </span>
             <input
@@ -307,7 +307,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
             <legend className="mb-3 text-sm font-semibold text-foreground-600">
               Job types
             </legend>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-2 min-[480px]:grid-cols-3 min-[480px]:gap-3">
               {jobTypes.map((jobType) => {
                 const isSelected = selectedJobTypes.includes(jobType);
                 return (
@@ -316,7 +316,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => toggleJobType(jobType)}
-                    className={`rounded-xl border px-3 py-4 text-sm font-semibold transition-[background-color,border-color,box-shadow,color] ${
+                    className={`min-h-[48px] rounded-xl border px-3 py-3 text-sm font-semibold transition-[background-color,border-color,box-shadow,color] min-[480px]:py-4 ${
                       isSelected
                         ? "border-filter-chip-active-border bg-gradient-to-br from-filter-chip-active-from to-filter-chip-active-to text-foreground-900 shadow-filter-chip-active"
                         : "border-stroke bg-surface-800 text-foreground-600 hover:border-accent hover:text-foreground-900"

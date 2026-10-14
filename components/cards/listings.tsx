@@ -53,10 +53,10 @@ export function JobListingCard({
   const confirmationRef = useRef<ConfirmationBoxHandle | null>(null);
 
   const primaryButtonClass =
-    "flex items-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-7 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)]";
+    "flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)] sm:w-auto sm:px-7";
 
   const secondaryButtonClass =
-    "flex items-center gap-2 rounded-lg border border-visit-border bg-transparent px-6 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)]";
+    "flex w-full items-center justify-center gap-2 rounded-lg border border-visit-border bg-transparent px-5 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)] sm:w-auto sm:px-6";
 
   const handleStatusChange = async (status: JobStatus) => {
     if (isStatusUpdating) return;
@@ -89,23 +89,23 @@ export function JobListingCard({
 
   return (
     <>
-      <article className="group rounded-2xl border border-card-border bg-card-bg p-7 shadow-lg transition-all duration-200 hover:border-card-border-hover hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)]">
-        <div className="flex items-stretch justify-between">
-          <div className="flex-1">
+      <article className="group min-w-0 rounded-2xl border border-card-border bg-card-bg p-4 shadow-lg transition-all duration-200 hover:border-card-border-hover hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)] sm:p-7">
+        <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between">
+          <div className="min-w-0 flex-1">
             <div className="mb-2 flex items-center gap-3">
-              <h3 className="text-xl font-bold text-card-title">
+              <h3 className="min-w-0 break-words text-lg font-bold text-card-title sm:text-xl">
                 {listing.company}
               </h3>
             </div>
 
-            <h4 className="mb-3 text-lg font-semibold text-card-subtitle">
+            <h4 className="mb-3 min-w-0 break-words text-base font-semibold text-card-subtitle sm:text-lg">
               {listing.title}
             </h4>
 
-            <div className="mb-4 flex items-center gap-4 text-sm">
-              <span className="flex items-center gap-2 text-card-text">
+            <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words text-card-text">
                 <svg
-                  className="h-5 w-5"
+                  className="h-5 w-5 shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -122,10 +122,15 @@ export function JobListingCard({
                   {listing.salary || "N.A."}
                 </span>
               </span>
-              <span className="text-[hsl(194_65%_62%/0.4)]">•</span>
-              <span className="flex items-center gap-2 text-card-text">
+              <span
+                aria-hidden="true"
+                className="hidden text-[hsl(194_65%_62%/0.4)] sm:inline"
+              >
+                •
+              </span>
+              <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words text-card-text">
                 <svg
-                  className="h-5 w-5"
+                  className="h-5 w-5 shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -142,8 +147,8 @@ export function JobListingCard({
               </span>
             </div>
 
-            <div className="mb-4 flex flex-wrap items-center gap-2.5">
-              <span className="flex items-center gap-2 rounded-lg border border-badge-border bg-badge-bg px-3.5 py-1.5 text-xs font-medium text-badge-text">
+            <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2.5">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words rounded-lg border border-badge-border bg-badge-bg px-3.5 py-1.5 text-xs font-medium text-badge-text">
                 <span>📍</span>
                 {listing.location}
               </span>
@@ -164,8 +169,8 @@ export function JobListingCard({
             </div>
 
             {listing.description ? (
-              <div>
-                <p className="text-sm leading-relaxed text-foreground-600">
+              <div className="min-w-0">
+                <p className="break-words text-sm leading-relaxed text-foreground-600">
                   {isExpanded || listing.description.length <= 200
                     ? listing.description
                     : `${listing.description.slice(0, 200)}...`}
@@ -183,12 +188,12 @@ export function JobListingCard({
             ) : null}
           </div>
 
-          <div className="ml-8 flex shrink-0 flex-col items-end gap-3">
+          <div className="flex shrink-0 flex-row flex-wrap items-center gap-3 sm:ml-8 sm:flex-col sm:flex-nowrap sm:items-end">
             {listing.status !== "OPEN" ? (
               <>
-                <div className="group/dropdown relative">
+                <div className="group/dropdown relative w-full sm:w-auto">
                   <button
-                    className="flex min-w-[160px] items-center justify-between gap-2.5 rounded-lg border border-[var(--color-btn-secondary-border)] bg-gradient-to-br from-[var(--color-btn-secondary-from)] to-[var(--color-btn-secondary-to)] px-5 py-2.5 text-base font-medium text-[var(--color-btn-secondary-text)] shadow-[0_3px_10px_hsl(190_100%_42%_/_0.2)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_4px_14px_hsl(190_100%_42%_/_0.24)]"
+                    className="flex w-full items-center justify-between gap-2.5 rounded-lg border border-[var(--color-btn-secondary-border)] bg-gradient-to-br from-[var(--color-btn-secondary-from)] to-[var(--color-btn-secondary-to)] px-5 py-2.5 text-base font-medium text-[var(--color-btn-secondary-text)] shadow-[0_3px_10px_hsl(190_100%_42%_/_0.2)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_4px_14px_hsl(190_100%_42%_/_0.24)] sm:min-w-[160px]"
                     type="button"
                   >
                     <span>{formatStatusLabel(listing.status)}</span>
@@ -207,7 +212,7 @@ export function JobListingCard({
                       />
                     </svg>
                   </button>
-                  <div className="invisible absolute right-0 top-full z-10 mt-2 w-48 overflow-hidden rounded-xl border border-(--color-dropdown-border) bg-(--color-dropdown-bg) opacity-0 shadow-2xl transition-all duration-200 group-hover/dropdown:visible group-hover/dropdown:opacity-100">
+                  <div className="invisible absolute top-full right-0 left-0 z-10 mt-2 overflow-hidden rounded-xl border border-(--color-dropdown-border) bg-(--color-dropdown-bg) opacity-0 shadow-2xl transition-all duration-200 group-hover/dropdown:visible group-hover/dropdown:opacity-100 sm:right-0 sm:left-auto sm:w-48">
                     {statuses
                       .filter((status) => status !== listing.status)
                       .map((status) => (
@@ -306,7 +311,7 @@ export function JobListingCard({
               type="button"
               aria-label={`Delete ${listing.title} at ${listing.company}`}
               title="Delete job listing"
-              className="mt-auto rounded-lg p-2 text-foreground-600-subtle transition-colors hover:bg-rose-500/15 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60"
+              className="ml-auto rounded-lg p-2.5 text-foreground-600-subtle transition-colors hover:bg-rose-500/15 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60 sm:ml-0 sm:mt-auto sm:p-2"
               onClick={() => confirmationRef.current?.open()}
             >
               <svg

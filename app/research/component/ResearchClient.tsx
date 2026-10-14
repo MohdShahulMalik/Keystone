@@ -339,7 +339,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
 
   if (check === "checking") {
     return (
-      <div className="mx-auto max-w-3xl animate-pulse rounded-2xl border border-stroke bg-surface-800 p-7 text-sm text-foreground-600-subtle">
+      <div className="mx-auto max-w-3xl animate-pulse rounded-2xl border border-stroke bg-surface-800 p-5 text-sm text-foreground-600-subtle sm:p-7">
         Loading session…
       </div>
     );
@@ -367,8 +367,8 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
 
         <div className="space-y-6">
           {userPreferences ? (
-            <div className="flex justify-end">
-              <div className="max-w-md rounded-2xl border border-stroke bg-surface-800 p-4 text-sm">
+            <div className="flex justify-start sm:justify-end">
+              <div className="w-full min-w-0 max-w-md break-words rounded-2xl border border-stroke bg-surface-800 p-4 text-sm">
                 <div className="space-y-2 text-foreground-600">
                   <div>
                     <span className="font-medium text-foreground-900">
@@ -426,8 +426,8 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
 
         {mode === "job" && jobs.length > 0 ? (
           <section className="mt-12 space-y-4" aria-label="Job matches">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-foreground-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="min-w-0 text-lg font-semibold break-words text-foreground-900">
                 Matched jobs{" "}
                 <span className="ml-2 rounded-full bg-surface-800 px-2.5 py-1 text-xs font-medium text-foreground-600">
                   {jobs.length}

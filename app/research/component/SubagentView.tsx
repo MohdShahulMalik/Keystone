@@ -93,7 +93,7 @@ export function SubagentView({
 
   if (loadState === "loading") {
     return (
-      <div className="mx-auto max-w-3xl animate-pulse rounded-2xl border border-stroke bg-surface-800 p-7 text-sm text-foreground-600-subtle">
+      <div className="mx-auto max-w-3xl animate-pulse rounded-2xl border border-stroke bg-surface-800 p-5 text-sm text-foreground-600-subtle sm:p-7">
         Loading subagent…
       </div>
     );
@@ -153,16 +153,16 @@ export function SubagentView({
           </span>
         </div>
 
-        <h1 className="text-xl font-semibold text-foreground-900">
+        <h1 className="min-w-0 break-words text-xl font-semibold text-foreground-900">
           {subagent.title || subagent.description || "Subagent"}
         </h1>
         {subagent.description && subagent.description !== subagent.title ? (
-          <p className="text-sm leading-relaxed text-foreground-600">
+          <p className="min-w-0 break-words text-sm leading-relaxed text-foreground-600">
             {subagent.description}
           </p>
         ) : null}
 
-        <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-foreground-600-subtle">
+        <dl className="flex min-w-0 flex-wrap gap-x-6 gap-y-1 break-words text-xs text-foreground-600-subtle">
           {subagent.toolCount !== null ? (
             <div>
               <dt className="inline font-medium text-foreground-600">
@@ -183,7 +183,7 @@ export function SubagentView({
             <dt className="inline font-medium text-foreground-600">
               Session:{" "}
             </dt>
-            <dd className="inline font-mono">{subagent.sessionId}</dd>
+            <dd className="inline break-all font-mono">{subagent.sessionId}</dd>
           </div>
         </dl>
 
@@ -210,7 +210,7 @@ export function SubagentView({
                     href={`/research/${parent?.mode ?? mode}?sessionId=${subagent.parentId}&subagentId=${sib.sessionId}`}
                     className="flex items-center justify-between gap-3 rounded-xl border border-stroke bg-surface-800 px-4 py-3 text-sm transition-colors hover:border-accent hover:bg-surface-700"
                   >
-                    <span className="truncate text-foreground-900">
+                    <span className="min-w-0 flex-1 truncate text-foreground-900">
                       {sib.title || sib.sessionId}
                     </span>
                     <span className="shrink-0 text-xs text-foreground-600-subtle">

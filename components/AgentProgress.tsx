@@ -47,13 +47,13 @@ export function AgentProgress({
   const clampedProgress = Math.max(0, Math.min(100, progress ?? 0));
 
   return (
-    <section className="rounded-2xl border border-stroke bg-surface-800 p-6 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-stroke bg-surface-800 p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-foreground-600-subtle">
             Agent Progress
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-foreground-900">
+          <h2 className="mt-2 break-words text-xl font-bold text-foreground-900 sm:text-2xl">
             {title}
           </h2>
           {subtitle ? (
@@ -83,16 +83,16 @@ export function AgentProgress({
       </div>
 
       {metrics.length > 0 ? (
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {metrics.map((metric) => (
             <div
               key={metric.label}
-              className="rounded-xl border border-stroke bg-surface-900 px-4 py-3"
+              className="min-w-0 rounded-xl border border-stroke bg-surface-900 px-4 py-3"
             >
-              <p className="text-xs uppercase tracking-[0.2em] text-foreground-600-subtle">
+              <p className="truncate text-xs uppercase tracking-[0.2em] text-foreground-600-subtle">
                 {metric.label}
               </p>
-              <p className="mt-2 text-lg font-semibold text-foreground-900">
+              <p className="mt-2 break-words text-base font-semibold text-foreground-900 sm:text-lg">
                 {metric.value}
               </p>
             </div>
@@ -105,10 +105,10 @@ export function AgentProgress({
           {steps.map((step) => (
             <div
               key={step.id}
-              className="flex items-start justify-between gap-4 rounded-xl border border-stroke bg-surface-900 px-4 py-3"
+              className="flex min-w-0 items-start justify-between gap-4 rounded-xl border border-stroke bg-surface-900 px-4 py-3"
             >
-              <div>
-                <p className="text-sm font-semibold text-foreground-900">
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-sm font-semibold text-foreground-900">
                   {step.label}
                 </p>
                 {step.detail ? (

@@ -80,7 +80,7 @@ function SegmentStream({
     blocks.push(
       <div
         key={key}
-        className="text-sm leading-relaxed text-foreground-600 [&_a]:text-accent [&_a]:underline [&_code]:font-mono [&_code]:text-accent [&_h1]:text-foreground-900 [&_h2]:text-foreground-900 [&_h3]:text-foreground-900 [&_h4]:text-foreground-900 [&_strong]:text-foreground-900 [&_table]:text-xs"
+        className="min-w-0 text-sm leading-relaxed break-words text-foreground-600 [&_a]:break-words [&_a]:text-accent [&_a]:underline [&_code]:font-mono [&_code]:text-accent [&_h1]:text-foreground-900 [&_h2]:text-foreground-900 [&_h3]:text-foreground-900 [&_h4]:text-foreground-900 [&_img]:max-w-full [&_img]:rounded-lg [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_strong]:text-foreground-900 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_video]:max-w-full"
       >
         <Streamdown components={components}>{content}</Streamdown>
       </div>,
@@ -101,7 +101,7 @@ function SegmentStream({
       blocks.push(
         <div
           key={segment.id}
-          className="rounded-r-lg border-l-2 border-info/40 bg-surface-700/40 px-3 py-2 text-xs italic leading-relaxed text-foreground-600-subtle"
+          className="min-w-0 break-words rounded-r-lg border-l-2 border-info/40 bg-surface-700/40 px-3 py-2 text-xs italic leading-relaxed text-foreground-600-subtle [&_a]:break-words"
         >
           <span className="font-semibold not-italic text-info">Thinking:</span>{" "}
           <Streamdown components={components}>{segment.text}</Streamdown>
@@ -116,7 +116,7 @@ function SegmentStream({
       blocks.push(
         <div
           key={segment.id}
-          className={`rounded-r-md border-l-2 ${toolTone(segment.text)} bg-surface-800 px-3 py-1.5 font-mono text-xs text-foreground-600-subtle [&_a]:text-accent [&_a]:underline [&_p]:my-0 [&_p]:whitespace-pre-wrap ${running ? "animate-pulse" : ""}`}
+          className={`min-w-0 break-words rounded-r-md border-l-2 ${toolTone(segment.text)} bg-surface-800 px-3 py-1.5 font-mono text-xs text-foreground-600-subtle [&_a]:break-words [&_a]:text-accent [&_a]:underline [&_p]:my-0 [&_p]:whitespace-pre-wrap ${running ? "animate-pulse" : ""}`}
         >
           <Streamdown components={components}>{segment.text}</Streamdown>
         </div>,
@@ -128,7 +128,7 @@ function SegmentStream({
   });
   flushMarkdown(`md-${segments.length}`);
 
-  return <div className="space-y-3">{blocks}</div>;
+  return <div className="min-w-0 space-y-3">{blocks}</div>;
 }
 
 type AgentResponseProps = {
@@ -151,8 +151,8 @@ export function AgentResponse({
     [onSelectSubagent],
   );
   return (
-    <div className="flex justify-start">
-      <div className="max-w-2xl">
+    <div className="flex min-w-0 justify-start">
+      <div className="w-full min-w-0 max-w-2xl">
         <div className="text-sm leading-relaxed text-foreground-600">
           {segments.length > 0 ? (
             <>

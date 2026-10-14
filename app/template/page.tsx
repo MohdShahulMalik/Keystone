@@ -64,12 +64,12 @@ const jobResults = [
 
 function NavBubbles({ current }: { current: number }) {
   return (
-    <div className="fixed bottom-6 right-6 flex gap-2 z-50">
+    <div className="fixed right-4 bottom-4 z-50 flex max-w-[calc(100vw-2rem)] flex-wrap justify-end gap-2 sm:right-6 sm:bottom-6">
       {[1, 2, 3, 4, 5, 6, 7].map((n) => (
         <Link
           key={n}
           href={`/${n}`}
-          className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-medium transition-all ${
+          className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-medium transition-all sm:h-10 sm:w-10 sm:text-sm ${
             n === current
               ? "border-accent bg-accent/10 text-accent"
               : "border-stroke bg-surface-800 text-foreground-600 hover:text-foreground-900 hover:border-foreground-600"
@@ -159,13 +159,13 @@ export default function Design1() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-900 text-foreground-900 font-sans">
-      <div className="mx-auto max-w-5xl px-6 py-12">
+    <div className="min-h-screen overflow-x-clip bg-surface-900 text-foreground-900 font-sans">
+      <div className="mx-auto max-w-5xl px-4 pt-8 pb-28 sm:px-6 sm:py-12 sm:pb-28">
         {phase === "idle" ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 flex flex-col gap-10">
+            <div className="lg:col-span-2 flex min-w-0 flex-col gap-10">
               <div className="text-center lg:text-left">
-                <h1 className="text-4xl font-semibold tracking-tight mb-3">
+                <h1 className="mb-3 break-words text-3xl font-semibold tracking-tight sm:text-4xl">
                   Research Agent
                 </h1>
                 <p className="text-foreground-600 text-lg">
@@ -204,7 +204,7 @@ export default function Design1() {
                   <label className="block text-sm font-medium text-foreground-600 mb-3">
                     Job Types
                   </label>
-                  <div className="flex gap-6">
+                  <div className="flex flex-wrap gap-x-6 gap-y-3">
                     {[
                       { label: "Remote", val: remote, set: setRemote },
                       { label: "Hybrid", val: hybrid, set: setHybrid },
@@ -388,7 +388,7 @@ export default function Design1() {
               )}
             </div>
 
-            <div className="rounded-xl border border-stroke bg-surface-800 p-5 font-mono text-sm text-foreground-600 leading-relaxed whitespace-pre-wrap min-h-[240px] max-h-[400px] overflow-y-auto">
+            <div className="rounded-xl border border-stroke bg-surface-800 p-4 sm:p-5 font-mono text-xs sm:text-sm text-foreground-600 leading-relaxed whitespace-pre-wrap break-words min-h-[240px] max-h-[400px] overflow-y-auto overflow-x-hidden">
               {streamText}
               {phase !== "completed" && (
                 <span className="inline-block h-4 w-2 bg-accent animate-pulse ml-0.5 align-middle" />
@@ -401,10 +401,10 @@ export default function Design1() {
                 {jobResults.map((job, i) => (
                   <div
                     key={i}
-                    className="rounded-xl border border-stroke bg-surface-800 p-5 flex flex-col gap-2"
+                    className="rounded-xl border border-stroke bg-surface-800 p-4 sm:p-5 flex flex-col gap-2 min-w-0"
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
                         <div className="font-semibold text-foreground-900">
                           {job.title}
                         </div>
@@ -416,7 +416,7 @@ export default function Design1() {
                         {job.type}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-foreground-600">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground-600">
                       <span>{job.location}</span>
                       <span>{job.salary}</span>
                     </div>

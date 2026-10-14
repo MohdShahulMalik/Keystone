@@ -33,7 +33,7 @@ export function Filters({
       className="rounded-2xl border border-stroke bg-surface-800 p-4 shadow-sm sm:p-6"
       aria-label={`${cardName} filters`}
     >
-      <div className="flex items-stretch gap-3">
+      <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-stretch">
         <div className="min-w-0 flex-1">
           <label
             htmlFor={`${cardName.toLowerCase()}-search`}
@@ -54,7 +54,7 @@ export function Filters({
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3 text-base font-bold text-[var(--color-btn-primary-text)] shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)]"
+          className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3 text-base font-bold text-[var(--color-btn-primary-text)] shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)] min-[480px]:w-auto"
         >
           <svg
             className="h-5 w-5"
@@ -106,7 +106,7 @@ export function Filters({
                         type="button"
                         onClick={() => group.onToggle(option.value)}
                         aria-pressed={isSelected}
-                        className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out ${
+                        className={`inline-flex min-h-[44px] items-center whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-out ${
                           isSelected
                             ? "border-filter-chip-active-border bg-gradient-to-br from-filter-chip-active-from to-filter-chip-active-to text-foreground-900 shadow-filter-chip-active"
                             : "border-stroke bg-surface-800 text-foreground-600 hover:border-filter-chip-active-border"

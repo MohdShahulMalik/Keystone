@@ -29,7 +29,7 @@ export default async function ResearchPage({
         title={modeLabels[mode]}
         mode={mode}
       />
-      <main className="min-w-0 flex-1 px-4 py-16 sm:px-6 lg:px-12 lg:py-12">
+      <main className="min-w-0 flex-1 px-4 pt-20 pb-10 sm:px-6 lg:px-12 lg:py-12">
         <ResearchClient mode={mode} label={modeLabels[mode]} />
       </main>
     </div>
