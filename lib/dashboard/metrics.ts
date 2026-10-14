@@ -128,13 +128,13 @@ export function heatCells(
   );
 }
 
-/** Bucket colour intensity, matching the template's 5-step scale. */
+/** Bucket colour intensity, matching the template's 5-step hm scale. */
 export function heatClass(count: number): string {
-  if (count >= 5) return "bg-accent";
-  if (count >= 3) return "bg-accent/70";
-  if (count === 2) return "bg-accent/45";
-  if (count === 1) return "bg-accent/20";
-  return "bg-stroke";
+  if (count >= 5) return "bg-acc-cyan";
+  if (count >= 3) return "bg-[rgba(0,184,214,0.7)]";
+  if (count === 2) return "bg-[rgba(0,184,214,0.45)]";
+  if (count === 1) return "bg-[rgba(0,184,214,0.22)]";
+  return "bg-edge";
 }
 
 export function busiestWeekCounts(cells: HeatCell[][]): number {
@@ -285,7 +285,7 @@ export function funnelStages(counts: StatusCounts): FunnelStage[] {
     {
       label: "Saved",
       count: saved || total,
-      bar: "bg-foreground-600/60",
+      bar: "bg-body/60",
       width: 100,
     },
     {
@@ -297,18 +297,18 @@ export function funnelStages(counts: StatusCounts): FunnelStage[] {
     {
       label: "Interview",
       count: interviewPlus,
-      bar: "bg-accent",
+      bar: "bg-acc-cyan",
       width: share(interviewPlus),
     },
-    { label: "Offer", count: offers, bar: "bg-success", width: share(offers) },
+    { label: "Offer", count: offers, bar: "bg-ok", width: share(offers) },
   ];
 }
 
 export const STATUS_DOT: Record<JobStatus, string> = {
-  OPEN: "bg-foreground-600",
+  OPEN: "bg-body",
   APPLIED: "bg-info",
-  INTERVIEW: "bg-accent",
-  OFFER: "bg-success",
+  INTERVIEW: "bg-acc-cyan",
+  OFFER: "bg-ok",
   REJECTED: "bg-danger",
   DECLINED: "bg-warning",
 };
@@ -318,7 +318,7 @@ export function sessionProgress(status: string): {
   percent: number;
   bar: string;
 } {
-  if (status === "completed") return { percent: 100, bar: "bg-success" };
+  if (status === "completed") return { percent: 100, bar: "bg-ok" };
   if (status === "failed") return { percent: 4, bar: "bg-danger" };
-  return { percent: 50, bar: "bg-accent" };
+  return { percent: 50, bar: "bg-acc-cyan" };
 }

@@ -26,10 +26,10 @@
   /* Semantic colors */
   --color-primary: hsl(190 100% 42%);
   --color-secondary: hsl(193 100% 18%);
-  --color-danger: hsl(7 100% 66%);
+  --color-danger: #fb7185;
   --color-warning: hsl(53 100% 51%);
   --color-success: hsl(162 100% 42%);
-  --color-info: hsl(217 100% 70%);
+  --color-info: #38bdf8;
 
   /* Job card specific colors */
   --color-card-bg: hsl(205 100% 4%);
@@ -112,10 +112,22 @@
   --color-status-declined-border: hsl(53 100% 21% / 0.5);
   --color-status-declined-dot: hsl(53 100% 51%);
 
+  /* Landing / bento template tokens (verbatim from templates) */
+  --color-ink: #020b14;
+  --color-card: #031019;
+  --color-edge: #00212e;
+  --color-ice: #c9f2ff;
+  --color-body: #7ab5c6;
+  --color-acc-cyan: #00b8d6;
+  --color-acc-blue: #0a84ff;
+  --color-ok: #10d9a0;
+
+  --font-display: var(--font-space-grotesk);
   --font-sans: var(--font-space-grotesk);
   --font-mono: var(--font-space-mono);
-}
 
+  --radius-card: 20px;
+}
 body {
   background: var(--color-surface-900);
   color: var(--color-foreground-900);

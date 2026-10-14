@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
 /**
- * Bento tile shell — surface, border and hover only.
+ * Bento tile shell — ports `.tile` (bg #031019, 1px #00212E border,
+ * 24px radius, border-color transition, cyan hover border) to Tailwind.
  * Callers own padding and grid placement via `className`.
  */
 export function Tile({
@@ -16,23 +17,30 @@ export function Tile({
   return (
     <section
       aria-label={label}
-      className={`rounded-3xl border border-stroke bg-surface-800 transition-colors hover:border-accent/50 ${className}`}
+      className={`rounded-3xl border border-edge bg-card transition-colors duration-300 hover:border-[rgba(0,184,214,0.5)] ${className}`}
     >
       {children}
     </section>
   );
 }
 
-/** Cyan tile heading with the leading dash from the template. */
+/**
+ * Ports `.section-label` + `::before` dash (Space Grotesk 600, 13px,
+ * 0.12em tracking, uppercase, leading 1, flex, 0.75rem gap, 1.5rem x 2px
+ * cyan dash) to Tailwind.
+ */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-center gap-3 font-display text-[13px] font-semibold uppercase tracking-[0.12em] text-accent before:h-0.5 before:w-6 before:bg-accent before:content-['']">
+    <p className="flex items-center gap-3 font-display text-[13px] font-semibold uppercase leading-none tracking-[0.12em] text-acc-cyan before:h-0.5 before:w-6 before:flex-none before:bg-acc-cyan before:content-['']">
       {children}
     </p>
   );
 }
 
-/** Small uppercase mono caption above a card's content. */
+/**
+ * Ports `.eyebrow` (Space Mono, uppercase, 0.14em tracking, 11px,
+ * 1.4 line-height) to Tailwind.
+ */
 export function Eyebrow({
   children,
   className = "",
@@ -42,46 +50,65 @@ export function Eyebrow({
 }) {
   return (
     <p
-      className={`font-mono text-[11px] uppercase tracking-[0.14em] text-foreground-600/60 ${className}`}
+      className={`font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60 ${className}`}
     >
       {children}
     </p>
   );
 }
 
+/**
+ * Ports `.pill` (inline-flex, 0.5rem gap, 8px radius, 1px #00212E border,
+ * rgba(2,11,20,.75) bg, .3rem/.6rem padding, Space Mono 11px, 0.08em
+ * tracking, uppercase, #7AB5C6, nowrap, max-width 100%) to Tailwind.
+ */
 export function Pill({
   tone = "neutral",
   live = false,
   children,
 }: {
   /** `live` swaps the resting dot for a pulsing one. */
-  tone?: "neutral" | "success";
+  tone?: "neutral" | "success" | "accent";
   live?: boolean;
   children: ReactNode;
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border bg-surface-900/75 px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider ${
+      className={`inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-lg border bg-[rgba(2,11,20,0.75)] px-[0.6rem] py-[0.3rem] font-mono text-[11px] uppercase tracking-[0.08em] ${
         tone === "success"
-          ? "border-success/30 text-success"
-          : "border-stroke text-foreground-600"
+          ? "border-ok/30 text-ok"
+          : tone === "accent"
+            ? "border-acc-cyan/30 text-acc-cyan"
+            : "border-edge text-body"
       }`}
     >
-      {live ? (
-        <span
-          className="h-1.5 w-1.5 flex-none rounded-full bg-success motion-safe:animate-pulse"
-          aria-hidden="true"
-        />
-      ) : null}
+      {live ? <LiveDot /> : null}
       {children}
     </span>
   );
 }
 
+/**
+ * Ports `.dot` (6px circle) to Tailwind. `color` takes a Tailwind bg class.
+ */
 export function Dot({ color }: { color: string }) {
   return (
     <span
       className={`h-1.5 w-1.5 flex-none rounded-full ${color}`}
+      aria-hidden="true"
+    />
+  );
+}
+
+/**
+ * Ports `.pulse-dot` (1.6s ease-in-out infinite pulse, disabled under
+ * prefers-reduced-motion) to Tailwind using the built-in pulse keyframes —
+ * no custom CSS.
+ */
+export function LiveDot() {
+  return (
+    <span
+      className="h-1.5 w-1.5 flex-none rounded-full bg-ok motion-safe:animate-[pulse_1.6s_ease-in-out_infinite] motion-reduce:animate-none"
       aria-hidden="true"
     />
   );
