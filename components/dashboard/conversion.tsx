@@ -15,16 +15,19 @@ export function ConversionCard({ listings }: { listings: JobListing[] }) {
   const seg3 = interviewToOffer * RING_C;
 
   return (
-    <Tile label="Conversion" className="p-7 lg:col-span-3">
-      <div className="flex items-center justify-between gap-4">
+    <Tile
+      label="Conversion"
+      className="min-w-0 overflow-hidden p-6 sm:col-span-2 sm:p-7 lg:col-span-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionLabel>Conversion</SectionLabel>
         <Pill>all time</Pill>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-8">
-        <div className="relative h-36 w-36 flex-none">
+      <div className="mt-6 flex min-w-0 flex-col items-stretch gap-6 sm:flex-row sm:items-center sm:gap-8">
+        <div className="relative mx-auto h-36 w-36 flex-none sm:mx-0">
           <svg
-            className="h-36 w-36 -rotate-90"
+            className="h-36 w-36 max-w-full -rotate-90"
             viewBox="0 0 120 120"
             role="img"
             aria-label={`Donut chart: ${pct(appliedPlus, total)} applied, ${pct(interviewPlus, appliedPlus)} interview, ${pct(offers, interviewPlus)} offer rate`}
@@ -34,7 +37,7 @@ export function ConversionCard({ listings }: { listings: JobListing[] }) {
               cy="60"
               r="50"
               fill="none"
-              stroke="hsl(195 100% 12%)"
+              stroke="#00212E"
               strokeWidth="12"
             />
             <circle
@@ -42,7 +45,7 @@ export function ConversionCard({ listings }: { listings: JobListing[] }) {
               cy="60"
               r="50"
               fill="none"
-              stroke="hsl(217 100% 70%)"
+              stroke="#38BDF8"
               strokeWidth="12"
               strokeDasharray={`${seg1} ${RING_C}`}
               strokeLinecap="butt"
@@ -52,7 +55,7 @@ export function ConversionCard({ listings }: { listings: JobListing[] }) {
               cy="60"
               r="50"
               fill="none"
-              stroke="hsl(190 100% 42%)"
+              stroke="#00B8D6"
               strokeWidth="12"
               strokeDasharray={`${seg2} ${RING_C}`}
               strokeDashoffset={-seg1}
@@ -63,7 +66,7 @@ export function ConversionCard({ listings }: { listings: JobListing[] }) {
               cy="60"
               r="50"
               fill="none"
-              stroke="hsl(162 100% 42%)"
+              stroke="#10D9A0"
               strokeWidth="12"
               strokeDasharray={`${seg3} ${RING_C}`}
               strokeDashoffset={-(seg1 + seg2)}
@@ -71,40 +74,40 @@ export function ConversionCard({ listings }: { listings: JobListing[] }) {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="font-mono text-2xl font-bold text-foreground-900">
+            <p className="font-mono text-2xl font-bold text-ice">
               {pct(appliedPlus, total)}
             </p>
-            <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground-600/60">
+            <p className="mt-1 font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60">
               applied
             </p>
           </div>
         </div>
 
-        <ul className="min-w-0 flex-1 space-y-3">
-          <li className="flex items-center justify-between gap-4 border-b border-stroke pb-3">
-            <span className="flex items-center gap-2.5 text-sm text-foreground-900">
+        <ul className="w-full min-w-0 flex-1 space-y-3">
+          <li className="flex min-w-0 items-center justify-between gap-4 border-b border-edge pb-3">
+            <span className="flex min-w-0 items-center gap-2.5 text-sm text-ice">
               <Dot color="bg-info" />
-              Saved → Applied
+              <span className="min-w-0 break-words">Saved → Applied</span>
             </span>
-            <span className="font-mono text-sm text-foreground-900">
+            <span className="flex-none font-mono text-sm text-ice">
               {pct(appliedPlus, total)}
             </span>
           </li>
-          <li className="flex items-center justify-between gap-4 border-b border-stroke pb-3">
-            <span className="flex items-center gap-2.5 text-sm text-foreground-900">
-              <Dot color="bg-accent" />
-              Applied → Interview
+          <li className="flex min-w-0 items-center justify-between gap-4 border-b border-edge pb-3">
+            <span className="flex min-w-0 items-center gap-2.5 text-sm text-ice">
+              <Dot color="bg-acc-cyan" />
+              <span className="min-w-0 break-words">Applied → Interview</span>
             </span>
-            <span className="font-mono text-sm text-foreground-900">
+            <span className="flex-none font-mono text-sm text-ice">
               {pct(interviewPlus, appliedPlus)}
             </span>
           </li>
-          <li className="flex items-center justify-between gap-4">
-            <span className="flex items-center gap-2.5 text-sm text-foreground-900">
-              <Dot color="bg-success" />
-              Interview → Offer
+          <li className="flex min-w-0 items-center justify-between gap-4">
+            <span className="flex min-w-0 items-center gap-2.5 text-sm text-ice">
+              <Dot color="bg-ok" />
+              <span className="min-w-0 break-words">Interview → Offer</span>
             </span>
-            <span className="font-mono text-sm text-success">
+            <span className="flex-none font-mono text-sm text-ok">
               {pct(offers, interviewPlus)}
             </span>
           </li>

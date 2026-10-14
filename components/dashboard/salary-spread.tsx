@@ -15,47 +15,50 @@ export function SalarySpreadCard({ listings }: { listings: JobListing[] }) {
     : null;
 
   return (
-    <Tile label="Salary spread" className="p-6 lg:col-span-2">
+    <Tile
+      label="Salary spread"
+      className="min-w-0 overflow-hidden p-6 lg:col-span-2"
+    >
       <Eyebrow>Offer vs. market</Eyebrow>
-      <p className="mt-4 font-mono text-3xl font-bold text-success">
+      <p className="mt-4 font-mono text-3xl font-bold text-ok">
         {bestValue === null ? "—" : formatComp(bestValue)}
       </p>
-      <p className="mt-2 text-sm">
+      <p className="mt-2 text-sm text-body">
         {best ? `best tracked · ${best.company}` : "no salary data yet"}
       </p>
 
       <div className="mt-6">
-        <div className="relative h-2 rounded-full bg-surface-900">
-          <div className="absolute inset-y-0 left-[20%] right-[18%] rounded-full bg-accent/30" />
+        <div className="relative h-2 rounded-full bg-ink">
+          <div className="absolute inset-y-0 left-[20%] right-[18%] rounded-full bg-acc-cyan/30" />
           {markerLeft !== null ? (
             <span
-              className="absolute -top-1 h-4 w-1 rounded-full bg-success"
+              className="absolute -top-1 h-4 w-1 rounded-full bg-ok"
               style={{ left: `${markerLeft}%` }}
               aria-hidden="true"
             />
           ) : null}
         </div>
-        <div className="mt-3 flex justify-between font-mono text-[10px] text-foreground-600/50">
+        <div className="mt-3 flex flex-wrap justify-between gap-x-3 gap-y-1 font-mono text-[10px] text-body/50">
           <span>{min === null ? "—" : formatComp(min)}</span>
           <span>median {median === null ? "—" : formatComp(median)}</span>
           <span>{max === null ? "—" : formatComp(max)}</span>
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 border-t border-stroke pt-5">
+      <div className="mt-6 grid grid-cols-2 gap-3 border-t border-edge pt-5">
         <div>
-          <p className="font-mono text-lg font-bold text-foreground-900">
+          <p className="font-mono text-lg font-bold text-ice">
             {entries.length}
           </p>
-          <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground-600/60">
+          <p className="mt-1 font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60">
             With salary
           </p>
         </div>
         <div>
-          <p className="font-mono text-lg font-bold text-foreground-900">
+          <p className="font-mono text-lg font-bold text-ice">
             {listings.length === 0 ? "—" : pct(entries.length, listings.length)}
           </p>
-          <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.14em] text-foreground-600/60">
+          <p className="mt-1 font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60">
             Coverage
           </p>
         </div>
