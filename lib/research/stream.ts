@@ -470,7 +470,7 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
     }
   }
   const orNull = (v: unknown): string | null =>
-    typeof v === "string" ? (v.trim() ? v.trim() : null) : (v ?? null);
+    typeof v === "string" ? (v.trim() ? v.trim() : null) : null;
   const payload = {
     id: `${sessionID}-${seq}-${Date.now()}`,
     sessionId: sessionID,
