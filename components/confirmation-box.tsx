@@ -18,6 +18,10 @@ type ConfirmationBoxProps = {
   message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Close the dialog instantly on confirm and reopen it only if the action
+   * fails — for slow server roundtrips (Neon cold starts) so the UI never
+   * sits on a spinner. Failures still surface via role=alert on reopen. */
+  dismissOnConfirm?: boolean;
   onConfirmAction: () =>
     | Promise<ResponseAction<unknown>>
     | Promise<void>
@@ -30,6 +34,7 @@ export function ConfirmationBox({
   message,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
+  dismissOnConfirm = false,
   onConfirmAction: onConfirm,
   ref,
 }: ConfirmationBoxProps) {
@@ -52,6 +57,42 @@ export function ConfirmationBox({
   };
 
   const handleConfirm = async () => {
+    if (dismissOnConfirm) {
+      // Optimistic dismiss: close now so a slow roundtrip never blocks the
+      // UI. The card behind already hid itself; on failure roll back by
+      // reopening with the error.
+      dialogRef.current?.close();
+      setIsPending(true);
+      setError(null);
+
+      try {
+        const result = (await onConfirm()) as
+          | ResponseAction<unknown>
+          | undefined;
+
+        if (
+          result &&
+          typeof result === "object" &&
+          "success" in result &&
+          !result.success
+        ) {
+          setError((result as { error: string }).error);
+          if (dialogRef.current && !dialogRef.current.open) {
+            dialogRef.current.showModal();
+          }
+          return;
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+        if (dialogRef.current && !dialogRef.current.open) {
+          dialogRef.current.showModal();
+        }
+      } finally {
+        setIsPending(false);
+      }
+      return;
+    }
+
     setIsPending(true);
     setError(null);
 
