@@ -1,0 +1,31 @@
+{
+  "jobId": "REPLACE_WITH_QUEUE_ID",
+  "jobUrl": "https://example.com/apply/123",
+  "fields": [
+    {
+      "uid": "FIELD_UID_FROM_SNAPSHOT",
+      "token": "{{contact.firstName}}",
+      "label": "First name"
+    },
+    {
+      "uid": "FIELD_UID_FROM_SNAPSHOT",
+      "token": "{{contact.lastName}}",
+      "label": "Last name"
+    },
+    {
+      "uid": "FIELD_UID_FROM_SNAPSHOT",
+      "token": "{{contact.email}}",
+      "label": "Email"
+    },
+    {
+      "uid": "FIELD_UID_FROM_SNAPSHOT",
+      "token": "{{contact.phone}}",
+      "label": "Phone"
+    },
+    {
+      "uid": "FIELD_UID_FROM_SNAPSHOT",
+      "token": "{{workAuth.authorized}}",
+      "label": "Work authorization"
+    }
+  ]
+}

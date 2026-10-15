@@ -1,0 +1,26 @@
+{
+  "contact": {
+    "firstName": "",
+    "lastName": "",
+    "email": "",
+    "phone": "",
+    "location": "",
+    "linkedin": "",
+    "portfolio": ""
+  },
+  "workAuth": {
+    "authorized": "",
+    "sponsorshipRequired": "",
+    "visa": ""
+  },
+  "experience": {
+    "years": "",
+    "summary": ""
+  },
+  "resumePath": "",
+  "eeo": {
+    "gender": "",
+    "veteran": "",
+    "disability": ""
+  }
+}
