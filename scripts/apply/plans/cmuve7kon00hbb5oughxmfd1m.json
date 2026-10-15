@@ -1,0 +1,61 @@
+{
+  "jobId": "cmuve7kon00hbb5oughxmfd1m",
+  "jobUrl": "https://jobs.lever.co/metabase/85f454d8-e795-4978-8a2b-4b8bfa7d7c37/apply",
+  "fields": [
+    {
+      "uid": "resume-upload-input",
+      "token": "{{resumePath}}",
+      "label": "Resume (file upload, name=resume)"
+    },
+    {
+      "uid": "name",
+      "token": "{{contact.firstName}}",
+      "label": "Full name (Lever single field; combine first+last at fill time)"
+    },
+    {
+      "uid": "email",
+      "token": "{{contact.email}}",
+      "label": "Email"
+    },
+    {
+      "uid": "phone",
+      "token": "{{contact.phone}}",
+      "label": "Phone"
+    },
+    {
+      "uid": "location-input",
+      "token": "{{contact.location}}",
+      "label": "Current location"
+    },
+    {
+      "uid": "org",
+      "token": "{{experience.summary}}",
+      "label": "Current company"
+    },
+    {
+      "uid": "urls[LinkedIn]",
+      "token": "{{contact.linkedin}}",
+      "label": "LinkedIn URL"
+    },
+    {
+      "uid": "urls[GitHub]",
+      "token": "{{contact.portfolio}}",
+      "label": "GitHub URL"
+    },
+    {
+      "uid": "urls[Other]",
+      "token": "{{contact.portfolio}}",
+      "label": "Other website"
+    },
+    {
+      "uid": "cards[cd14dc9b-549f-43d0-aa16-bb3efd9ff968][field0]",
+      "token": "{{contact.location}}",
+      "label": "Where are you based? (city, country)"
+    },
+    {
+      "uid": "cards[d501d355-303e-438c-9d19-5f5fd267154e][field0]",
+      "token": "{{experience.summary}}",
+      "label": "Additional Information"
+    }
+  ]
+}
