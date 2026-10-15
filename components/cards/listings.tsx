@@ -11,7 +11,13 @@ import type { JobStatus } from "@/lib/types/status";
 
 interface JobListingCardProps {
   listing: JobListing;
-  onStatusChange: (id: string, status: JobStatus) => void | Promise<void>;
+  onStatusChange: (
+    id: string,
+    status: JobStatus,
+  ) => void | Promise<void> | Promise<{ success: boolean }>;
+  onDelete?: (id: string) => Promise<
+    { success: boolean; error?: string; data?: unknown } | undefined
+  >;
   statuses: readonly JobStatus[];
 }
 
@@ -43,6 +49,7 @@ function getActionError(error: unknown): string {
 export function JobListingCard({
   listing,
   onStatusChange,
+  onDelete,
   statuses,
 }: JobListingCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -69,26 +76,33 @@ export function JobListingCard({
   };
 
   const handleDelete = async () => {
-    const result = await deleteJobListing(listing.userId, listing.id);
+    // Optimistic: hide the card now, confirm with Neon in background.
+    // The dialog stays mounted (only the article hides) so a failure can
+    // roll back and surface its error without losing dialog state.
+    setIsDeleted(true);
+    const result = onDelete
+      ? await onDelete(listing.id)
+      : await deleteJobListing(listing.userId, listing.id);
 
-    if (!result.success) {
-      // Connectivity failures carry `cause`/`code` (`db_unreachable` |
-      // `timeout`) — logged here so "DB down" is distinguishable from
-      // validation errors; the banner keeps the generic message.
-      console.error("[listings] deleteJobListing failed:", result);
-      return { success: false as const, error: getActionError(result.error) };
+    if (!result || (typeof result === "object" && "success" in result && result.success)) {
+      // revalidatePath("/listings") in jobs.ts:94 already invalidates the RSC cache
+      // — Next.js will auto-refetch /listings after the action settles, no manual refresh needed
+      return { success: true as const, data: (result as { data?: unknown } | null | undefined)?.data };
     }
 
-    // revalidatePath("/listings") in jobs.ts:94 already invalidates the RSC cache
-    // — Next.js will auto-refetch /listings after the action settles, no manual refresh needed
-    setIsDeleted(true);
-    return { success: true as const, data: result.data };
+    // Connectivity failures carry `cause`/`code` (`db_unreachable` |
+    // `timeout`) — logged here so "DB down" is distinguishable from
+    // validation errors; the banner keeps the generic message.
+    console.error("[listings] deleteJobListing failed:", result);
+    setIsDeleted(false);
+    return { success: false as const, error: getActionError(
+        (result as { error?: unknown }).error,
+      ) };
   };
-
-  if (isDeleted) return null;
 
   return (
     <>
+      {isDeleted ? null : (
       <article className="group min-w-0 rounded-2xl border border-card-border bg-card-bg p-4 shadow-lg transition-all duration-200 hover:border-card-border-hover hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)] sm:p-7">
         <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -332,9 +346,11 @@ export function JobListingCard({
           </div>
         </div>
       </article>
+      )}
 
       <ConfirmationBox
         ref={confirmationRef}
+        dismissOnConfirm
         title="Delete job listing?"
         message={
           <>
