@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import logo from "@/app/logo.png";
 
 export const metadata = {
   title: "Keystone · Track. Discover. Ace.",
@@ -164,19 +166,12 @@ export default function Home() {
           aria-label="Main"
         >
           <a href="#top" className={`flex items-center gap-3 ${FOCUS}`}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-acc-cyan/30 bg-acc-cyan/10">
-              <svg
-                className="h-4 w-4 max-w-full text-acc-cyan"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                role="img"
-                aria-label="Keystone logo"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+            <span className="flex h-9 w-9 items-center justify-center overflow-hidden">
+              <Image
+                src={logo}
+                alt="Keystone logo"
+                className="h-full w-full object-contain"
+              />
             </span>
             <span className="text-lg font-semibold tracking-tight text-ice">
               Keystone
