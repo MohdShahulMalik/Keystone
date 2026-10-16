@@ -17,6 +17,18 @@ export function HeroMetricCard({ listings }: { listings: JobListing[] }) {
 
   const grewThisWeek = total > 0 && buckets[WEEKS - 1] > buckets[WEEKS - 2];
 
+  // End-dot tracks the actual last bucket value (same math as sparkPoints
+  // in lib/dashboard/metrics.ts), inset by its radius so it never clips
+  // at the viewBox edge.
+  const DOT_R = 3.5;
+  const sparkMax = Math.max(1, ...buckets);
+  const lastValue = buckets[buckets.length - 1] ?? 0;
+  const dotCx = 320 - DOT_R - 1;
+  const dotCy = Math.min(
+    Math.max(82 - (lastValue / sparkMax) * 74, DOT_R + 1),
+    90 - DOT_R - 1,
+  );
+
   return (
     <Tile
       label="Headline metric"
@@ -58,7 +70,7 @@ export function HeroMetricCard({ listings }: { listings: JobListing[] }) {
           />
           {total > 0 ? (
             <g fill="#00B8D6">
-              <circle cx="320" cy="8" r="3.5" />
+              <circle cx={dotCx} cy={dotCy} r={DOT_R} />
             </g>
           ) : null}
         </svg>

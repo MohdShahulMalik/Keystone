@@ -64,21 +64,7 @@ export default async function DashboardPage() {
     <div className="min-h-screen overflow-x-clip bg-ink font-display text-body antialiased selection:bg-[rgba(0,184,214,0.3)] selection:text-[#EAFBFF]">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-8 sm:py-12">
         <header className="flex flex-wrap items-end justify-between gap-x-5 gap-y-4">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl border border-acc-cyan/30 bg-acc-cyan/10">
-              <svg
-                className="h-5 w-5 max-w-full text-acc-cyan"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                role="img"
-                aria-label="Keystone"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </span>
+          <div className="min-w-0">
             <div className="min-w-0">
               <p className="font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60">
                 Week {isoWeek(now)} · {month}
