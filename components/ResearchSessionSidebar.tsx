@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import logo from "@/app/logo.png";
 import type { SearchSessionTitle } from "@/lib/types/search";
 
 type ResearchSessionSidebarProps = {
@@ -87,21 +89,12 @@ export function ResearchSessionSidebar({
       >
         <div className="mb-5 flex items-center justify-between px-2 pt-1">
           <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground-900">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary text-accent">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 3v18m9-9H3"
-                />
-              </svg>
+            <span className="flex h-7 w-7 items-center justify-center overflow-hidden">
+              <Image
+                src={logo}
+                alt="Keystone"
+                className="h-full w-full object-contain"
+              />
             </span>
             Keystone {title}
           </div>
