@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import logo from "@/app/logo.png";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -13,8 +15,10 @@ const links = [
 export function TopNav() {
   const pathname = usePathname();
 
-  // The landing page ships its own marketing nav — avoid a double header.
-  if (pathname === "/") return null;
+  // The landing page ships its own marketing nav, and the auth pages ship
+  // their own centered brand — avoid a double header.
+  if (pathname === "/" || pathname === "/login" || pathname === "/signup")
+    return null;
 
   // Research pages render a floating "open sessions" button over the nav's
   // left edge on mobile — reserve room for it only there so other pages
@@ -33,21 +37,12 @@ export function TopNav() {
           href="/"
           className="mr-3 flex shrink-0 items-center gap-2.5 text-base font-semibold tracking-tight text-foreground-900 sm:mr-5"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-accent">
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 3v18m9-9H3"
-              />
-            </svg>
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden">
+            <Image
+              src={logo}
+              alt="Keystone"
+              className="h-full w-full object-contain"
+            />
           </span>
           Keystone
         </Link>
