@@ -1,12 +1,13 @@
 import type { ModelRef, ModelV2Info } from "../types/opencode";
-import { MUSE_SPARK_1_3_FREE_INFO } from "../types/opencode";
+import { GLM_5_3_FLASH_FREE_INFO } from "../types/opencode";
 import { getOpencodeClient, getOpencodeClientV2 } from "./client";
 import { RESEARCH_SYSTEM_PROMPT } from "./prompts";
 
 export async function listAvailableModels(): Promise<ModelV2Info[]> {
-  // v2 model.list gives id/name/limit but on this server (1.18.x) its `variants` is always []
-  // even though runtime `provider.list()` has them (e.g. opencode/muse-spark-1.2-contributor-free -> minimal/low/medium/high/xhigh).
-  // We merge both so the variant picker works. Verified via bun -e provider.list() vs v2.model.list().
+  // v2 model.list (/api/model, HTTP Basic auth on server 2.x) carries the full
+  // catalog with variants (71 models on 2.0.32). Legacy provider.list (/provider)
+  // only exists on pre-2.x servers — on 2.x it returns the web app HTML, which
+  // this merge swallows. We still merge both so a 1.18.x server keeps working.
   try {
     const [v2client, v1client] = await Promise.all([
       getOpencodeClientV2(),
@@ -100,7 +101,13 @@ export async function listAvailableModels(): Promise<ModelV2Info[]> {
   } catch (error) {
     console.warn("[opencode] model.list failed, using fallback", error);
   }
-  return [MUSE_SPARK_1_3_FREE_INFO];
+  // Only reached when discovery produced nothing (auth 401, server 2.x route
+  // mismatch, hang). Surface it loudly — a silent fallback hides e.g. an
+  // OPENCODE_SERVER_PASSWORD mismatch as a one-model dropdown.
+  console.warn(
+    "[opencode] model discovery returned no models — serving hardcoded fallback (glm-5.3-flash-free). Check server auth/version.",
+  );
+  return [GLM_5_3_FLASH_FREE_INFO];
 }
 
 function sleep(ms: number): Promise<void> {
@@ -122,10 +129,20 @@ export async function createResearchSession(
             };
           }
         ).v2.session.create({ model } as never);
-        const data = (res as { data?: unknown }).data as
-          | { id?: string }
+        // RequestResult .data is the response body; server 2.x wraps the
+        // session in {data:{id,...}} while some SDK versions return it flat.
+        const body = (res as { data?: unknown }).data as
+          | { id?: string; data?: { id?: string } }
           | undefined;
-        if (data?.id) return data as { id: string } & Record<string, unknown>;
+        const created =
+          typeof body?.id === "string"
+            ? body
+            : body?.data && typeof body.data === "object"
+              ? (body.data as { id?: string })
+              : undefined;
+        if (created?.id) {
+          return { id: created.id } as { id: string } & Record<string, unknown>;
+        }
         break;
       } catch (error) {
         console.warn(

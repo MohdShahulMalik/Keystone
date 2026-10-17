@@ -1,4 +1,7 @@
+import { randomBytes } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { connect } from "node:net";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
   createOpencodeClient,
   createOpencodeServer,
@@ -9,11 +12,20 @@ const HOST = "127.0.0.1";
 const PORT = 3211;
 const BASE_URL = `http://${HOST}:${PORT}`;
 
+// Server 2.x (`opencode serve`) protects every /api/* route with HTTP Basic
+// auth (username "opencode", password from OPENCODE_SERVER_PASSWORD). Model
+// discovery and sessions read through those routes, so both clients must send
+// the header. The password is persisted under /tmp/opencode so an app restart
+// can authenticate to the server spawned by the previous run. Verified live on
+// server 2.0.32: /api/model 401s without the header and 200s with it.
+const AUTH_FILE = `/tmp/opencode/opencode-keystone-${PORT}.json`;
+
 type ServerHandle = Awaited<ReturnType<typeof createOpencodeServer>>;
 
 const globalForOpencode = globalThis as unknown as {
   opencodeServer?: ServerHandle;
   opencodeServerPromise?: Promise<ServerHandle>;
+  opencodeServerPassword?: string;
 };
 
 function isPortOpen(port: number, host: string): Promise<boolean> {
@@ -58,6 +70,58 @@ async function waitForHttpReady(
   return false;
 }
 
+/** Password our spawned server uses (or a pre-set user env value). */
+function rememberServerPassword(password: string): void {
+  globalForOpencode.opencodeServerPassword = password;
+  try {
+    mkdirSync("/tmp/opencode", { recursive: true });
+    // Local process password only (localhost server we spawn ourselves).
+    writeFileSync(
+      AUTH_FILE,
+      JSON.stringify({ port: PORT, password }),
+      { flag: "w", mode: 0o600 },
+    );
+  } catch (error) {
+    console.warn(
+      "[opencode] could not persist server password file — app restarts may lose access to the running server",
+      error,
+    );
+  }
+}
+
+/** Choose auth for a server we did not spawn in this process. */
+function adoptReusePassword(): string | undefined {
+  if (globalForOpencode.opencodeServerPassword) {
+    return globalForOpencode.opencodeServerPassword;
+  }
+  try {
+    const raw = JSON.parse(
+      readFileSync(AUTH_FILE, "utf8"),
+    ) as { port?: number; password?: string };
+    if (raw?.port === PORT && typeof raw?.password === "string") {
+      globalForOpencode.opencodeServerPassword = raw.password;
+      return raw.password;
+    }
+  } catch {
+    // No stored password — fall through.
+  }
+  // User-managed server honoring the documented env contract.
+  if (process.env.OPENCODE_SERVER_PASSWORD) {
+    const password = process.env.OPENCODE_SERVER_PASSWORD;
+    globalForOpencode.opencodeServerPassword = password;
+    return password;
+  }
+  return undefined;
+}
+
+function authHeaders(): Record<string, string> | undefined {
+  const password = globalForOpencode.opencodeServerPassword;
+  if (!password) return undefined;
+  return {
+    authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`,
+  };
+}
+
 export async function getOpencodeServer() {
   if (globalForOpencode.opencodeServer) {
     return globalForOpencode.opencodeServer;
@@ -70,10 +134,23 @@ export async function getOpencodeServer() {
         `[opencode] port ${PORT} open but HTTP unresponsive — server may be stuck (prior run?)`,
       );
     }
+    const reusedPassword = adoptReusePassword();
+    if (!reusedPassword) {
+      console.warn(
+        `[opencode] reusing pre-running server on ${PORT} without a known password — /api/* needs HTTP Basic auth (set OPENCODE_SERVER_PASSWORD, or clear the stale server on that port); model discovery may fall back`,
+      );
+    }
     const handle: ServerHandle = { url: BASE_URL, close() {} };
     globalForOpencode.opencodeServer = handle;
     return handle;
   }
+
+  // Generate once per server lifetime; the SDK spawn copies process.env, so
+  // the server picks the password up via OPENCODE_SERVER_PASSWORD.
+  const password =
+    process.env.OPENCODE_SERVER_PASSWORD || randomBytes(24).toString("hex");
+  process.env.OPENCODE_SERVER_PASSWORD = password;
+  rememberServerPassword(password);
 
   if (!globalForOpencode.opencodeServerPromise) {
     const spawn = createOpencodeServer({
@@ -99,7 +176,7 @@ export async function getOpencodeServer() {
 
 export async function getOpencodeClient(): Promise<OpencodeClient> {
   const server = await getOpencodeServer();
-  return createOpencodeClient({ baseUrl: server.url });
+  return createOpencodeClient({ baseUrl: server.url, headers: authHeaders() });
 }
 
 export async function getOpencodeClientV2() {
@@ -107,5 +184,5 @@ export async function getOpencodeClientV2() {
     "@opencode-ai/sdk/v2"
   );
   const server = await getOpencodeServer();
-  return createV2Client({ baseUrl: server.url });
+  return createV2Client({ baseUrl: server.url, headers: authHeaders() });
 }

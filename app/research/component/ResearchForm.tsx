@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getAvailableModelsAction } from "@/app/actions/research";
 import { TagInput } from "@/app/research/component/TagInput";
 import type { ModelRef, ModelV2Info } from "@/lib/types/opencode";
-import { MUSE_SPARK_1_3_FREE_REF } from "@/lib/types/opencode";
+import { GLM_5_3_FLASH_FREE_REF } from "@/lib/types/opencode";
 
 const jobTypes = ["Remote", "Hybrid", "Onsite"];
 
@@ -90,24 +90,22 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
         if (cancelled) return;
         setModels(data);
         if (data.length > 0) {
-          // Default: Muse Spark 1.2 Free — verified via bun run /tmp/check_muse2.ts:
-          // opencode/muse-spark-1.2-contributor-free — Muse Spark 1.2 Free — variants:[]
-          // Hardcoded ref is MUSE_SPARK_1_2_FREE_REF but still dynamic so user can pick others.
+          // Default: GLM-5.3-Flash Free — verified via the OpenCode SDK models
+          // endpoint: opencode/glm-5.3-flash-free — GLM-5.3-Flash Free — active.
+          // Hardcoded ref is GLM_5_3_FLASH_FREE_REF but still dynamic so user can pick others.
           const preferred =
             data.find(
               (m) =>
-                m.providerID === MUSE_SPARK_1_3_FREE_REF.providerID &&
-                m.id === MUSE_SPARK_1_3_FREE_REF.id,
+                m.providerID === GLM_5_3_FLASH_FREE_REF.providerID &&
+                m.id === GLM_5_3_FLASH_FREE_REF.id,
             ) ??
             data.find(
               (m) =>
-                m.name === "Muse Spark 1.2 Free" &&
+                m.name === "GLM-5.3-Flash Free" &&
                 m.providerID.toLowerCase().includes("opencode"),
             ) ??
-            data.find((m) =>
-              m.id.toLowerCase().includes("muse-spark-1.2-contributor-free"),
-            ) ??
-            data.find((m) => m.id.toLowerCase().includes("muse-spark")) ??
+            data.find((m) => m.id.toLowerCase().includes("glm-5.3-flash-free")) ??
+            data.find((m) => m.id.toLowerCase().includes("glm")) ??
             data[0];
           setSelectedModelId(`${preferred.providerID}/${preferred.id}`);
           const preferredVariant =
@@ -132,7 +130,10 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
   const selectModel = (nextId: string) => {
     setSelectedModelId(nextId);
     const m = models.find((x) => `${x.providerID}/${x.id}` === nextId);
-    setVariant(m?.variants[0]?.id ?? undefined);
+    // Default to "high" when available; otherwise fall back to the first variant.
+    setVariant(
+      m?.variants.find((v) => v.id === "high")?.id ?? m?.variants[0]?.id,
+    );
   };
 
   const selectResume = (file?: File) => {

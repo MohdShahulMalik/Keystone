@@ -20,7 +20,7 @@ import { useResearchStream } from "@/hooks/useResearchStream";
 import { deriveSessionTitle } from "@/lib/opencode/prompts";
 import type { JobPayload } from "@/lib/research/job-schema";
 import type { JobListing } from "@/lib/types/jobs";
-import { MUSE_SPARK_1_3_FREE_REF } from "@/lib/types/opencode";
+import { GLM_5_3_FLASH_FREE_REF } from "@/lib/types/opencode";
 import type { TextSegment } from "@/lib/types/research";
 import type { JobStatus } from "@/lib/types/status";
 
@@ -102,7 +102,7 @@ function prefsFromDb(preferences: unknown): UserPreferences | null {
             ? { variant: rawModel.variant }
             : {}),
         }
-      : MUSE_SPARK_1_3_FREE_REF;
+      : GLM_5_3_FLASH_FREE_REF;
   const modelLabel =
     typeof p.modelLabel === "string" && p.modelLabel
       ? p.modelLabel

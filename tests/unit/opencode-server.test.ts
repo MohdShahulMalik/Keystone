@@ -20,7 +20,7 @@ declare global {
 const server = await import("@/lib/opencode/server");
 
 const FREE_FALLBACK = {
-  id: "muse-spark-1.3-contributor-free",
+  id: "glm-5.3-flash-free",
   providerID: "opencode",
 };
 
@@ -96,6 +96,13 @@ describe("listAvailableModels", () => {
         providerID: FREE_FALLBACK.providerID,
       }),
     ]);
+    // Fallback info must expose the variants so the picker defaults to
+    // "high" and offers low/max, even when discovery fails.
+    expect(models[0].variants.map((v) => v.id)).toEqual([
+      "low",
+      "high",
+      "max",
+    ]);
   });
 
   test("falls back when provider.list throws and v2 is empty", async () => {
@@ -113,15 +120,31 @@ describe("listAvailableModels", () => {
 });
 
 describe("createResearchSession", () => {
+  const envelopeCreate = (create: unknown) => ({
+    v2: { session: { create } },
+  });
+
   test("uses v2 create with the requested model when provided", async () => {
     const create = mock(async () => ({ data: { id: "sess-v2" } }));
-    globalThis.__mockV2Client = { v2: { session: { create } } };
+    globalThis.__mockV2Client = envelopeCreate(create);
     const session = await server.createResearchSession({
       providerID: "opencode",
       id: "m",
     });
     expect(session?.id).toBe("sess-v2");
     expect(create).toHaveBeenCalled();
+  });
+
+  test("unwraps the server 2.x {data:{id}} create envelope", async () => {
+    const create = mock(async () => ({
+      data: { data: { id: "sess-2x-wrap" } },
+    }));
+    globalThis.__mockV2Client = envelopeCreate(create);
+    const session = await server.createResearchSession({
+      providerID: "opencode",
+      id: "m",
+    });
+    expect(session?.id).toBe("sess-2x-wrap");
   });
 
   test("retries v2 once then falls back to v1", async () => {
