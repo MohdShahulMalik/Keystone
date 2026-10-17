@@ -180,6 +180,12 @@ export default function Home() {
 
           <div className="hidden items-center gap-8 md:flex">
             <a
+              href="#live-response"
+              className={`text-sm text-body transition-colors hover:text-ice ${FOCUS}`}
+            >
+              Preview
+            </a>
+            <a
               href="#features"
               className={`text-sm text-body transition-colors hover:text-ice ${FOCUS}`}
             >
@@ -192,22 +198,22 @@ export default function Home() {
               How it works
             </a>
             <a
-              href="#pricing"
+              href="#get-started"
               className={`text-sm text-body transition-colors hover:text-ice ${FOCUS}`}
             >
-              Pricing
+              Why Keystone
             </a>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
-              href="/dashboard"
+              href="/login"
               className={`hidden rounded-lg px-3 py-2 text-sm text-body transition-colors hover:bg-acc-cyan/10 hover:text-ice sm:block ${FOCUS}`}
             >
-              Sign in
+              Log In
             </Link>
             <PrimaryLink
-              href="/dashboard"
+              href="/signup"
               className="rounded-lg px-4 py-2 text-sm font-semibold"
             >
               Get started
@@ -299,7 +305,7 @@ export default function Home() {
 
                 <div className="mt-6 flex flex-wrap items-center gap-x-7 gap-y-4">
                   <PrimaryLink
-                    href="/dashboard"
+                    href="/signup"
                     className="rounded-xl px-6 py-3 text-sm font-semibold"
                   >
                     Start tracking free
@@ -385,8 +391,8 @@ export default function Home() {
         {/* ============ LIVE AI RESPONSE ============ */}
         <section
           id="live-response"
-          className="relative z-10 mx-auto max-w-6xl px-8 sm:px-10 xl:px-6"
-          aria-label="Live AI research response"
+          className="relative z-10 mx-auto max-w-6xl scroll-mt-20 px-8 sm:px-10 xl:px-6"
+          aria-label="AI research response preview"
         >
           <div className="mx-auto -mt-20 max-w-5xl overflow-hidden rounded-[20px] border border-edge bg-card sm:-mt-28">
             <WindowChrome address="keystone.local/research · session 042" />
@@ -1087,7 +1093,7 @@ export default function Home() {
 
         {/* ============ FINAL CTA ============ */}
         <section
-          id="pricing"
+          id="get-started"
           className="mx-auto max-w-6xl scroll-mt-20 px-8 pb-20 sm:px-10 sm:pb-28 xl:px-6"
         >
           <div className="relative overflow-hidden rounded-[20px] border border-edge bg-card px-8 py-14 text-center sm:px-10 sm:py-20">
@@ -1107,7 +1113,7 @@ export default function Home() {
 
               <div className="mt-9 flex justify-center">
                 <PrimaryLink
-                  href="/dashboard"
+                  href="/signup"
                   className="rounded-xl px-7 py-3 text-sm font-semibold"
                 >
                   Get started

@@ -22,7 +22,7 @@ export default function SignupPage() {
         aria-hidden="true"
       />
 
-      <main className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-12 sm:px-6">
+      <main className="relative mx-auto flex min-h-svh w-full max-w-md flex-col justify-center px-5 py-12 sm:px-6 max-[450px]:max-w-none max-[450px]:flex-1 max-[450px]:px-0 max-[450px]:py-0">
         <Link href="/" className={`mx-auto flex items-center gap-3 ${FOCUS}`}>
           <span className="flex h-10 w-10 items-center justify-center overflow-hidden">
             <Image
@@ -36,7 +36,7 @@ export default function SignupPage() {
           </span>
         </Link>
 
-        <div className="mt-8 rounded-[20px] border border-edge bg-card p-6 sm:p-8">
+        <div className="mt-8 rounded-[20px] border border-edge bg-card p-6 sm:p-8 max-[450px]:mt-0 max-[450px]:flex max-[450px]:flex-1 max-[450px]:flex-col max-[450px]:justify-center max-[450px]:rounded-none max-[450px]:border-x-0">
           <section aria-labelledby="signup-title">
             <p className="font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-acc-cyan">
               Free while self-hosted
@@ -110,32 +110,6 @@ export default function SignupPage() {
                 </p>
               </div>
 
-              <label className="flex items-start gap-2.5 text-sm leading-relaxed text-body">
-                <input
-                  type="checkbox"
-                  name="terms"
-                  required
-                  className="mt-0.5 h-4 w-4 flex-none rounded border-edge bg-ink accent-acc-cyan"
-                />
-                <span>
-                  I agree to the{" "}
-                  <Link
-                    href="#"
-                    className={`text-acc-cyan underline-offset-4 hover:underline ${FOCUS}`}
-                  >
-                    Terms
-                  </Link>{" "}
-                  and{" "}
-                  <Link
-                    href="#"
-                    className={`text-acc-cyan underline-offset-4 hover:underline ${FOCUS}`}
-                  >
-                    Privacy Policy
-                  </Link>
-                  .
-                </span>
-              </label>
-
               <button
                 type="submit"
                 className={`w-full rounded-xl border border-acc-cyan bg-acc-cyan px-5 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:border-[#33C7DE] hover:bg-[#33C7DE] ${FOCUS}`}
@@ -161,7 +135,7 @@ export default function SignupPage() {
         </div>
 
         <p className="mt-8 text-center font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/50">
-          Keystone · Track. Discover. Ace.
+          Track. Discover. Ace.
         </p>
       </main>
     </div>

@@ -22,7 +22,7 @@ export default function LoginPage() {
         aria-hidden="true"
       />
 
-      <main className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-12 sm:px-6">
+      <main className="relative mx-auto flex min-h-svh w-full max-w-md flex-col justify-center px-5 py-12 sm:px-6 max-[450px]:max-w-none max-[450px]:flex-1 max-[450px]:px-0 max-[450px]:py-0">
         <Link href="/" className={`mx-auto flex items-center gap-3 ${FOCUS}`}>
           <span className="flex h-10 w-10 items-center justify-center overflow-hidden">
             <Image
@@ -36,7 +36,7 @@ export default function LoginPage() {
           </span>
         </Link>
 
-        <div className="mt-8 rounded-[20px] border border-edge bg-card p-6 sm:p-8">
+        <div className="mt-8 rounded-[20px] border border-edge bg-card p-6 sm:p-8 max-[450px]:mt-0 max-[450px]:flex max-[450px]:flex-1 max-[450px]:flex-col max-[450px]:justify-center max-[450px]:rounded-none max-[450px]:border-x-0">
           <section aria-labelledby="login-title">
             <p className="font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-acc-cyan">
               Welcome back
@@ -149,7 +149,7 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-8 text-center font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/50">
-          Keystone · Track. Discover. Ace.
+          Track. Discover. Ace.
         </p>
       </main>
     </div>

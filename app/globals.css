@@ -128,6 +128,9 @@
 
   --radius-card: 20px;
 }
+html {
+  scroll-behavior: smooth;
+}
 body {
   background: var(--color-surface-900);
   color: var(--color-foreground-900);
