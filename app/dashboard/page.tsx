@@ -17,6 +17,25 @@ export const metadata = {
 };
 
 const USER_ID = "maxum";
+const HEATMAP_WINDOW_DAYS = 12 * 7;
+
+async function getStatusChanges() {
+  try {
+    const since = new Date(Date.now() - HEATMAP_WINDOW_DAYS * 86400000);
+    const rows = await db.jobStatusChange.findMany({
+      where: {
+        listing: { userId: USER_ID },
+        createdAt: { gte: since },
+      },
+      select: { createdAt: true, toStatus: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) => ({ createdAt: r.createdAt, toStatus: r.toStatus }));
+  } catch (error) {
+    console.error("[dashboard] getStatusChanges failed:", error);
+    return [];
+  }
+}
 
 async function getRecentSessions(): Promise<DashboardSession[]> {
   try {
@@ -48,9 +67,10 @@ async function getRecentSessions(): Promise<DashboardSession[]> {
 }
 
 export default async function DashboardPage() {
-  const [listings, sessions] = await Promise.all([
+  const [listings, sessions, statusChanges] = await Promise.all([
     getJobListings(USER_ID),
     getRecentSessions(),
+    getStatusChanges(),
   ]);
 
   const now = new Date();
@@ -103,7 +123,7 @@ export default async function DashboardPage() {
           <HeroMetricCard listings={listings} />
           <ConversionCard listings={listings} />
           <PipelineCard listings={listings} />
-          <ActivityHeatmapCard listings={listings} />
+          <ActivityHeatmapCard changes={statusChanges} />
           <LatestTrackedCard listings={listings} />
           <SalarySpreadCard listings={listings} />
           <AgentStatusCard sessions={sessions} tracked={listings.length} />

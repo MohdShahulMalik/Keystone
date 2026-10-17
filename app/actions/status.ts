@@ -30,16 +30,24 @@ export async function updateStatus(id: string, status: JobStatus) {
       return { success: false, error: "Job not found" };
     }
 
+    if (job.status === status) {
+      return { success: true };
+    }
+
+    // "Open"/"Saved" is the default resting state — only transitions into
+    // meaningful statuses count as activity (heatmap, dashboards).
+    const data =
+      status === "OPEN"
+        ? { status }
+        : { status, statusChanges: { create: { toStatus: status } } };
+
     await withResilientDb(
-      () =>
-        db.jobListing.update({
-          where: { id },
-          data: { status },
-        }),
+      () => db.jobListing.update({ where: { id }, data }),
       getDbReadTimeoutMs(),
     );
 
     revalidatePath("/listings");
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
     // Keep the full throw server-side, but return a serializable shape the

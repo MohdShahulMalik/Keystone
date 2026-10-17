@@ -109,15 +109,17 @@ export interface HeatCell {
 
 /** 7 rows (weekday) × N weeks, newest column last, as stable-id cells. */
 export function heatCells(
-  listings: JobListing[],
+  changes: { createdAt: Date; toStatus: string }[],
   weeks: number = WEEKS,
 ): HeatCell[][] {
   const grid = Array.from({ length: 7 }, () =>
     new Array<number>(weeks).fill(0),
   );
   const today = startOfDay(new Date());
-  for (const l of listings) {
-    const day = startOfDay(new Date(l.createdAt));
+  for (const change of changes) {
+    // "Open"/"Saved" is the resting state — moving back into it isn't activity.
+    if (change.toStatus === "OPEN") continue;
+    const day = startOfDay(new Date(change.createdAt));
     const daysAgo = Math.round((today.getTime() - day.getTime()) / 86400000);
     if (daysAgo < 0 || daysAgo >= 7 * weeks) continue;
     const col = weeks - 1 - Math.floor(daysAgo / 7);
@@ -169,6 +171,28 @@ export function busiestWeekday(cells: HeatCell[][]): string | null {
 /** Consecutive days with a tracked listing, counting back from today (or yesterday). */
 export function dayStreak(listings: JobListing[]): number {
   const days = new Set(listings.map((l) => dayKey(new Date(l.createdAt))));
+  let streak = 0;
+  const cursor = startOfDay(new Date());
+  if (!days.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  while (days.has(dayKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+/**
+ * Consecutive days with a status change into a meaningful (non-Open/Saved)
+ * status, counting back from today (or yesterday).
+ */
+export function statusChangeStreak(
+  changes: { createdAt: Date; toStatus: string }[],
+): number {
+  const days = new Set(
+    changes
+      .filter((c) => c.toStatus !== "OPEN")
+      .map((c) => dayKey(new Date(c.createdAt))),
+  );
   let streak = 0;
   const cursor = startOfDay(new Date());
   if (!days.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1);

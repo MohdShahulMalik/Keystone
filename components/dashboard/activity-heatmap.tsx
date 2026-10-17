@@ -1,16 +1,19 @@
 import {
   busiestWeekCounts,
   busiestWeekday,
-  dayStreak,
   heatCells,
   heatClass,
+  statusChangeStreak,
 } from "@/lib/dashboard/metrics";
-import type { JobListing } from "@/lib/types/jobs";
 import { Eyebrow, Tile } from "./tile";
 
-export function ActivityHeatmapCard({ listings }: { listings: JobListing[] }) {
-  const cells = heatCells(listings);
-  const streak = dayStreak(listings);
+export function ActivityHeatmapCard({
+  changes,
+}: {
+  changes: { createdAt: Date; toStatus: string }[];
+}) {
+  const cells = heatCells(changes);
+  const streak = statusChangeStreak(changes);
 
   return (
     <Tile
@@ -18,7 +21,7 @@ export function ActivityHeatmapCard({ listings }: { listings: JobListing[] }) {
       className="min-w-0 overflow-hidden p-6 sm:col-span-2 lg:col-span-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Eyebrow>Activity · last 12 weeks</Eyebrow>
+        <Eyebrow>Status changes · last 12 weeks</Eyebrow>
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-[10px] text-body/50">less</span>
           <span className="h-3 w-3 rounded bg-edge" aria-hidden="true" />
@@ -42,13 +45,17 @@ export function ActivityHeatmapCard({ listings }: { listings: JobListing[] }) {
       <div
         className="mt-5 grid grid-cols-12 gap-1 sm:gap-1.5"
         role="img"
-        aria-label="Heatmap of daily application activity over 12 weeks"
+        aria-label="Heatmap of daily status changes over 12 weeks"
       >
         {cells.flat().map((cell) => (
           <div
             key={cell.id}
             className={`aspect-[2/1] w-full min-w-0 rounded-[3px] ${heatClass(cell.count)}`}
-            title={cell.count > 0 ? `${cell.count} tracked` : undefined}
+            title={
+              cell.count > 0
+                ? `${cell.count} status change${cell.count === 1 ? "" : "s"}`
+                : undefined
+            }
           />
         ))}
       </div>
@@ -57,7 +64,8 @@ export function ActivityHeatmapCard({ listings }: { listings: JobListing[] }) {
         <p className="font-mono text-xs text-body/70">
           peak week{" "}
           <span className="ml-1 text-ice">
-            {busiestWeekCounts(cells)} tracked
+            {busiestWeekCounts(cells)} change
+            {busiestWeekCounts(cells) === 1 ? "" : "s"}
           </span>
         </p>
         <p className="font-mono text-xs text-body/70">
