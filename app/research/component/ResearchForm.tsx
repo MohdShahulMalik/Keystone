@@ -153,7 +153,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
     ? "Start job research"
     : "Start DSA research";
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedModel) return;
     const modelRef: ModelRef = {
