@@ -100,11 +100,7 @@ export default function LoginPage() {
               Pick up where you left off — Open to Offer.
             </p>
 
-                    <form
-                className="mt-7 space-y-4"
-                noValidate
-                onSubmit={onSubmit}
-              >
+            <form className="mt-7 space-y-4" noValidate onSubmit={onSubmit}>
               {authError ? (
                 <p
                   className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"
@@ -209,6 +205,8 @@ export default function LoginPage() {
 
             <button
               type="button"
+              disabled
+              aria-disabled="true"
               className={`flex w-full items-center justify-center gap-2.5 rounded-xl border border-[#00394C] bg-[rgba(3,16,25,0.6)] px-5 py-3 text-sm font-semibold text-ice transition-colors duration-200 hover:border-acc-cyan hover:bg-[rgba(0,184,214,0.08)] ${FOCUS}`}
             >
               <svg
