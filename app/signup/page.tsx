@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { type FormEvent, useState } from "react";
 import logo from "@/app/logo.png";
 
 const FOCUS =
@@ -11,6 +12,40 @@ const FIELD =
   "w-full rounded-xl border border-edge bg-ink/60 px-3.5 py-2.5 text-sm text-ice placeholder:text-body/50 focus:border-acc-cyan focus:outline-none";
 
 export default function SignupPage() {
+  const [nameError, setNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setNameError("");
+    setEmailError("");
+    setPasswordError("");
+
+    const formData = new FormData(e.currentTarget);
+    const name = String(formData.get("name") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    let hasValidationError = false;
+    if (!name) {
+      setNameError("Name is required");
+      hasValidationError = true;
+    }
+    if (!email) {
+      setEmailError("Email is required");
+      hasValidationError = true;
+    }
+    if (!password) {
+      setPasswordError("Password is required");
+      hasValidationError = true;
+    } else if (password.length < 8) {
+      setPasswordError("Password must contain at least 8 characters");
+      hasValidationError = true;
+    }
+    if (hasValidationError) return;
+  }
+
   return (
     <div className="min-h-screen overflow-x-clip bg-ink font-display text-body antialiased selection:bg-[rgba(0,184,214,0.3)] selection:text-[#EAFBFF]">
       <div
@@ -47,7 +82,7 @@ export default function SignupPage() {
               Upload a resume, start research, track every role.
             </p>
 
-            <form className="mt-7 space-y-4">
+            <form className="mt-7 space-y-4" noValidate onSubmit={onSubmit}>
               <div>
                 <label
                   htmlFor="signup-name"
@@ -63,7 +98,17 @@ export default function SignupPage() {
                   required
                   placeholder="Ada Lovelace"
                   className={FIELD}
+                  aria-describedby={nameError ? "signup-name-error" : undefined}
+                  aria-invalid={Boolean(nameError)}
                 />
+                {nameError ? (
+                  <p
+                    id="signup-name-error"
+                    className="mt-2 text-sm text-danger"
+                  >
+                    {nameError}
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -81,7 +126,19 @@ export default function SignupPage() {
                   required
                   placeholder="you@company.com"
                   className={FIELD}
+                  aria-describedby={
+                    emailError ? "signup-email-error" : undefined
+                  }
+                  aria-invalid={Boolean(emailError)}
                 />
+                {emailError ? (
+                  <p
+                    id="signup-email-error"
+                    className="mt-2 text-sm text-danger"
+                  >
+                    {emailError}
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -100,7 +157,19 @@ export default function SignupPage() {
                   minLength={8}
                   placeholder="At least 8 characters"
                   className={FIELD}
+                  aria-describedby={
+                    passwordError ? "signup-password-error" : undefined
+                  }
+                  aria-invalid={Boolean(passwordError)}
                 />
+                {passwordError ? (
+                  <p
+                    id="signup-password-error"
+                    className="mt-2 text-sm text-danger"
+                  >
+                    {passwordError}
+                  </p>
+                ) : null}
                 <p className="mt-2 font-mono text-[11px] text-body/60">
                   8+ characters, one number recommended.
                 </p>

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { type FormEvent, useState } from "react";
 import logo from "@/app/logo.png";
 
 const FOCUS =
@@ -11,6 +12,30 @@ const FIELD =
   "w-full rounded-xl border border-edge bg-ink/60 px-3.5 py-2.5 text-sm text-ice placeholder:text-body/50 focus:border-acc-cyan focus:outline-none";
 
 export default function LoginPage() {
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setEmailError("");
+    setPasswordError("");
+
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    let hasValidationError = false;
+    if (!email) {
+      setEmailError("Email is required");
+      hasValidationError = true;
+    }
+    if (!password) {
+      setPasswordError("Password is required");
+      hasValidationError = true;
+    }
+    if (hasValidationError) return;
+  }
+
   return (
     <div className="min-h-screen overflow-x-clip bg-ink font-display text-body antialiased selection:bg-[rgba(0,184,214,0.3)] selection:text-[#EAFBFF]">
       <div
@@ -47,7 +72,7 @@ export default function LoginPage() {
               Pick up where you left off — Open to Offer.
             </p>
 
-            <form className="mt-7 space-y-4">
+            <form className="mt-7 space-y-4" noValidate onSubmit={onSubmit}>
               <div>
                 <label
                   htmlFor="login-email"
@@ -63,7 +88,19 @@ export default function LoginPage() {
                   required
                   placeholder="you@company.com"
                   className={FIELD}
+                  aria-describedby={
+                    emailError ? "login-email-error" : undefined
+                  }
+                  aria-invalid={Boolean(emailError)}
                 />
+                {emailError ? (
+                  <p
+                    id="login-email-error"
+                    className="mt-2 text-sm text-danger"
+                  >
+                    {emailError}
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -89,7 +126,19 @@ export default function LoginPage() {
                   required
                   placeholder="••••••••"
                   className={FIELD}
+                  aria-describedby={
+                    passwordError ? "login-password-error" : undefined
+                  }
+                  aria-invalid={Boolean(passwordError)}
                 />
+                {passwordError ? (
+                  <p
+                    id="login-password-error"
+                    className="mt-2 text-sm text-danger"
+                  >
+                    {passwordError}
+                  </p>
+                ) : null}
               </div>
 
               <label className="flex items-center gap-2.5 text-sm text-body">
