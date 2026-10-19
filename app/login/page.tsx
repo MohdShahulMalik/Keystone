@@ -100,7 +100,11 @@ export default function LoginPage() {
               Pick up where you left off — Open to Offer.
             </p>
 
-                    <form className="mt-7 space-y-4" noValidate onSubmit={onSubmit}>
+                    <form
+                className="mt-7 space-y-4"
+                noValidate
+                onSubmit={onSubmit}
+              >
               {authError ? (
                 <p
                   className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"
@@ -188,9 +192,10 @@ export default function LoginPage() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className={`w-full rounded-xl border border-acc-cyan bg-acc-cyan px-5 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:border-[#33C7DE] hover:bg-[#33C7DE] ${FOCUS}`}
               >
-                Sign in
+                {isSubmitting ? "Signing in..." : "Sign in"}
               </button>
             </form>
 
