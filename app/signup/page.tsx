@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import logo from "@/app/logo.png";
+import { authClient } from "@/lib/auth-client";
 
 const FOCUS =
   "focus-visible:outline-2 focus-visible:outline-acc-cyan focus-visible:outline-offset-2";
@@ -12,12 +14,16 @@ const FIELD =
   "w-full rounded-xl border border-edge bg-ink/60 px-3.5 py-2.5 text-sm text-ice placeholder:text-body/50 focus:border-acc-cyan focus:outline-none";
 
 export default function SignupPage() {
+  const router = useRouter();
+  const [authError, setAuthError] = useState("");
   const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setAuthError("");
     setNameError("");
     setEmailError("");
     setPasswordError("");
@@ -44,7 +50,30 @@ export default function SignupPage() {
       hasValidationError = true;
     }
     if (hasValidationError) return;
-  }
+
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await authClient.signUp.email({
+        name,
+        email,
+        password,
+        callbackURL: "/dashboard",
+      });
+
+      if (error) {
+        setAuthError(error.message ?? "We could not create your account.");
+        return;
+      }
+      if (data) {
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch {
+      setAuthError("We could not create your account. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen overflow-x-clip bg-ink font-display text-body antialiased selection:bg-[rgba(0,184,214,0.3)] selection:text-[#EAFBFF]">
@@ -83,6 +112,14 @@ export default function SignupPage() {
             </p>
 
             <form className="mt-7 space-y-4" noValidate onSubmit={onSubmit}>
+              {authError ? (
+                <p
+                  className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"
+                  role="alert"
+                >
+                  {authError}
+                </p>
+              ) : null}
               <div>
                 <label
                   htmlFor="signup-name"
