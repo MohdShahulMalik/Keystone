@@ -1,12 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/app/logo.png";
-
-export const metadata = {
-  title: "Keystone · Sign in",
-  description:
-    "Sign in to Keystone to pick up where you left off — Open to Offer.",
-};
 
 const FOCUS =
   "focus-visible:outline-2 focus-visible:outline-acc-cyan focus-visible:outline-offset-2";

@@ -1,12 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/app/logo.png";
-
-export const metadata = {
-  title: "Keystone · Sign up",
-  description:
-    "Create a Keystone account to start tracking applications, discovering jobs with AI agents, and prepping for interviews.",
-};
 
 const FOCUS =
   "focus-visible:outline-2 focus-visible:outline-acc-cyan focus-visible:outline-offset-2";
