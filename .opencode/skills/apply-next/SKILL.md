@@ -13,7 +13,9 @@ Headless Chrome only — never launch headed browsers.
 
 1. Read `docs/APPLY_WORKFLOW.md` and `scripts/apply/profile.example.json`
    for the token keys (e.g. `{{contact.email}}`).
-2. Pull the queue: `GET http://localhost:5421/api/apply/queue?status=OPEN&limit=20`
+2. Pull the queue: `GET http://localhost:5421/api/apply/queue?status=OPEN&limit=20&userId=<ownerId>`
+   with `-H "Authorization: Bearer $APPLY_AGENT_TOKEN"` (`APPLY_AGENT_TOKEN`
+   lives in Keystone's `.env`; `<ownerId>` is the pipeline owner's user id).
    (Keystone dev server must be running: `bun run dev`).
    Pick the first job with a non-null `url`. If none, report and stop.
 3. Snapshot the apply `url` with the chrome-devtools MCP
@@ -35,4 +37,6 @@ Headless Chrome only — never launch headed browsers.
   `--out` resolution is human-only.
 - Auto-submit or bypass CAPTCHA / login walls.
 - Mark applied yourself — the human submits in the browser, then asks for
-  `POST http://localhost:5421/api/apply/mark-applied` with `{"id":"<jobId>"}`.
+  `POST http://localhost:5421/api/apply/mark-applied` with
+  `{"id":"<jobId>","userId":"<ownerId>"}` and the Bearer token header
+  (`docs/APPLY_WORKFLOW.md` has the exact curl).
