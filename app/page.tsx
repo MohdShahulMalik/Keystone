@@ -736,7 +736,7 @@ export default function Home() {
 
           <div className="relative mt-14">
             <div
-              className="pointer-events-none absolute bottom-8 left-[17px] top-2 hidden w-[2px] bg-[rgba(0,184,214,0.35)] lg:block"
+              className="pointer-events-none absolute bottom-8 left-[17px] top-2 hidden w-[2px] bg-[linear-gradient(to_bottom,rgba(0,184,214,0.35)_0%,rgba(0,184,214,0.35)_92%,rgba(0,184,214,0)_100%)] lg:block"
               aria-hidden="true"
             />
 
