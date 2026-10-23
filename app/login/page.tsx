@@ -19,6 +19,26 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  async function onGoogleSignIn() {
+    setIsGoogleLoading(true);
+    setAuthError("");
+    try {
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/dashboard",
+      });
+
+      if (error) {
+        setAuthError(error.message ?? "We could not log you in with Google.");
+        setIsGoogleLoading(false);
+      }
+    } catch {
+      setAuthError("We could not log you in with Google. Please try again.");
+      setIsGoogleLoading(false);
+    }
+  }
 
   async function onSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,7 +70,7 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setAuthError(error.message ?? "We could not sign you in.");
+        setAuthError(error.message ?? "We could not log you in.");
         return;
       }
       if (data) {
@@ -58,7 +78,7 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch {
-      setAuthError("We could not sign you in. Please try again.");
+      setAuthError("We could not log you in. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -94,11 +114,8 @@ export default function LoginPage() {
               id="login-title"
               className="mt-3 text-2xl font-bold tracking-tight text-ice"
             >
-              Sign in to your pipeline
+              Log in to your pipeline
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-body">
-              Pick up where you left off — Open to Offer.
-            </p>
 
             <form className="mt-7 space-y-4" noValidate onSubmit={onSubmit}>
               {authError ? (
@@ -183,7 +200,7 @@ export default function LoginPage() {
                   name="remember"
                   className="h-4 w-4 rounded border-edge bg-ink accent-acc-cyan"
                 />
-                Keep me signed in
+                Keep me logged in
               </label>
 
               <button
@@ -191,7 +208,7 @@ export default function LoginPage() {
                 disabled={isSubmitting}
                 className={`w-full rounded-xl border border-acc-cyan bg-acc-cyan px-5 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:border-[#33C7DE] hover:bg-[#33C7DE] ${FOCUS}`}
               >
-                {isSubmitting ? "Signing in..." : "Sign in"}
+                {isSubmitting ? "Logging in..." : "Log in"}
               </button>
             </form>
 
@@ -205,19 +222,55 @@ export default function LoginPage() {
 
             <button
               type="button"
-              disabled
-              aria-disabled="true"
+              onClick={onGoogleSignIn}
+              disabled={isGoogleLoading}
+              aria-disabled={isGoogleLoading}
               className={`flex w-full items-center justify-center gap-2.5 rounded-xl border border-[#00394C] bg-[rgba(3,16,25,0.6)] px-5 py-3 text-sm font-semibold text-ice transition-colors duration-200 hover:border-acc-cyan hover:bg-[rgba(0,184,214,0.08)] ${FOCUS}`}
             >
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.05-.72.08-.7.08-.7 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.75.4-1.27.73-1.56-2.55-.3-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.3-.52-1.47.11-3.07 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.6.23 2.78.11 3.07.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.26 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z" />
-              </svg>
-              Continue with GitHub
+              {isGoogleLoading ? (
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
+                  />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.73-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.04c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.36 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.67 6.73-4.67z"
+                  />
+                </svg>
+              )}
+              {isGoogleLoading
+                ? "Redirecting to Google..."
+                : "Continue with Google"}
             </button>
 
             <p className="mt-7 text-center text-sm text-body">

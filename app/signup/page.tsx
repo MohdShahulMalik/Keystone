@@ -20,6 +20,30 @@ export default function SignupPage() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  async function onGoogleSignIn() {
+    setIsGoogleLoading(true);
+    setAuthError("");
+    try {
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/dashboard",
+      });
+
+      if (error) {
+        setAuthError(
+          error.message ?? "We could not create your account with Google.",
+        );
+        setIsGoogleLoading(false);
+      }
+    } catch {
+      setAuthError(
+        "We could not create your account with Google. Please try again.",
+      );
+      setIsGoogleLoading(false);
+    }
+  }
 
   const onSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -98,18 +122,12 @@ export default function SignupPage() {
 
         <div className="mt-8 rounded-[20px] border border-edge bg-card p-6 sm:p-8 max-[450px]:mt-0 max-[450px]:flex max-[450px]:flex-1 max-[450px]:flex-col max-[450px]:justify-center max-[450px]:rounded-none max-[450px]:border-x-0">
           <section aria-labelledby="signup-title">
-            <p className="font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-acc-cyan">
-              Free while self-hosted
-            </p>
             <h1
               id="signup-title"
               className="mt-3 text-2xl font-bold tracking-tight text-ice"
             >
               Create your account
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-body">
-              Upload a resume, start research, track every role.
-            </p>
 
             <form className="mt-7 space-y-4" noValidate onSubmit={onSubmit}>
               {authError ? (
@@ -221,9 +239,66 @@ export default function SignupPage() {
               </button>
             </form>
 
-            <p className="mt-5 text-center font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60">
-              No credit card required
-            </p>
+            <div className="mt-6 flex items-center gap-4">
+              <span className="h-px flex-1 bg-edge" aria-hidden="true" />
+              <span className="font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60">
+                or
+              </span>
+              <span className="h-px flex-1 bg-edge" aria-hidden="true" />
+            </div>
+
+            <button
+              type="button"
+              onClick={onGoogleSignIn}
+              disabled={isGoogleLoading}
+              aria-disabled={isGoogleLoading}
+              className={`flex w-full items-center justify-center gap-2.5 rounded-xl border border-[#00394C] bg-[rgba(3,16,25,0.6)] px-5 py-3 text-sm font-semibold text-ice transition-colors duration-200 hover:border-acc-cyan hover:bg-[rgba(0,184,214,0.08)] ${FOCUS}`}
+            >
+              {isGoogleLoading ? (
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"
+                  />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.73-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.04c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.36 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.67 6.73-4.67z"
+                  />
+                </svg>
+              )}
+              {isGoogleLoading
+                ? "Redirecting to Google..."
+                : "Continue with Google"}
+            </button>
 
             <p className="mt-7 text-center text-sm text-body">
               Already signed up?{" "}
