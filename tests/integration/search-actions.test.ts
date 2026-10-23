@@ -7,6 +7,15 @@
 // - getSubagentHistory resolves a child by opencode child id OR row id and
 //   returns subagent + parent + ordered segments + siblings (null when unknown).
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+
+// Lock the session guard to a fixed test user — the actions derive the
+// acting user from it instead of trusting a caller-supplied userId.
+const TEST_USER_ID = "user-1";
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => TEST_USER_ID),
+  getSessionUserId: mock(async () => TEST_USER_ID),
+}));
+
 import {
   getSearchSessionByAnyId,
   getSearchSessionHistory,
@@ -52,7 +61,7 @@ describe("getSearchSessionsWithMetaData", () => {
         update: mock(async () => ({})),
       },
     });
-    await getSearchSessionsWithMetaData("user-1", "job");
+    await getSearchSessionsWithMetaData("job");
     const arg = mocked.searchSession.findMany.mock.calls[0][0] as {
       where: { userId: string; mode: string };
       orderBy: { updatedAt: string };
@@ -78,7 +87,7 @@ describe("getSearchSessionsWithMetaData", () => {
         update: mock(async () => ({})),
       },
     });
-    const [row] = await getSearchSessionsWithMetaData("u", "job");
+    const [row] = await getSearchSessionsWithMetaData("job");
     expect(row.title).toBe("Rust · remote · USA");
     expect(mocked.searchSession.update).toHaveBeenCalled();
   });
@@ -100,7 +109,7 @@ describe("getSearchSessionsWithMetaData", () => {
         update: mock(async () => ({})),
       },
     });
-    const [row] = await getSearchSessionsWithMetaData("u", "job");
+    const [row] = await getSearchSessionsWithMetaData("job");
     expect(row.resultCount).toBe(5);
     expect(mocked.searchSession.update).toHaveBeenCalled();
   });
@@ -122,7 +131,7 @@ describe("getSearchSessionsWithMetaData", () => {
         update: mock(async () => ({})),
       },
     });
-    await getSearchSessionsWithMetaData("u", "job");
+    await getSearchSessionsWithMetaData("job");
     expect(mocked.searchSession.update).not.toHaveBeenCalled();
   });
 });
@@ -143,6 +152,9 @@ describe("getSearchSessionByAnyId", () => {
 describe("getSearchSessionHistory", () => {
   test("returns segments ordered by seq with results", async () => {
     const mocked = stub({
+      searchSession: {
+        findFirst: mock(async () => ({ id: "db-1" })),
+      },
       researchSegment: {
         findMany: mock(async () => [{ seq: 1, kind: "text", text: "hi" }]),
       },
@@ -151,14 +163,28 @@ describe("getSearchSessionHistory", () => {
       },
     });
     const history = await getSearchSessionHistory("db-1");
-    expect(history.segments.length).toBe(1);
-    expect(history.results.length).toBe(1);
+    expect(history?.segments.length).toBe(1);
+    expect(history?.results.length).toBe(1);
     const segArg = mocked.researchSegment.findMany.mock.calls[0][0] as {
       where: { sessionId: string };
       orderBy: { seq: string };
     };
     expect(segArg.where.sessionId).toBe("db-1");
     expect(segArg.orderBy).toEqual({ seq: "asc" });
+  });
+
+  test("returns null when the session is not owned by the caller", async () => {
+    stub({
+      searchSession: { findFirst: mock(async () => null) },
+    });
+    expect(await getSearchSessionHistory("someone-elses")).toBeNull();
+    expect(
+      (
+        db as unknown as {
+          researchSegment: { findMany: ReturnType<typeof mock> };
+        }
+      ).researchSegment.findMany,
+    ).not.toHaveBeenCalled();
   });
 });
 
@@ -177,6 +203,7 @@ describe("getSubagentHistory", () => {
       },
       subagentSegment: { findMany: mock(async () => [{ seq: 1 }]) },
       searchSession: {
+        findFirst: mock(async () => ({ id: "parent-db-1" })),
         findUnique: mock(async () => ({ id: "parent-db-1" })),
       },
     });
@@ -208,6 +235,21 @@ describe("getSubagentHistory", () => {
       subagentSession: { findFirst: mock(async () => null) },
     });
     expect(await getSubagentHistory("nope")).toBeNull();
+  });
+
+  test("returns null when the parent session is not owned by the caller", async () => {
+    stub({
+      subagentSession: {
+        findFirst: mock(async () => subagent),
+        findMany: mock(async () => []),
+      },
+      subagentSegment: { findMany: mock(async () => [{ seq: 1 }]) },
+      searchSession: {
+        findFirst: mock(async () => null),
+        findUnique: mock(async () => ({ id: "parent-db-1" })),
+      },
+    });
+    expect(await getSubagentHistory("child-opencode-1")).toBeNull();
   });
 
   test("loads segments ordered by seq scoped to the child session", async () => {

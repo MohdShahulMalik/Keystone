@@ -18,6 +18,15 @@
 // NOTE (disclaimer): PINPOINT tests are *expected to fail* until the actions
 // handle connection errors. They reproduce the issue; they are not broken.
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+
+// The actions resolve the acting user from the session guard instead of
+// trusting a caller-supplied userId.
+const TEST_USER_ID = "user-1";
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => TEST_USER_ID),
+  getSessionUserId: mock(async () => TEST_USER_ID),
+}));
+
 import {
   addJobListing,
   bulkCreateJobsFromResearch,
@@ -86,7 +95,7 @@ describe("getJobListings under connection failure", () => {
     try {
       let thrown: unknown = null;
       try {
-        await getJobListings("maxum");
+        await getJobListings();
       } catch (e) {
         thrown = e;
       }
@@ -121,7 +130,7 @@ describe("getJobListings under connection failure", () => {
     console.error = () => {};
     try {
       const start = performance.now();
-      const result = await getJobListings("maxum");
+      const result = await getJobListings();
       const elapsed = performance.now() - start;
       expect(elapsed).toBeLessThan(500);
       expect(result).toEqual([]);
@@ -258,7 +267,7 @@ describe("write actions under connection failure", () => {
     });
     const unsilence = silenceConsole();
     try {
-      const result = await addJobListing("user-1", formData(validFields));
+      const result = await addJobListing(formData(validFields));
       expect(result).toMatchObject({
         error: "Failed to create job",
         cause: "db_unreachable",
@@ -280,7 +289,6 @@ describe("write actions under connection failure", () => {
     const unsilence = silenceConsole();
     try {
       const result = await updateJobListing(
-        "user-1",
         "j1",
         formData({ status: "APPLIED" }),
       );
@@ -305,7 +313,7 @@ describe("write actions under connection failure", () => {
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       expect(result).toMatchObject({
         success: false,
         error: "Failed to delete job",
@@ -333,7 +341,7 @@ describe("write actions under connection failure", () => {
     });
     const unsilence = silenceConsole();
     try {
-      const result = await importJobs("user-1", [good]);
+      const result = await importJobs([good]);
       expect(result).toMatchObject({
         imported: 0,
         error: "Failed to save imported jobs",

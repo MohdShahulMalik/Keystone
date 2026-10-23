@@ -1,18 +1,30 @@
 // Intent: app/actions/jobs.ts is the write path for job listings.
-// get/add/update/delete are user-scoped (ownership checks prevent IDOR);
-// importJobs validates per row and bulk-inserts the valid subset;
-// bulkCreateJobsFromResearch (the single research->DB path) upserts the user,
-// validates, dedupes within the batch AND against the DB (case-insensitive
-// title|company|url), and reports {created, skipped}.
+// Actions derive the acting user from the Better Auth session
+// (lib/session-guard, mocked below) — get/add/update/delete are user-scoped
+// (ownership checks prevent IDOR); importJobs validates per row and
+// bulk-inserts the valid subset; bulkCreateJobsFromResearch (now an internal
+// server helper in lib/research/persist-jobs.ts, not a "use server" export)
+// is the single research->DB write path: validates, dedupes within the batch
+// AND against the DB (case-insensitive title|company|url), and reports
+// {created, skipped}.
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+
+// The actions resolve the acting user from the session guard instead of
+// trusting a caller-supplied userId.
+const TEST_USER_ID = "user-1";
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => TEST_USER_ID),
+  getSessionUserId: mock(async () => TEST_USER_ID),
+}));
+
 import {
   addJobListing,
-  bulkCreateJobsFromResearch,
   deleteJobListing,
   getJobListings,
   importJobs,
   updateJobListing,
 } from "@/app/actions/jobs";
+import { bulkCreateJobsFromResearch } from "@/lib/research/persist-jobs";
 import { db } from "@/lib/db";
 
 function stubDb(overrides: Record<string, Record<string, unknown>> = {}) {
@@ -70,7 +82,7 @@ beforeEach(() => {
 describe("getJobListings", () => {
   test("scopes to the user and orders newest first", async () => {
     const mocked = stubDb();
-    await getJobListings("user-1");
+    await getJobListings();
     const arg = mocked.jobListing.findMany.mock.calls[0][0] as {
       where: { userId: string };
       orderBy: { createdAt: string };
@@ -83,14 +95,14 @@ describe("getJobListings", () => {
 describe("addJobListing", () => {
   test("creates a job for valid input", async () => {
     const mocked = stubDb();
-    const result = await addJobListing("user-1", formData(validFields));
+    const result = await addJobListing(formData(validFields));
     expect(mocked.jobListing.create).toHaveBeenCalled();
     expect(result).toMatchObject({ title: "Rust Engineer", userId: "user-1" });
   });
 
   test("returns field errors without touching the DB for invalid input", async () => {
     const mocked = stubDb();
-    const result = await addJobListing("user-1", formData({ title: "" }));
+    const result = await addJobListing(formData({ title: "" }));
     expect(mocked.jobListing.create).not.toHaveBeenCalled();
     expect(result).toHaveProperty("error");
   });
@@ -99,7 +111,6 @@ describe("addJobListing", () => {
     // update/delete return {success: true, data}; add returns the raw row.
     // Callers must handle two shapes — documented here as a consistency gap.
     const result = (await addJobListing(
-      "user-1",
       formData(validFields),
     )) as Record<string, unknown>;
     expect(result).not.toHaveProperty("success");
@@ -114,7 +125,6 @@ describe("updateJobListing", () => {
       },
     });
     const result = await updateJobListing(
-      "user-1",
       "j1",
       formData({ status: "APPLIED" }),
     );
@@ -131,8 +141,9 @@ describe("updateJobListing", () => {
     const mocked = stubDb({
       jobListing: { findFirst: mock(async () => null) },
     });
+    // The session user (TEST_USER_ID) may only act on their own rows — a job
+    // id belonging to someone else resolves to "Job not found".
     const result = await updateJobListing(
-      "attacker",
       "victim-job",
       formData({ status: "APPLIED" }),
     );
@@ -143,7 +154,6 @@ describe("updateJobListing", () => {
   test("rejects invalid status values", async () => {
     const mocked = stubDb();
     const result = await updateJobListing(
-      "user-1",
       "j1",
       formData({ status: "SAVED" }),
     );
@@ -158,7 +168,7 @@ describe("updateJobListing", () => {
     const mocked = stubDb({
       jobListing: { findFirst: mock(async () => ({ id: "j1" })) },
     });
-    await updateJobListing("user-1", "j1", formData({ status: "APPLIED" }));
+    await updateJobListing("j1", formData({ status: "APPLIED" }));
     const updateArg = mocked.jobListing.update.mock.calls[0][0] as {
       where: Record<string, string>;
     };
@@ -171,7 +181,7 @@ describe("deleteJobListing", () => {
     const mocked = stubDb({
       jobListing: { findFirst: mock(async () => ({ id: "j1" })) },
     });
-    const result = await deleteJobListing("user-1", "j1");
+    const result = await deleteJobListing("j1");
     expect(result.success).toBe(true);
     expect(mocked.jobListing.delete).toHaveBeenCalled();
   });
@@ -180,7 +190,7 @@ describe("deleteJobListing", () => {
     const mocked = stubDb({
       jobListing: { findFirst: mock(async () => null) },
     });
-    const result = await deleteJobListing("attacker", "victim-job");
+    const result = await deleteJobListing("victim-job");
     expect(result).toEqual({ success: false, error: "Job not found" });
     expect(mocked.jobListing.delete).not.toHaveBeenCalled();
   });
@@ -209,7 +219,7 @@ describe("importJobs", () => {
 
   test("imports valid rows and reports per-row errors", async () => {
     const mocked = stubDb();
-    const result = await importJobs("user-1", [
+    const result = await importJobs([
       good,
       { ...good, title: "" } as never,
     ]);
@@ -221,7 +231,7 @@ describe("importJobs", () => {
 
   test("skips createMany when nothing is valid", async () => {
     const mocked = stubDb();
-    const result = await importJobs("user-1", [
+    const result = await importJobs([
       { ...good, title: "" } as never,
     ]);
     expect(result.imported).toBe(0);
@@ -230,7 +240,7 @@ describe("importJobs", () => {
 
   test("handles an empty batch", async () => {
     const mocked = stubDb();
-    expect(await importJobs("user-1", [])).toEqual({ imported: 0, errors: [] });
+    expect(await importJobs([])).toEqual({ imported: 0, errors: [] });
     expect(mocked.jobListing.createMany).not.toHaveBeenCalled();
   });
 });
@@ -259,11 +269,11 @@ describe("bulkCreateJobsFromResearch", () => {
     expect(mocked.user.upsert).not.toHaveBeenCalled();
   });
 
-  test("creates new jobs and ensures the user exists", async () => {
+  test("creates new jobs without any user upsert (row created by auth)", async () => {
     const mocked = stubDb();
     const result = await bulkCreateJobsFromResearch("user-1", [streamed]);
     expect(result).toEqual({ created: 1, skipped: 0 });
-    expect(mocked.user.upsert).toHaveBeenCalled();
+    expect(mocked.user.upsert).not.toHaveBeenCalled();
     expect(mocked.jobListing.createMany).toHaveBeenCalled();
   });
 

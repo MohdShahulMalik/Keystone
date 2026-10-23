@@ -5,6 +5,14 @@
 // DB row is created (crash between the two orphans a file — probed below).
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
+// The actions resolve the acting user from the session guard instead of
+// trusting a caller-supplied userId.
+const TEST_USER_ID = "user-1";
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => TEST_USER_ID),
+  getSessionUserId: mock(async () => TEST_USER_ID),
+}));
+
 const writeFile = mock(async (_p: string, _b: Buffer) => {});
 const rm = mock(async (_p: string, _o?: unknown) => {});
 mock.module("node:fs/promises", () => ({ writeFile, rm }));
@@ -56,7 +64,7 @@ beforeEach(() => {
 
 describe("uploadResume", () => {
   test("creates a resume with extracted content and parsedAt", async () => {
-    const result = await resumes.uploadResume("user-1", pdfFile());
+    const result = await resumes.uploadResume(pdfFile());
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.content).toBe("extracted resume text");
@@ -66,7 +74,7 @@ describe("uploadResume", () => {
 
   test("rejects a second upload for the same user", async () => {
     stubResume({ findUnique: mock(async () => ({ id: "existing" })) });
-    const result = await resumes.uploadResume("user-1", pdfFile());
+    const result = await resumes.uploadResume(pdfFile());
     expect(result).toEqual({
       success: false,
       error: "Resume already exists. Use update instead.",
@@ -78,7 +86,7 @@ describe("uploadResume", () => {
     const create = mock(async () => ({}));
     stubResume({ findUnique: mock(async () => null), create });
     const png = new File([new Uint8Array(10)], "r.png", { type: "image/png" });
-    expect((await resumes.uploadResume("user-1", png)).success).toBe(false);
+    expect((await resumes.uploadResume(png)).success).toBe(false);
     expect(writeFile).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
@@ -88,7 +96,7 @@ describe("uploadResume", () => {
     const evil = new File([new Uint8Array(10)], "../../evil.pdf", {
       type: "application/pdf",
     });
-    const result = await resumes.uploadResume("user-1", evil);
+    const result = await resumes.uploadResume(evil);
     expect(result.success).toBe(true);
     const stored = writeFile.mock.calls[0][0] as string;
     const uploadDir =
@@ -105,7 +113,7 @@ describe("updateResume", () => {
     stubResume({
       findUnique: mock(async () => ({ id: "r1", filePath: "/old/resume.pdf" })),
     });
-    const result = await resumes.updateResume("user-1", pdfFile());
+    const result = await resumes.updateResume(pdfFile());
     expect(result.success).toBe(true);
     expect(rm).toHaveBeenCalledWith("/old/resume.pdf", { force: true });
     expect(writeFile).toHaveBeenCalledTimes(1);
@@ -113,7 +121,7 @@ describe("updateResume", () => {
 
   test("refuses when no resume exists", async () => {
     stubResume({ findUnique: mock(async () => null) });
-    expect(await resumes.updateResume("user-1", pdfFile())).toEqual({
+    expect(await resumes.updateResume(pdfFile())).toEqual({
       success: false,
       error: "No resume found. Use upload instead.",
     });
@@ -127,14 +135,14 @@ describe("deleteResume", () => {
       findUnique: mock(async () => ({ id: "r1", filePath: "/old/r.pdf" })),
       delete: mock(async () => ({})),
     });
-    const result = await resumes.deleteResume("user-1");
+    const result = await resumes.deleteResume();
     expect(result.success).toBe(true);
     expect(rm).toHaveBeenCalledWith("/old/r.pdf", { force: true });
   });
 
   test("reports when there is nothing to delete", async () => {
     stubResume({ findUnique: mock(async () => null) });
-    expect(await resumes.deleteResume("user-1")).toEqual({
+    expect(await resumes.deleteResume()).toEqual({
       success: false,
       error: "No resume found",
     });
@@ -151,7 +159,7 @@ describe("deleteResume", () => {
         throw new Error("db down");
       }),
     });
-    await expect(resumes.deleteResume("user-1")).rejects.toThrow("db down");
+    await expect(resumes.deleteResume()).rejects.toThrow("db down");
     expect(rm).toHaveBeenCalled(); // file gone despite overall failure
   });
 });

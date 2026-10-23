@@ -65,7 +65,7 @@ beforeEach(() => {
     count: mock(async () => 3),
     create: mock(async () => ({})),
   };
-  // job persist path (dynamic import of actions/jobs -> db.jobListing)
+  // job persist path (dynamic import of lib/research/persist-jobs -> db.jobListing)
   (db as unknown as Record<string, unknown>).jobListing = {
     findMany: mock(async () => []),
     createMany: mock(async () => ({})),

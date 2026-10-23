@@ -5,7 +5,7 @@
 //
 // Chain under test:
 //   JobListingCard.handleDelete (listings.tsx:60)
-//     -> deleteJobListing(userId, jobId) (app/actions/jobs.ts:121)
+//     -> deleteJobListing(jobId) — userId derived from the session (app/actions/jobs.ts)
 //     -> ConfirmationBox.handleConfirm (confirmation-box.tsx:54) renders
 //        result.error into role="alert", keeps dialog open on success:false.
 //
@@ -19,6 +19,15 @@
 //   C. What the client (`getActionError`) discards (cause/code).
 //   D. Structural risks: revalidatePath inside try, id-only delete write.
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+
+// The action resolves the acting user from the session guard instead of
+// trusting a caller-supplied userId.
+const TEST_USER_ID = "user-1";
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => TEST_USER_ID),
+  getSessionUserId: mock(async () => TEST_USER_ID),
+}));
+
 import { deleteJobListing } from "@/app/actions/jobs";
 import { db } from "@/lib/db";
 
@@ -86,7 +95,7 @@ describe("A. screenshot signature decoding — where does `Failed to delete job`
     });
     let notFound: unknown;
     try {
-      notFound = await deleteJobListing("user-1", "missing-id");
+      notFound = await deleteJobListing("missing-id");
     } finally {
       restoreNotFound();
       unsilence();
@@ -103,7 +112,7 @@ describe("A. screenshot signature decoding — where does `Failed to delete job`
   test("A2. validation failures produce a different message (empty jobId)", async () => {
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "");
+      const result = await deleteJobListing("");
       expect(result.success).toBe(false);
       if (!result.success) {
         // Must NOT equal the screenshot text — proves validation is innocent.
@@ -123,7 +132,7 @@ describe("A. screenshot signature decoding — where does `Failed to delete job`
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       expect(result).toMatchObject({ success: true });
       expect(mockedDelete).toHaveBeenCalled();
     } finally {
@@ -143,7 +152,7 @@ describe("B. fault matrix — every DB throw that collapses into the screenshot 
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       expect(result).toMatchObject({
         success: false,
         error: "Failed to delete job",
@@ -165,7 +174,7 @@ describe("B. fault matrix — every DB throw that collapses into the screenshot 
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       expect(result).toMatchObject({
         success: false,
         error: "Failed to delete job",
@@ -196,7 +205,7 @@ describe("B. fault matrix — every DB throw that collapses into the screenshot 
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       expect(result).toMatchObject({
         success: false,
         error: "Failed to delete job",
@@ -218,7 +227,7 @@ describe("B. fault matrix — every DB throw that collapses into the screenshot 
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       expect(result).toMatchObject({
         success: false,
         error: "Failed to delete job",
@@ -239,7 +248,7 @@ describe("B. fault matrix — every DB throw that collapses into the screenshot 
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       expect(result).toMatchObject({
         success: false,
         error: "Failed to delete job",
@@ -268,7 +277,7 @@ describe("B. fault matrix — every DB throw that collapses into the screenshot 
     const unsilence = silenceConsole();
     try {
       const start = performance.now();
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       const elapsed = performance.now() - start;
       expect(elapsed).toBeLessThan(500);
       expect(result).toMatchObject({
@@ -294,7 +303,7 @@ describe("B. fault matrix — every DB throw that collapses into the screenshot 
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("attacker", "victim-job");
+      const result = await deleteJobListing("victim-job");
       expect(result).toEqual({ success: false, error: "Job not found" });
       expect(mockedDelete).not.toHaveBeenCalled();
     } finally {
@@ -393,7 +402,7 @@ describe("D. structural risks in the delete path", () => {
     });
     const unsilence = silenceConsole();
     try {
-      await deleteJobListing("user-1", "j1");
+      await deleteJobListing("j1");
       const readArg = (
         (
           db as unknown as {
@@ -426,7 +435,7 @@ describe("D. structural risks in the delete path", () => {
     });
     const unsilence = silenceConsole();
     try {
-      const result = await deleteJobListing("user-1", "j1");
+      const result = await deleteJobListing("j1");
       let cloneError: unknown = null;
       try {
         structuredClone(result);

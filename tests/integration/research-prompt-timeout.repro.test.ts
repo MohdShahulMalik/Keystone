@@ -42,6 +42,11 @@ mock.module("@/lib/research/event-hub", () => ({
   register: hubRegister,
 }));
 
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => "maxum"),
+  getSessionUserId: mock(async () => "maxum"),
+}));
+
 const { db } = await import("@/lib/db");
 const research = await import("@/app/actions/research");
 const searchActions = await import("@/app/actions/search");
@@ -245,14 +250,15 @@ describe("REPRO: HeadersTimeoutError during background prompt send", () => {
         return rows;
       });
     stub({
+      searchSession: { findFirst: mock(async () => ({ id: "db-1" })) },
       researchSegment: { findMany: delayed([{ seq: 1 }]) },
       searchResult: { findMany: delayed([{ id: "r1" }]) },
     });
     const t0 = Date.now();
     const history = await searchActions.getSearchSessionHistory("db-1");
     const elapsed = Date.now() - t0;
-    expect(history.segments.length).toBe(1);
-    expect(history.results.length).toBe(1);
+    expect(history?.segments.length).toBe(1);
+    expect(history?.results.length).toBe(1);
     // Parallel (Promise.all): ~DELAY not 2xDELAY; but slow enough to dominate.
     expect(elapsed).toBeGreaterThanOrEqual(120);
     expect(elapsed).toBeLessThan(3000);

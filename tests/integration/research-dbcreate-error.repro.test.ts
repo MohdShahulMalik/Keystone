@@ -44,6 +44,11 @@ mock.module("@/lib/research/event-hub", () => ({
   register: hubRegister,
 }));
 
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => "maxum"),
+  getSessionUserId: mock(async () => "maxum"),
+}));
+
 const { db } = await import("@/lib/db");
 const research = await import("@/app/actions/research");
 

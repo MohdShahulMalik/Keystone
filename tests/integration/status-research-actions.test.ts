@@ -10,6 +10,14 @@
 //   both ids. getResearchStatus throws for unknown sessions.
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
+// Lock the session guard to a fixed test user — the actions derive the
+// acting user from it instead of trusting a caller-supplied userId.
+const TEST_USER_ID = "maxum";
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => TEST_USER_ID),
+  getSessionUserId: mock(async () => TEST_USER_ID),
+}));
+
 const createResearchSession = mock(async (_m?: unknown) => ({
   id: "opencode-1",
 }));
@@ -72,7 +80,7 @@ beforeEach(() => {
   }));
   stub({
     jobListing: {
-      findUnique: mock(async () => ({ id: "j1" })),
+      findFirst: mock(async () => ({ id: "j1" })),
       update: mock(async () => ({})),
     },
     resume: { findUnique: mock(async () => null) },
@@ -81,6 +89,7 @@ beforeEach(() => {
         id: "db-1",
         ...(args as { data: object }).data,
       })),
+      findFirst: mock(async () => null),
       findUnique: mock(async () => null),
       update: mock(async () => ({})),
     },
@@ -112,7 +121,7 @@ describe("updateStatus", () => {
   });
 
   test("returns Job not found for unknown ids", async () => {
-    stub({ jobListing: { findUnique: mock(async () => null) } });
+    stub({ jobListing: { findFirst: mock(async () => null) } });
     expect(await status.updateStatus("missing", "APPLIED")).toEqual({
       success: false,
       error: "Job not found",
@@ -122,7 +131,7 @@ describe("updateStatus", () => {
   test("hides DB failures behind a generic message", async () => {
     stub({
       jobListing: {
-        findUnique: mock(async () => ({ id: "j1" })),
+        findFirst: mock(async () => ({ id: "j1" })),
         update: mock(async () => {
           throw new Error("connection reset");
         }),
@@ -134,17 +143,18 @@ describe("updateStatus", () => {
     });
   });
 
-  test("INTENT PROBE: no ownership check — any caller with the id can change status", async () => {
-    // Unlike updateJobListing (user-scoped findFirst), updateStatus looks up
-    // by {id} alone. Documents the missing authorization boundary.
-    const findUnique = (
-      db as unknown as { jobListing: { findUnique: ReturnType<typeof mock> } }
-    ).jobListing.findUnique;
+  test("INTENT PROBE: ownership check — status changes are scoped to the session user", async () => {
+    // updateStatus looks the job up by {id, userId} where userId is derived
+    // from the Better Auth session, so callers can only move their own jobs.
+    const findFirst = (
+      db as unknown as { jobListing: { findFirst: ReturnType<typeof mock> } }
+    ).jobListing.findFirst;
     await status.updateStatus("someone-elses-job", "REJECTED");
-    const arg = findUnique.mock.calls[0][0] as {
+    const arg = findFirst.mock.calls[0][0] as {
       where: Record<string, string>;
     };
-    expect(arg.where).not.toHaveProperty("userId");
+    expect(arg.where).toHaveProperty("userId", TEST_USER_ID);
+    expect(arg.where).toHaveProperty("id", "someone-elses-job");
   });
 });
 
@@ -298,7 +308,7 @@ describe("getResearchStatus / getAvailableModelsAction", () => {
   test("returns status payload with results", async () => {
     stub({
       searchSession: {
-        findUnique: mock(async () => ({
+        findFirst: mock(async () => ({
           id: "db-1",
           status: "completed",
           results: [{ id: "r1" }],

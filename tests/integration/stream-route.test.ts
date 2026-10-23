@@ -1,7 +1,7 @@
 // Intent: GET /api/research/stream is replay + live fan-out.
-// - 400 without sessionId.
-// - Accepts either the DB id or the opencode session id; falls back to the
-//   raw id with user "maxum" when the DB row is missing.
+// - 400 without sessionId; 401 unauthenticated; 404 for unknown/foreign ids.
+// - Accepts either the DB id or the opencode session id (both ownership-scoped
+//   to the caller's session user).
 // - Boots the hub best-effort (hub failure must not fail the request).
 // - Replays missed ResearchSegments (seq > sinceSeq) as chunk/thinking/tool
 //   events, child SubagentSegments as subagent.* events, SearchResults as job
@@ -21,6 +21,11 @@ mock.module("@/lib/research/event-hub", () => ({
   ensureStarted,
   register,
   subscribe,
+}));
+
+mock.module("@/lib/session-guard", () => ({
+  requireUserId: mock(async () => "user-1"),
+  getSessionUserId: mock(async () => "user-1"),
 }));
 
 const { db } = await import("@/lib/db");
@@ -116,11 +121,27 @@ describe("GET validation + session resolution", () => {
     await readSse(res);
   });
 
-  test("falls back to raw id + maxum when the DB row is missing", async () => {
+  test("returns 404 (no hub boot) when the DB row is missing or unowned", async () => {
+    // With real auth, an unknown id and a foreign id look identical — no
+    // information leaks and no hub registration happens for either.
     stub({ searchSession: { findFirst: mock(async () => null) } });
     const res = await route.GET(req("sessionId=unknown-id"));
-    expect(register).toHaveBeenCalledWith("unknown-id", "unknown-id", "maxum");
-    await readSse(res);
+    expect(res.status).toBe(404);
+    expect(register).not.toHaveBeenCalled();
+
+    // The foreign id must also be inaccessible even though the row exists
+    // for a different user — the findFirst is scoped to the caller's userId.
+    const findFirst = (
+      db as unknown as {
+        searchSession: { findFirst: ReturnType<typeof mock> };
+      }
+    ).searchSession.findFirst;
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        OR: [{ id: "unknown-id" }, { openCodeSessionId: "unknown-id" }],
+        userId: "user-1",
+      },
+    });
   });
 
   test("hub boot failure still returns a working stream", async () => {
