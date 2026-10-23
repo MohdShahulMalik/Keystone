@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { ensureStarted, register, subscribe } from "@/lib/research/event-hub";
 import { sse } from "@/lib/research/stream";
+import { getSessionUserId } from "@/lib/session-guard";
 
 export async function GET(req: NextRequest) {
   const sessionId = req.nextUrl.searchParams.get("sessionId");
@@ -12,13 +13,25 @@ export async function GET(req: NextRequest) {
   const sinceSeq = sinceSeqRaw ? Number.parseInt(sinceSeqRaw, 10) : 0;
   const since = Number.isFinite(sinceSeq) && sinceSeq > 0 ? sinceSeq : 0;
 
-  // Resolve dbSessionId vs openCodeSessionId (supports ?sessionId=dbId or opencodeId)
+  // Resolve dbSessionId vs openCodeSessionId (supports ?sessionId=dbId or opencodeId),
+  // then verify the requester owns the session — id enumeration must not surface
+  // another user's research stream.
+  const sessionUserId = await getSessionUserId();
+  if (!sessionUserId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
   const searchSession = await db.searchSession.findFirst({
-    where: { OR: [{ id: sessionId }, { openCodeSessionId: sessionId }] },
+    where: {
+      OR: [{ id: sessionId }, { openCodeSessionId: sessionId }],
+      userId: sessionUserId,
+    },
   });
-  const dbSessionId = searchSession?.id ?? sessionId;
-  const openCodeSessionId = searchSession?.openCodeSessionId ?? sessionId;
-  const userId = searchSession?.userId ?? "maxum";
+  if (!searchSession) {
+    return new Response("Research session not found", { status: 404 });
+  }
+  const dbSessionId = searchSession.id;
+  const openCodeSessionId = searchSession.openCodeSessionId;
+  const userId = searchSession.userId;
 
   // Lazy-boot the singleton hub (covers dev + HMR with no extra config)
   // and make sure this session is registered even if the action predates

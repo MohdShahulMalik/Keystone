@@ -9,6 +9,7 @@ import {
   listAvailableModels,
   sendResearchPrompt,
 } from "@/lib/opencode/server";
+import { requireUserId } from "@/lib/session-guard";
 import type { ModelRef, ResearchPreferences } from "@/lib/types/opencode";
 
 const startResearchSchema = z.object({
@@ -55,7 +56,8 @@ function describePromptError(error: unknown): string {
       bits.push(code);
     return bits.join(" | caused by ");
   }
-  if (cause != null && cause !== undefined) return `${msg} | caused by ${String(cause)}`;
+  if (cause != null && cause !== undefined)
+    return `${msg} | caused by ${String(cause)}`;
   const code = (error as { code?: unknown } | null)?.code;
   if (typeof code === "string") return `${msg} | ${code}`;
   return msg;
@@ -131,7 +133,9 @@ export async function startResearch(preferences: ResearchPromptInput) {
   }
   const parsedPreferences = parsed.data;
 
-  const user = "maxum"; // Replace with actual user identification logic
+  // Derive the acting user from the Better Auth session — never trust a
+  // client-supplied id (this previously fell back to the dev user "maxum").
+  const user = await requireUserId();
 
   let resumeContent: string | undefined;
   if (parsedPreferences.resumeId) {
@@ -235,12 +239,14 @@ export async function startResearch(preferences: ResearchPromptInput) {
 }
 
 export async function getAvailableModelsAction() {
+  await requireUserId();
   return listAvailableModels();
 }
 
 export async function getResearchStatus(sessionId: string) {
-  const session = await db.searchSession.findUnique({
-    where: { id: sessionId },
+  const userId = await requireUserId();
+  const session = await db.searchSession.findFirst({
+    where: { id: sessionId, userId },
     include: { results: true },
   });
 

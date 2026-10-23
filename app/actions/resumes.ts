@@ -6,6 +6,7 @@ import { PDFParse } from "pdf-parse";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { resumeFileSchema } from "@/lib/schemas/resumes";
+import { requireUserId } from "@/lib/session-guard";
 import type { ResumeActionResponse } from "@/lib/types/resumes";
 
 const UPLOAD_DIR = join(process.cwd(), "uploads", "resumes");
@@ -27,10 +28,8 @@ function getFilePath(userId: string, fileName: string): string {
   return join(UPLOAD_DIR, `${userId}_${timestamp}_${safeName}`);
 }
 
-export async function uploadResume(
-  userId: string,
-  file: File,
-): Promise<ResumeActionResponse> {
+export async function uploadResume(file: File): Promise<ResumeActionResponse> {
+  const userId = await requireUserId();
   const parsed = resumeFileSchema.safeParse({ file });
   if (!parsed.success) {
     return { success: false, error: z.prettifyError(parsed.error) };
@@ -62,10 +61,8 @@ export async function uploadResume(
   return { success: true, data: resume };
 }
 
-export async function updateResume(
-  userId: string,
-  file: File,
-): Promise<ResumeActionResponse> {
+export async function updateResume(file: File): Promise<ResumeActionResponse> {
+  const userId = await requireUserId();
   const parsed = resumeFileSchema.safeParse({ file });
   if (!parsed.success) {
     return { success: false, error: z.prettifyError(parsed.error) };
@@ -96,9 +93,8 @@ export async function updateResume(
   return { success: true, data: resume };
 }
 
-export async function deleteResume(
-  userId: string,
-): Promise<ResumeActionResponse> {
+export async function deleteResume(): Promise<ResumeActionResponse> {
+  const userId = await requireUserId();
   const existing = await db.resume.findUnique({ where: { userId } });
   if (!existing) {
     return { success: false, error: "No resume found" };

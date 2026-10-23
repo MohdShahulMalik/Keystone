@@ -50,7 +50,7 @@ export interface StreamCtx {
   jobBuffers: Map<string, string>; // sessionID -> incomplete tail for JOB_JSON line
   jobSeq: Map<string, number>; // sessionID -> monotonic seq for jobs
   emittedJobKeys: Set<string>; // dedup key: title|company|url
-  // queued DB persist via app/actions/jobs.ts bulkCreateJobsFromResearch
+  // queued DB persist via lib/research/persist-jobs.ts bulkCreateJobsFromResearch
   jobPersistQueue: Map<string, StreamedJob[]>;
   jobPersistTimers: Map<string, ReturnType<typeof setTimeout>>;
   // consecutive flush failures per dbSessionId (bounded retry / dead-letter)
@@ -261,7 +261,7 @@ function makeJobKey(job: {
   return `${job.title.toLowerCase().trim()}|${job.company.toLowerCase().trim()}|${(job.url ?? "").toLowerCase().trim()}`;
 }
 
-// ---- queued persist via app/actions/jobs.ts (bulkCreateJobsFromResearch) ----
+// ---- queued persist via lib/research/persist-jobs.ts (bulkCreateJobsFromResearch) ----
 const JOB_PERSIST_BATCH_SIZE = 8;
 const JOB_PERSIST_FLUSH_MS = 1200;
 // Bounded retry: after this many consecutive failures the batch is
@@ -352,13 +352,15 @@ export async function flushJobPersistQueue(ctx: StreamCtx): Promise<boolean> {
   const toPersist = [...batch];
   const attempt = getAttempts(ctx, key) + 1;
   try {
-    // dynamic import to avoid circular dep: stream.ts <-> app/actions/jobs.ts
+    // dynamic import to avoid circular dep: stream.ts <-> lib/research/persist-jobs.ts
     let bulkCreateJobsFromResearch: (
       userId: string,
       jobs: StreamedJob[],
     ) => Promise<unknown>;
     try {
-      ({ bulkCreateJobsFromResearch } = await import("@/app/actions/jobs"));
+      ({ bulkCreateJobsFromResearch } = await import(
+        "@/lib/research/persist-jobs"
+      ));
     } catch (importError) {
       const d = describePersistError(importError);
       console.error("[research] flushJobPersistQueue failed", {

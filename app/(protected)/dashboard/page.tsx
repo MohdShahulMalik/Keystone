@@ -10,21 +10,21 @@ import { SalarySpreadCard } from "@/components/dashboard/salary-spread";
 import { LiveDot, Pill } from "@/components/dashboard/tile";
 import { type DashboardSession, isoWeek } from "@/lib/dashboard/metrics";
 import { db } from "@/lib/db";
+import { requireUserId } from "@/lib/session-guard";
 
 export const metadata = {
   title: "Dashboard · Keystone",
   description: "Hunt overview — pipeline, conversion, activity and agents.",
 };
 
-const USER_ID = "maxum";
 const HEATMAP_WINDOW_DAYS = 12 * 7;
 
-async function getStatusChanges() {
+async function getStatusChanges(userId: string) {
   try {
     const since = new Date(Date.now() - HEATMAP_WINDOW_DAYS * 86400000);
     const rows = await db.jobStatusChange.findMany({
       where: {
-        listing: { userId: USER_ID },
+        listing: { userId },
         createdAt: { gte: since },
       },
       select: { createdAt: true, toStatus: true },
@@ -37,10 +37,10 @@ async function getStatusChanges() {
   }
 }
 
-async function getRecentSessions(): Promise<DashboardSession[]> {
+async function getRecentSessions(userId: string): Promise<DashboardSession[]> {
   try {
     const rows = await db.searchSession.findMany({
-      where: { userId: USER_ID },
+      where: { userId },
       orderBy: { createdAt: "desc" },
       take: 5,
       select: {
@@ -67,10 +67,11 @@ async function getRecentSessions(): Promise<DashboardSession[]> {
 }
 
 export default async function DashboardPage() {
+  const userId = await requireUserId();
   const [listings, sessions, statusChanges] = await Promise.all([
-    getJobListings(USER_ID),
-    getRecentSessions(),
-    getStatusChanges(),
+    getJobListings(),
+    getRecentSessions(userId),
+    getStatusChanges(userId),
   ]);
 
   const now = new Date();

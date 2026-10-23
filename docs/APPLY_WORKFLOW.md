@@ -7,12 +7,24 @@ with `{{tokens}}`. Raw values are resolved locally by you, never in agent contex
 ## Data flow
 
 ```
-Keystone Postgres -> GET localhost:5421/api/apply/queue (agent, safe: no PII)
+Keystone Postgres -> GET localhost:5421/api/apply/queue?userId=<ownerId> (agent, safe: no PII)
 Agent snapshot (chrome-devtools MCP) -> writes scripts/apply/plans/<jobId>.json with {{tokens}} only
 You: bun scripts/apply/interpolate.ts --template plans/<jobId>.json --out /tmp/opencode/resolved-<jobId>.json
 You: fill in headless Chrome from resolved file, screenshot to fixes/apply/<jobId>/, review
-You: submit in browser, then agent POSTs localhost:5421/api/apply/mark-applied {"id"}
+You: submit in browser, then agent POSTs localhost:5421/api/apply/mark-applied {"id","userId"}
 ```
+
+## Caller auth (both endpoints)
+
+The queue is caller-scoped — no default user. Two ways in:
+- Agent (curl, no cookies): set `APPLY_AGENT_TOKEN` in Keystone's `.env`, then
+  send `-H "Authorization: Bearer $APPLY_AGENT_TOKEN"` and pass your
+  `userId` (queue: `&userId=...`; mark-applied: `"userId": "..."` in the body).
+- Browser (human): just sign in first — your session user is used; `userId`
+  is ignored.
+
+To find your `userId` (Better Auth cuid): open Prisma Studio (`bun run gen`
+then `bunx prisma studio`) or query the `User` table.
 
 The agent only ever sees token names (`contact.email`) and field labels.
 Screenshots of filled forms stay in `fixes/apply/<jobId>/` for human eyes —
@@ -20,6 +32,9 @@ do not attach them to agent context or they leak PII to the provider.
 
 ## One-time setup
 
+0. Queue access is caller-scoped: add `APPLY_AGENT_TOKEN=<random secret>` to
+   Keystone's `.env` (agent reads it, never commits it) and note your
+   Better Auth `userId` (Prisma Studio). Browser calls just need a signed-in session.
 1. Fill your vault (outside the repo, mode 600):
    `cp scripts/apply/profile.example.json ~/.config/keystone/profile.json`
    Edit `~/.config/keystone/profile.json` with real values. Never commit it.
@@ -35,7 +50,8 @@ do not attach them to agent context or they leak PII to the provider.
 
 ## Per-job loop (opencode prompt)
 
-> Pull `GET http://localhost:5421/api/apply/queue?status=OPEN&limit=20`. Pick
+> Pull `GET http://localhost:5421/api/apply/queue?status=OPEN&limit=20&userId=<ownerId>`
+> with `-H "Authorization: Bearer $APPLY_AGENT_TOKEN"`. Pick
 > one job with a non-null `url`. Snapshot the apply page with chrome-devtools
 > MCP, write `scripts/apply/plans/<jobId>.json` using tokens from
 > `scripts/apply/profile.example.json` keys (e.g. `{{contact.email}}`), never
@@ -48,7 +64,7 @@ Human then runs:
 `bun scripts/apply/interpolate.ts --template scripts/apply/plans/<jobId>.json --out /tmp/opencode/resolved-<jobId>.json`
 Fill from that file in headless Chrome, save before/after screenshots to
 `fixes/apply/<jobId>/`, review, submit in browser, then tell the agent to run:
-`curl -X POST http://localhost:5421/api/apply/mark-applied -H 'Content-Type: application/json' -d '{"id":"<jobId>"}'`
+`curl -X POST http://localhost:5421/api/apply/mark-applied -H 'Content-Type: application/json' -H "Authorization: Bearer $APPLY_AGENT_TOKEN" -d '{"id":"<jobId>","userId":"<ownerId>"}'`
 
 ## Rules
 

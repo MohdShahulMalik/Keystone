@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getAvailableModelsAction } from "@/app/actions/research";
-import { TagInput } from "@/app/research/component/TagInput";
 import type { ModelRef, ModelV2Info } from "@/lib/types/opencode";
 import { GLM_5_3_FLASH_FREE_REF } from "@/lib/types/opencode";
+import { TagInput } from "./TagInput";
 
 const jobTypes = ["Remote", "Hybrid", "Onsite"];
 
@@ -104,7 +104,9 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
                 m.name === "GLM-5.3-Flash Free" &&
                 m.providerID.toLowerCase().includes("opencode"),
             ) ??
-            data.find((m) => m.id.toLowerCase().includes("glm-5.3-flash-free")) ??
+            data.find((m) =>
+              m.id.toLowerCase().includes("glm-5.3-flash-free"),
+            ) ??
             data.find((m) => m.id.toLowerCase().includes("glm")) ??
             data[0];
           setSelectedModelId(`${preferred.providerID}/${preferred.id}`);

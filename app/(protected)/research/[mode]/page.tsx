@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getSearchSessionsWithMetaData } from "@/app/actions/search";
-import { ResearchClient } from "@/app/research/component/ResearchClient";
 import { ResearchSessionSidebar } from "@/components/ResearchSessionSidebar";
+import { ResearchClient } from "../component/ResearchClient";
 
 const modeLabels: Record<string, string> = {
   job: "Job research",
@@ -15,8 +15,7 @@ export default async function ResearchPage({
   const { mode } = await params;
   if (mode !== "job" && mode !== "dsa") notFound();
 
-  const userId = "maxum";
-  const sessions = await getSearchSessionsWithMetaData(userId, mode);
+  const sessions = await getSearchSessionsWithMetaData(mode);
   const { sessionId } = await searchParams;
   const activeSessionId: string | undefined =
     typeof sessionId === "string" ? sessionId : undefined;

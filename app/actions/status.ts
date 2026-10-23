@@ -8,9 +8,11 @@ import {
   withResilientDb,
 } from "@/lib/db-errors";
 import { ChangeStatusSchema } from "@/lib/schemas/status";
+import { requireUserId } from "@/lib/session-guard";
 import type { JobStatus } from "@/lib/types/status";
 
 export async function updateStatus(id: string, status: JobStatus) {
+  const userId = await requireUserId();
   const parsed = ChangeStatusSchema.safeParse({ status });
 
   if (!parsed.success) {
@@ -20,8 +22,8 @@ export async function updateStatus(id: string, status: JobStatus) {
   try {
     const job = await withResilientDb(
       () =>
-        db.jobListing.findUnique({
-          where: { id },
+        db.jobListing.findFirst({
+          where: { id, userId },
         }),
       getDbReadTimeoutMs(),
     );

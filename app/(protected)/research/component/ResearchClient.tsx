@@ -9,11 +9,6 @@ import {
   getSubagentHistory,
 } from "@/app/actions/search";
 import type { SearchSession } from "@/app/generated/prisma";
-import {
-  ResearchForm,
-  type UserPreferences,
-} from "@/app/research/component/ResearchForm";
-import { SubagentView } from "@/app/research/component/SubagentView";
 import { AgentResponse } from "@/components/AgentResponse";
 import { JobListingCard } from "@/components/cards/listings";
 import { useResearchStream } from "@/hooks/useResearchStream";
@@ -23,6 +18,8 @@ import type { JobListing } from "@/lib/types/jobs";
 import { GLM_5_3_FLASH_FREE_REF } from "@/lib/types/opencode";
 import type { TextSegment } from "@/lib/types/research";
 import type { JobStatus } from "@/lib/types/status";
+import { ResearchForm, type UserPreferences } from "./ResearchForm";
+import { SubagentView } from "./SubagentView";
 
 type ResearchClientProps = {
   mode: "job" | "dsa";
@@ -187,8 +184,11 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         if (dbPrefs) setUserPreferences(dbPrefs);
         const h = await getSearchSessionHistory(s.id);
         if (cancelled) return;
+        // Null means the session vanished mid-load (or is not ours anymore)
+        // — render it like an empty history rather than crash.
+        const history = h ?? { segments: [], results: [] };
         setHistorySegments(
-          h.segments.map((r) => ({
+          history.segments.map((r) => ({
             id: `db-${r.seq}`,
             text: r.text,
             kind: r.kind as TextSegment["kind"],
@@ -196,7 +196,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         );
 
         setHistoryJobs(
-          h.results.map((r, i) => {
+          history.results.map((r, i) => {
             const j = r.jobListingJson as unknown as JobPayload;
             return {
               ...j,

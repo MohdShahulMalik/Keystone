@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { deriveSessionTitle } from "@/lib/opencode/prompts";
+import { requireUserId } from "@/lib/session-guard";
 import type { SearchSessionTitle } from "@/lib/types/search";
 import type {
   SearchMode,
@@ -13,9 +14,9 @@ import type {
 } from "../generated/prisma";
 
 export async function getSearchSessionsWithMetaData(
-  userId: string,
   mode: "job" | "dsa",
 ): Promise<SearchSessionTitle[]> {
+  const userId = await requireUserId();
   const sessions = await db.searchSession.findMany({
     select: {
       id: true,
@@ -65,16 +66,38 @@ export async function getSearchSessionsWithMetaData(
 export async function getSearchSessionByAnyId(
   sessionId: string,
 ): Promise<SearchSession | null> {
+  // Scoped to the authenticated user — a session id from another user
+  // resolves the same as an unknown id.
+  const userId = await requireUserId();
   const session = await db.searchSession.findFirst({
     where: {
       OR: [{ id: sessionId }, { openCodeSessionId: sessionId }],
+      userId,
     },
   });
 
   return session;
 }
 
-export async function getSearchSessionHistory(dbSessionId: string) {
+export async function getSearchSessionHistory(dbSessionId: string): Promise<{
+  segments: {
+    seq: number;
+    kind: SegmentKind;
+    text: string;
+    toolId: string | null;
+    timeTaken: string | null;
+  }[];
+  results: { id: string; jobListingJson: unknown }[];
+} | null> {
+  // Ownership gate: only the session owner may read its history. Returns
+  // null (not empty data) so callers can distinguish "not yours" from "empty".
+  const userId = await requireUserId();
+  const owned = await db.searchSession.findFirst({
+    where: { id: dbSessionId, userId },
+    select: { id: true },
+  });
+  if (!owned) return null;
+
   const [segments, results] = await Promise.all([
     db.researchSegment.findMany({
       select: {
@@ -84,13 +107,13 @@ export async function getSearchSessionHistory(dbSessionId: string) {
         toolId: true,
         timeTaken: true,
       },
-      where: { sessionId: dbSessionId },
+      where: { sessionId: owned.id },
       orderBy: { seq: "asc" },
       take: 2000,
     }),
     db.searchResult.findMany({
       select: { id: true, jobListingJson: true },
-      where: { sessionId: dbSessionId },
+      where: { sessionId: owned.id },
       take: 2000,
     }),
   ]);
@@ -126,13 +149,23 @@ export interface SubagentHistory {
 // Child (subagent) sessions live in SubagentSession keyed by the opencode
 // child session id — NOT in SearchSession — so parent reloads never resolve
 // them. Accepts either the opencode child session id or the SubagentSession.id.
+// Returns null unless the owning user is authenticated.
 export async function getSubagentHistory(
   childSessionId: string,
 ): Promise<SubagentHistory | null> {
+  const userId = await requireUserId();
   const subagent = await db.subagentSession.findFirst({
     where: { OR: [{ sessionId: childSessionId }, { id: childSessionId }] },
   });
   if (!subagent) return null;
+
+  // Ownership gate via the parent session — protects the subagent history
+  // the same way getSearchSessionByAnyId protects parent sessions.
+  const parentOwned = await db.searchSession.findFirst({
+    where: { id: subagent.parentId, userId },
+    select: { id: true },
+  });
+  if (!parentOwned) return null;
 
   const [segments, parent, siblings] = await Promise.all([
     db.subagentSegment.findMany({

@@ -2,8 +2,7 @@ import { getJobListings } from "@/app/actions/jobs";
 import { ListingsClient } from "@/components/listings/listings-client";
 
 export default async function ListingsPage() {
-  const userId = "maxum";
-  const listings = await getJobListings(userId);
+  const listings = await getJobListings();
 
   return (
     <main className="min-h-screen overflow-x-clip bg-surface-900 px-4 py-8 sm:px-6 lg:py-12">

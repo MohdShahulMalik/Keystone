@@ -82,7 +82,7 @@ export function JobListingCard({
     setIsDeleted(true);
     const result = onDelete
       ? await onDelete(listing.id)
-      : await deleteJobListing(listing.userId, listing.id);
+      : await deleteJobListing(listing.id);
 
     if (!result || (typeof result === "object" && "success" in result && result.success)) {
       // revalidatePath("/listings") in jobs.ts:94 already invalidates the RSC cache

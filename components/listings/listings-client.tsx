@@ -213,7 +213,7 @@ export function ListingsClient({ initialListings }: ListingsClientProps) {
     pendingDeleteRef.current.add(id);
     setListings((list) => list.filter((listing) => listing.id !== id));
     setActionError(null);
-    const result = await deleteJobListing(item?.userId ?? "maxum", id);
+    const result = await deleteJobListing(id);
     pendingDeleteRef.current.delete(id);
     if (!result.success) {
       console.error("[listings] deleteJobListing failed:", result);
