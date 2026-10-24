@@ -239,7 +239,7 @@ export default function SignupPage() {
               </button>
             </form>
 
-            <div className="mt-6 flex items-center gap-4">
+            <div className="keystone-google-signin mt-6 flex items-center gap-4">
               <span className="h-px flex-1 bg-edge" aria-hidden="true" />
               <span className="font-mono text-[11px] uppercase leading-[1.4] tracking-[0.14em] text-body/60">
                 or
@@ -252,7 +252,7 @@ export default function SignupPage() {
               onClick={onGoogleSignIn}
               disabled={isGoogleLoading}
               aria-disabled={isGoogleLoading}
-              className={`flex w-full items-center justify-center gap-2.5 rounded-xl border border-[#00394C] bg-[rgba(3,16,25,0.6)] px-5 py-3 text-sm font-semibold text-ice transition-colors duration-200 hover:border-acc-cyan hover:bg-[rgba(0,184,214,0.08)] ${FOCUS}`}
+              className={`keystone-google-signin flex w-full items-center justify-center gap-2.5 rounded-xl border border-[#00394C] bg-[rgba(3,16,25,0.6)] px-5 py-3 text-sm font-semibold text-ice transition-colors duration-200 hover:border-acc-cyan hover:bg-[rgba(0,184,214,0.08)] ${FOCUS}`}
             >
               {isGoogleLoading ? (
                 <svg

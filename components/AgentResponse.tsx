@@ -41,10 +41,20 @@ function makeLinkComponents(
           </Link>
         );
       }
+      // Last line of defense (streamdown's sanitizer already strips bad
+      // schemes): only render anchors for web/mailto URLs, anything else
+      // degrades to plain text instead of a clickable href.
+      if (href && /^(https?:|mailto:)/i.test(href)) {
+        return (
+          <a href={href} {...rest}>
+            {children}
+          </a>
+        );
+      }
       return (
-        <a href={href} {...rest}>
+        <span className={rest.className} title={href}>
           {children}
-        </a>
+        </span>
       );
     },
   } as React.ComponentProps<typeof Streamdown>["components"];
@@ -53,9 +63,10 @@ function makeLinkComponents(
 function JumpingDots() {
   return (
     <span
+      aria-live="polite"
       className="inline-flex items-end gap-1 align-middle"
-      aria-label="Agent is responding"
     >
+      <span className="sr-only">Agent is responding</span>
       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:0ms]" />
       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:150ms]" />
       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:300ms]" />

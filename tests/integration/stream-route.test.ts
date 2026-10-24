@@ -189,8 +189,10 @@ describe("replay semantics", () => {
       await readSse(res);
     }
     for (const call of findMany.mock.calls) {
-      const args = call[0] as { where: { seq: { gt: number } } };
-      expect(args.where.seq.gt).toBe(0);
+      // bun types a parameterless mock's call args as an empty tuple; .at(0)
+      // keeps the access type-safe.
+      const args = call.at(0) as { where: { seq: { gt: number } } } | undefined;
+      expect(args?.where.seq.gt).toBe(0);
     }
   });
 

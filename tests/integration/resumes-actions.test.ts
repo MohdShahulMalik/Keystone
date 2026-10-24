@@ -15,7 +15,9 @@ mock.module("@/lib/session-guard", () => ({
 
 const writeFile = mock(async (_p: string, _b: Buffer) => {});
 const rm = mock(async (_p: string, _o?: unknown) => {});
-mock.module("node:fs/promises", () => ({ writeFile, rm }));
+// mkdir is part of the module surface now (uploads dir is created on demand).
+const mkdir = mock(async (_p: string, _o?: unknown) => {});
+mock.module("node:fs/promises", () => ({ mkdir, writeFile, rm }));
 
 const getText = mock(async () => ({ text: "extracted resume text" }));
 const destroy = mock(async () => {});
@@ -149,17 +151,20 @@ describe("deleteResume", () => {
     expect(rm).not.toHaveBeenCalled();
   });
 
-  test("INTENT PROBE: file is deleted BEFORE the DB row — a DB failure loses the file", async () => {
-    // rm() runs first, then db.resume.delete. If delete throws, the file is
-    // already gone while the row remains — resume content unrecoverable.
-    // Robust order would be DB-first (or transactional outbox).
+  test("deletes the DB row FIRST, then the file (fixed order)", async () => {
+    // Probe originally failed the file-first order ("a DB failure loses the
+    // file"). Now: row delete first — a DB failure returns a classified
+    // failure with the row still intact; the following rm is best-effort, so
+    // a failed cleanup only leaves an orphan file.
     stubResume({
       findUnique: mock(async () => ({ id: "r1", filePath: "/old/r.pdf" })),
       delete: mock(async () => {
         throw new Error("db down");
       }),
     });
-    await expect(resumes.deleteResume()).rejects.toThrow("db down");
-    expect(rm).toHaveBeenCalled(); // file gone despite overall failure
+    const result = await resumes.deleteResume();
+    // Failure result (not a throw), row/browser state intact.
+    expect(result.success).toBe(false);
+    expect(rm).not.toHaveBeenCalled(); // file cleanup never reached
   });
 });

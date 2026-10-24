@@ -2,27 +2,30 @@
 
 Tracked follow-ups for hydrate-then-tail (`ResearchClient` + `useResearchStream`).
 
-## 1. Sidebar never highlights active session
-- File: `app/research/[mode]/page.tsx:24`
-- `activeSessionId={undefined}` is hardcoded.
-- Fix: read `searchParams.sessionId` in the page and pass it through to `ResearchSessionSidebar`.
-- Effect if skipped: navigation works, but no active highlight.
+## Resolved (was on this list)
 
-## 2. Subagent reload is broken
-- Files: `hooks/useResearchStream.ts:71`, `prisma/models/search.prisma` (`SubagentSession`, `SubagentSegment`), `app/actions/search.ts`
-- Live view renders subagent links as `/research/job?sessionId=<childId>`, but the client only looks up `SearchSession` via `getSearchSessionByAnyId`. Child ids live in `SubagentSession`, so clicks land on the "Session not found" form.
-- Fix: add `getSubagentHistory(childId)` (subagent row + ordered `SubagentSegment`s) and either a dedicated subagent view/route or a branch in `ResearchClient` that renders subagent history when the id resolves to a child.
-- Effect if skipped: parent resume works, subagent drill-down does not survive reload.
+1. **Sidebar highlights the active session** — `app/(protected)/research/[mode]/page.tsx`
+   now reads `searchParams.sessionId` and passes it through as `activeSessionId`.
+2. **Subagent reload works** — `getSubagentHistory` (`app/actions/search.ts`) resolves
+   child ids via `SubagentSession`/`SubagentSegment`, and `SubagentView` renders that
+   history when an id resolves to a child instead of the parent form.
+3. **Reloading shows preferences and the session title** — `startResearch` persists
+   the `preferences` JSON, `title`, and `resultCount` on `SearchSession` creation; the
+   client hydrates them from the DB before the live stream attaches.
 
-## 3. Reload shows no preferences and "Untitled session"
-- Files: `app/actions/research.ts` (`startResearch`), `app/research/component/ResearchClient.tsx` (prefs box), `app/actions/search.ts` (`getSearchSessionsWithMetaData`)
-- `startResearch` persists `query/status/openCodeSessionId` but not the `preferences` JSON, so `userPreferences` (memory-only) is empty after reload and Model/JobTypes/Countries can't render.
-- `SearchSession.title` is never set on create, so the sidebar falls back to "Untitled session". `resultCount` only updates in `completeSearchSession` on stream completion — verify it ran for older rows.
-- Fix: save `preferences` JSON on create and render prefs/title from DB when `userPreferences` is null; backfill or generate titles for existing rows.
-- Effect if skipped: history body loads, but context header stays empty.
+## Open items (INTENT tests)
 
-## Lint (pre-existing, still failing)
-- `bun run lint` exits non-zero on issues that predate this change:
-  - `hooks/useResearchStream.ts`: unused `name`, `title`, `prefix`
-  - `app/research/component/ResearchClient.tsx`: import order, skeleton `key={i}`
-- The new seed-effect exhaustive-deps warning is already suppressed via `biome-ignore` (seed by length on purpose).
+The seeded `INTENT (FAILS now)` tests document capabilities that are still NOT
+implemented. Current red set (16) after the pre-ship fixes:
+
+- Model discovery has no bounded timeout (`getAvailableModelsAction` can block
+  on a hung OpenCode server).
+- Job-persist flush has unbounded retries (infinite requeue during an outage)
+  and terminal handlers still report success when the persist fails.
+- Background prompt-send failures are not surfaced to the caller reliably
+  (`sendResearchPromptWithRetry` swallows via `.catch`).
+- `db-create` compensation failures can mask the original error.
+
+These live in `tests/unit/stream-flush-repro.test.ts`,
+`tests/integration/research-dbcreate-error.repro.test.ts`,
+`tests/integration/stream-route.test.ts`, and `tests/integration/*.repro.test.ts`.

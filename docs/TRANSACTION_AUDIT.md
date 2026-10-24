@@ -8,7 +8,7 @@ No write path in this codebase needs `$transaction` today. Each multi-step flow 
 
 Creates the remote OpenCode session, then the DB session row, then sends the prompt. A transaction cannot span the external OpenCode API call, so it could never make this flow atomic anyway. The existing manual compensation, deleting the remote session when the DB insert fails, is already the correct pattern for cross-system work.
 
-### `app/actions/jobs.ts:139-182` (bulkCreateJobsFromResearch)
+### `lib/research/persist-jobs.ts` (bulkCreateJobsFromResearch)
 
 User upsert, then read-for-dedup, then `createMany`. A transaction would not fix the real hazard here, the check-then-insert race between two concurrent streams. The correct tool for that is a unique constraint on `(userId, title, company, url)`, not a transaction. Partial failure is retry-safe since the upsert is idempotent and the dedup check re-runs.
 

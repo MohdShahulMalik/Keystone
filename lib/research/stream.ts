@@ -120,7 +120,7 @@ function getOrCreateOpenSegment(
   return next;
 }
 
-function emitChildSegment(
+function _emitChildSegment(
   ctx: StreamCtx,
   buf: { kind: SegmentKind; text: string; toolId?: string },
   sessionID: string,
@@ -148,7 +148,7 @@ function emitChildSegment(
   }
 }
 
-function emitParentSegment(
+function _emitParentSegment(
   ctx: StreamCtx,
   buf: { kind: SegmentKind; text: string; toolId?: string },
   sessionID: string,
@@ -298,8 +298,7 @@ export function describePersistError(e: unknown): {
     return {
       name: e.name || "Error",
       message: e.message,
-      code:
-        typeof withCode.code === "string" ? withCode.code : undefined,
+      code: typeof withCode.code === "string" ? withCode.code : undefined,
     };
   }
   if (typeof e === "string") return { name: "StringThrow", message: e };
@@ -460,13 +459,20 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
   ctx.jobSeq.set(sessionID, seq);
   // normalize minimal fields for client; keep them StreamedJobSchema-compliant
   // (client re-validates, DB history does not) so live and reload agree.
-  const rawType = String(maybe.type ?? "remote").trim().toLowerCase();
+  const rawType = String(maybe.type ?? "remote")
+    .trim()
+    .toLowerCase();
   const rawUrl =
     typeof maybe.url === "string" ? maybe.url.trim() : (maybe.url ?? null);
   let url: string | null = null;
   if (typeof rawUrl === "string" && rawUrl) {
     try {
-      url = new URL(rawUrl).toString();
+      const parsed = new URL(rawUrl);
+      // `new URL("javascript:alert(1)")` does not throw, and these listings
+      // render as clickable anchors later — only web schemes survive.
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        url = parsed.toString();
+      }
     } catch {
       url = null;
     }
@@ -481,7 +487,8 @@ function tryEmitSingleJob(ctx: StreamCtx, sessionID: string, jsonStr: string) {
     company: String(maybe.company).trim(),
     location: String(maybe.location ?? "").trim() || "Unknown",
     url,
-    description: String(maybe.description ?? "").trim() || "No description provided",
+    description:
+      String(maybe.description ?? "").trim() || "No description provided",
     salary: orNull(maybe.salary),
     experience: String(maybe.experience ?? "Mid").trim() || "Mid",
     visa: orNull(maybe.visa),
@@ -1102,7 +1109,8 @@ export async function handleHubEvent(ctx: StreamCtx, raw: StreamEvent) {
       await flush(ctx);
       flushPendingJobs(ctx);
       const persistOk = await flushJobPersistQueue(ctx);
-      const pending = (ctx.jobPersistQueue.get(ctx.dbSessionId)?.length ?? 0) > 0;
+      const pending =
+        (ctx.jobPersistQueue.get(ctx.dbSessionId)?.length ?? 0) > 0;
       if (!persistOk || pending) {
         await failSearchSession(
           ctx.dbSessionId,
@@ -1130,7 +1138,8 @@ export async function handleHubEvent(ctx: StreamCtx, raw: StreamEvent) {
       await flush(ctx);
       flushPendingJobs(ctx);
       const persistOk = await flushJobPersistQueue(ctx);
-      const pending = (ctx.jobPersistQueue.get(ctx.dbSessionId)?.length ?? 0) > 0;
+      const pending =
+        (ctx.jobPersistQueue.get(ctx.dbSessionId)?.length ?? 0) > 0;
       if (!persistOk || pending) {
         await failSearchSession(
           ctx.dbSessionId,
@@ -1168,7 +1177,7 @@ export async function handleHubEvent(ctx: StreamCtx, raw: StreamEvent) {
 export async function handlePartUpdated(
   ctx: StreamCtx,
   part: Part,
-  delta: string | undefined,
+  _delta: string | undefined,
 ) {
   const isChild = ctx.childSessions.has(part.sessionID);
   const isParent = part.sessionID === ctx.sessionId;

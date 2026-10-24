@@ -21,9 +21,19 @@ mock.module("@/lib/session-guard", () => ({
 const createResearchSession = mock(async (_m?: unknown) => ({
   id: "opencode-1",
 }));
+
+const MOCK_MODEL_LIST = [
+  {
+    id: "m",
+    providerID: "test",
+    name: "Model M",
+    variants: [],
+    status: "active" as const,
+  },
+];
 const deleteResearchSession = mock(async (_id: string) => {});
 const sendResearchPrompt = mock(async (..._a: unknown[]) => ({ ok: true }));
-const listAvailableModels = mock(async () => [{ id: "m" }]);
+const listAvailableModels = mock(async () => MOCK_MODEL_LIST);
 mock.module("@/lib/opencode/server", () => ({
   createResearchSession,
   deleteResearchSession,
@@ -219,7 +229,8 @@ describe("startResearch — happy path", () => {
   test("forwards resume content into the prompt when resumeId resolves", async () => {
     stub({
       resume: {
-        findUnique: mock(async () => ({ id: "res-1", content: "5y Rust" })),
+        // startResearch resolves resumes with a user-scoped findFirst now.
+        findFirst: mock(async () => ({ id: "res-1", content: "5y Rust" })),
       },
     });
     await research.startResearch({ ...prefs, resumeId: "res-1" });
@@ -242,7 +253,7 @@ describe("startResearch — happy path", () => {
   test("wraps resume DB errors", async () => {
     stub({
       resume: {
-        findUnique: mock(async () => {
+        findFirst: mock(async () => {
           throw new Error("db down");
         }),
       },
@@ -325,7 +336,7 @@ describe("getResearchStatus / getAvailableModelsAction", () => {
   });
 
   test("delegates model listing to the opencode layer", async () => {
-    expect(await research.getAvailableModelsAction()).toEqual([{ id: "m" }]);
+    expect(await research.getAvailableModelsAction()).toEqual(MOCK_MODEL_LIST);
     expect(listAvailableModels).toHaveBeenCalledTimes(1);
   });
 });

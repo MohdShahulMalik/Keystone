@@ -1,11 +1,11 @@
 "use client";
 
 import {
+  type ReactNode,
+  type Ref,
   useImperativeHandle,
   useRef,
   useState,
-  type ReactNode,
-  type Ref,
 } from "react";
 import type { ResponseAction } from "@/lib/types/response";
 
@@ -97,7 +97,7 @@ export function ConfirmationBox({
     setError(null);
 
     try {
-      const result = (await onConfirm()) as ResponseAction<unknown> | void;
+      const result = (await onConfirm()) as ResponseAction<unknown> | undefined;
 
       if (
         result &&
@@ -118,6 +118,7 @@ export function ConfirmationBox({
   };
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled by onCancel; the click handler only covers the mouse-only backdrop
     <dialog
       ref={dialogRef}
       aria-labelledby="confirmation-box-title"

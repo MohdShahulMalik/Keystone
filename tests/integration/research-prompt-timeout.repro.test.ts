@@ -120,8 +120,9 @@ function promptErrorCalls() {
 }
 
 function sessionUpdateMock() {
-  return (db as unknown as { searchSession: { update: ReturnType<typeof mock> } })
-    .searchSession.update;
+  return (
+    db as unknown as { searchSession: { update: ReturnType<typeof mock> } }
+  ).searchSession.update;
 }
 
 beforeEach(() => {
@@ -178,10 +179,18 @@ describe("REPRO: HeadersTimeoutError during background prompt send", () => {
     // prompt never sent.
     let rejectPrompt!: (e: unknown) => void;
     sendResearchPrompt.mockImplementation(
-      () => new Promise((_res, rej) => void (rejectPrompt = rej)),
+      // Hand the rejecter out of the executor so the test can fire the
+      // failure later.
+      () =>
+        new Promise((_res, rej) => {
+          rejectPrompt = rej;
+        }),
     );
     const result = await research.startResearch(PREFS);
-    expect(result).toEqual({ sessionId: "db-1", openCodeSessionId: "opencode-1" });
+    expect(result).toEqual({
+      sessionId: "db-1",
+      openCodeSessionId: "opencode-1",
+    });
     expect(sessionUpdateMock()).not.toHaveBeenCalled(); // not failed *yet*
 
     rejectPrompt(prodHeadersTimeoutError());

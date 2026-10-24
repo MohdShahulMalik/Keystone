@@ -46,25 +46,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    const job = await withResilientDb(
+    // Single conditional write instead of find-then-update so a job that
+    // changed state (or vanished) between read and write can't be flipped
+    // for its owner.
+    const result = await withResilientDb(
       () =>
-        db.jobListing.findFirst({
+        db.jobListing.updateMany({
           where: { id: parsed.data.id, userId },
-        }),
-      getDbReadTimeoutMs(),
-    );
-    if (!job) {
-      return Response.json({ error: "job not found" }, { status: 404 });
-    }
-    await withResilientDb(
-      () =>
-        db.jobListing.update({
-          where: { id: job.id },
           data: { status: "APPLIED", appliedAt: new Date() },
         }),
       getDbReadTimeoutMs(),
     );
-    return Response.json({ success: true, id: job.id });
+    if (result.count === 0) {
+      return Response.json({ error: "job not found" }, { status: 404 });
+    }
+    return Response.json({ success: true, id: parsed.data.id });
   } catch (error) {
     console.error("[mark-applied] failed:", error);
     const failure = classifyDbError(error);

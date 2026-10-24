@@ -11,6 +11,18 @@ import { ChangeStatusSchema } from "@/lib/schemas/status";
 import { requireUserId } from "@/lib/session-guard";
 import type { JobStatus } from "@/lib/types/status";
 
+/**
+ * Log-only revalidation: a cache-refresh failure must never turn a
+ * successful status update into a client-visible failure.
+ */
+function safeRevalidate(path: string): void {
+  try {
+    revalidatePath(path);
+  } catch (error) {
+    console.error(`[revalidate ${path}] failed:`, error);
+  }
+}
+
 export async function updateStatus(id: string, status: JobStatus) {
   const userId = await requireUserId();
   const parsed = ChangeStatusSchema.safeParse({ status });
@@ -48,8 +60,8 @@ export async function updateStatus(id: string, status: JobStatus) {
       getDbReadTimeoutMs(),
     );
 
-    revalidatePath("/listings");
-    revalidatePath("/dashboard");
+    safeRevalidate("/listings");
+    safeRevalidate("/dashboard");
     return { success: true };
   } catch (error) {
     // Keep the full throw server-side, but return a serializable shape the

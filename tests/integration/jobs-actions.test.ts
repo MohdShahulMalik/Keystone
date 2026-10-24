@@ -24,8 +24,10 @@ import {
   importJobs,
   updateJobListing,
 } from "@/app/actions/jobs";
-import { bulkCreateJobsFromResearch } from "@/lib/research/persist-jobs";
 import { db } from "@/lib/db";
+import type { StreamedJob } from "@/lib/research/job-schema";
+import { bulkCreateJobsFromResearch } from "@/lib/research/persist-jobs";
+import type { JobListing } from "@/lib/types/jobs";
 
 function stubDb(overrides: Record<string, Record<string, unknown>> = {}) {
   const base = {
@@ -110,9 +112,10 @@ describe("addJobListing", () => {
   test("INTENT PROBE: success shape differs from update/delete ({raw} vs {success,data})", async () => {
     // update/delete return {success: true, data}; add returns the raw row.
     // Callers must handle two shapes — documented here as a consistency gap.
-    const result = (await addJobListing(
-      formData(validFields),
-    )) as Record<string, unknown>;
+    const result = (await addJobListing(formData(validFields))) as Record<
+      string,
+      unknown
+    >;
     expect(result).not.toHaveProperty("success");
   });
 });
@@ -153,10 +156,7 @@ describe("updateJobListing", () => {
 
   test("rejects invalid status values", async () => {
     const mocked = stubDb();
-    const result = await updateJobListing(
-      "j1",
-      formData({ status: "SAVED" }),
-    );
+    const result = await updateJobListing("j1", formData({ status: "SAVED" }));
     expect(result.success).toBe(false);
     expect(mocked.jobListing.update).not.toHaveBeenCalled();
   });
@@ -197,7 +197,7 @@ describe("deleteJobListing", () => {
 });
 
 describe("importJobs", () => {
-  const good = {
+  const good: JobListing = {
     id: "x",
     userId: "u",
     title: "T",
@@ -219,10 +219,7 @@ describe("importJobs", () => {
 
   test("imports valid rows and reports per-row errors", async () => {
     const mocked = stubDb();
-    const result = await importJobs([
-      good,
-      { ...good, title: "" } as never,
-    ]);
+    const result = await importJobs([good, { ...good, title: "" }]);
     expect(result.imported).toBe(1);
     expect(result.errors.length).toBe(1);
     expect(result.errors[0].index).toBe(1);
@@ -231,9 +228,7 @@ describe("importJobs", () => {
 
   test("skips createMany when nothing is valid", async () => {
     const mocked = stubDb();
-    const result = await importJobs([
-      { ...good, title: "" } as never,
-    ]);
+    const result = await importJobs([{ ...good, title: "" }]);
     expect(result.imported).toBe(0);
     expect(mocked.jobListing.createMany).not.toHaveBeenCalled();
   });
@@ -246,7 +241,7 @@ describe("importJobs", () => {
 });
 
 describe("bulkCreateJobsFromResearch", () => {
-  const streamed = {
+  const streamed: StreamedJob = {
     title: "Rust Engineer",
     company: "Acme",
     location: "Remote",
@@ -279,11 +274,11 @@ describe("bulkCreateJobsFromResearch", () => {
 
   test("dedupes within the batch (case-insensitive)", async () => {
     const mocked = stubDb();
-    const dup = {
+    const dup: StreamedJob = {
       ...streamed,
       title: "RUST ENGINEER",
       company: "acme",
-    } as never;
+    };
     const result = await bulkCreateJobsFromResearch("user-1", [streamed, dup]);
     expect(result.created).toBe(1);
     expect(result.skipped).toBe(1);
@@ -313,7 +308,7 @@ describe("bulkCreateJobsFromResearch", () => {
   test("counts invalid streamed jobs as skipped", async () => {
     const mocked = stubDb();
     const result = await bulkCreateJobsFromResearch("user-1", [
-      { ...streamed, title: "" } as never,
+      { ...streamed, title: "" },
     ]);
     expect(result).toEqual({ created: 0, skipped: 1 });
     expect(mocked.jobListing.createMany).not.toHaveBeenCalled();

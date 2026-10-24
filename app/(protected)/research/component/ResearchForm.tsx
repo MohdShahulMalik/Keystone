@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getAvailableModelsAction } from "@/app/actions/research";
+import { updateResume, uploadResume } from "@/app/actions/resumes";
 import type { ModelRef, ModelV2Info } from "@/lib/types/opencode";
 import { GLM_5_3_FLASH_FREE_REF } from "@/lib/types/opencode";
 import { TagInput } from "./TagInput";
@@ -54,6 +55,7 @@ export type UserPreferences = {
   skills: string;
   notes: string;
   resumeName?: string;
+  resumeId?: string;
 };
 
 type ResearchFormProps = {
@@ -73,6 +75,9 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
   ]);
   const [skills, setSkills] = useState<string[]>([]);
   const [resumeName, setResumeName] = useState<string>();
+  const [resumeId, setResumeId] = useState<string>();
+  const [isUploadingResume, setIsUploadingResume] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [countries, setCountries] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
@@ -138,8 +143,61 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
     );
   };
 
-  const selectResume = (file?: File) => {
-    if (file) setResumeName(file.name);
+  const clearResume = () => {
+    setResumeName(undefined);
+    setResumeId(undefined);
+    setResumeError(null);
+  };
+
+  const selectResume = async (file?: File) => {
+    if (!file) return;
+    // Match server-side resumeFileSchema rules so obviously wrong files fail
+    // locally with the same message.
+    if (file.type !== "application/pdf") {
+      clearResume();
+      setResumeError("Only PDF files are allowed");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      clearResume();
+      setResumeError("File size must be under 5MB");
+      return;
+    }
+
+    setResumeError(null);
+    setResumeName(file.name);
+    setIsUploadingResume(true);
+    setResumeId(undefined);
+    try {
+      let result = await uploadResume(file);
+      if (
+        !result.success &&
+        typeof result.error === "string" &&
+        result.error.includes("already exists")
+      ) {
+        // One resume per user (unique on userId) — a second choice is an
+        // update of the stored one.
+        result = await updateResume(file);
+      }
+      if (result.success) {
+        setResumeId(result.data.id);
+        setResumeError(null);
+      } else {
+        clearResume();
+        setResumeError(
+          typeof result.error === "string"
+            ? result.error
+            : "Failed to upload resume",
+        );
+      }
+    } catch (error) {
+      clearResume();
+      setResumeError(
+        error instanceof Error ? error.message : "Failed to upload resume",
+      );
+    } finally {
+      setIsUploadingResume(false);
+    }
   };
 
   const toggleJobType = (jobType: string) => {
@@ -173,6 +231,7 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
       skills: skills.join(", "),
       notes,
       resumeName,
+      resumeId,
     });
   };
 
@@ -270,19 +329,22 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
           />
           <div className="flex min-w-0 items-center justify-between gap-3 border-t border-stroke px-3 py-2">
             <span className="min-w-0 flex-1 truncate text-sm text-foreground-600-subtle">
-              {resumeName ?? "Drop a resume here, or browse to attach one"}
+              {isUploadingResume
+                ? `Uploading ${resumeName ?? "resume"}…`
+                : (resumeName ?? "Drop a resume here, or browse to attach one")}
             </span>
             <input
               ref={fileInputRef}
               type="file"
               accept="application/pdf"
               className="sr-only"
-              onChange={(event) => selectResume(event.target.files?.[0])}
+              onChange={(event) => void selectResume(event.target.files?.[0])}
             />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground-900 transition-colors hover:bg-accent hover:text-surface-900"
+              disabled={isUploadingResume}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground-900 transition-colors hover:bg-accent hover:text-surface-900 disabled:cursor-wait disabled:opacity-60"
             >
               <svg
                 className="h-3.5 w-3.5"
@@ -301,6 +363,20 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
               Upload resume
             </button>
           </div>
+          {resumeError ? (
+            <div className="flex items-center justify-between gap-3 border-t border-stroke px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-xs text-rose-400">
+                {resumeError}
+              </span>
+              <button
+                type="button"
+                onClick={clearResume}
+                className="shrink-0 text-xs font-medium text-accent underline-offset-4 hover:underline"
+              >
+                Reset
+              </button>
+            </div>
+          ) : null}
         </fieldset>
       </div>
 
@@ -362,9 +438,10 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
 
       <button
         type="submit"
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3.5 text-base font-bold text-[var(--color-btn-primary-text)] shadow-btn-primary transition-all duration-200 hover:brightness-105 hover:shadow-btn-primary-hover"
+        disabled={isUploadingResume}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3.5 text-base font-bold text-[var(--color-btn-primary-text)] shadow-btn-primary transition-all duration-200 enabled:hover:brightness-105 enabled:hover:shadow-btn-primary-hover disabled:cursor-wait disabled:opacity-70"
       >
-        {actionLabel}
+        {isUploadingResume ? "Uploading resume…" : actionLabel}
         <svg
           className="h-4 w-4"
           fill="none"

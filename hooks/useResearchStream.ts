@@ -101,6 +101,17 @@ function uniqueId(): string {
   return `seg-${++segmentCounter}-${Date.now()}`;
 }
 
+/** JSON.parse a data-channel payload; bad frames are dropped, not fatal. */
+function parseEvent<T>(event: MessageEvent): T | null {
+  if (typeof event.data !== "string") return null;
+  try {
+    return JSON.parse(event.data) as T;
+  } catch {
+    console.warn("[research-stream] dropped malformed SSE frame");
+    return null;
+  }
+}
+
 export function useResearchStream(
   sessionId: string | null,
   initial?: { segments?: ResearchSession["segments"]; jobs?: JobPayload[] },
@@ -269,7 +280,7 @@ export function useResearchStream(
       };
 
       const handleToolEvent = (tool: ToolEvent) => {
-        const { id, tool: name, title } = tool;
+        const { id } = tool;
         const status = tool.status ?? "running";
 
         toolsRef.current = {
@@ -358,7 +369,7 @@ export function useResearchStream(
                     sessionId,
                   );
                   const toolLine = subagentToolLine(tool);
-                  const prefix = tool.status === "error" ? "✗" : "✓";
+                  const _prefix = tool.status === "error" ? "✗" : "✓";
                   // keep ∴ while parent still running, show last tool with status
                   replaceSegment(
                     segId,
@@ -410,10 +421,10 @@ export function useResearchStream(
 
       es.addEventListener("chunk", (e) => {
         ensureRunning();
-        const payload = JSON.parse(e.data) as ChunkPayload & {
-          seq?: number;
-          kind?: string;
-        };
+        const payload = parseEvent<
+          ChunkPayload & { seq?: number; kind?: string }
+        >(e);
+        if (!payload) return;
         closeThinking();
         if (
           typeof payload.seq === "number" &&
@@ -430,9 +441,9 @@ export function useResearchStream(
 
       es.addEventListener("thinking", (e) => {
         ensureRunning();
-        const { text, done, seq } = JSON.parse(e.data) as ThinkingPayload & {
-          seq?: number;
-        };
+        const parsed = parseEvent<ThinkingPayload & { seq?: number }>(e);
+        if (!parsed) return;
+        const { text, done, seq } = parsed;
         if (typeof seq === "number" && seq > maxSeqRef.current) {
           maxSeqRef.current = seq;
         }
@@ -458,8 +469,9 @@ export function useResearchStream(
       });
 
       es.addEventListener("status", (e) => {
-        const { status } = JSON.parse(e.data) as StatusPayload;
-        const normalized = normalizeStatus(status);
+        const payload = parseEvent<StatusPayload>(e);
+        if (!payload) return;
+        const normalized = normalizeStatus(payload.status);
         if (!normalized) return;
         setState((prev) => ({
           ...prev,
@@ -469,7 +481,8 @@ export function useResearchStream(
 
       es.addEventListener("tool.started", (e) => {
         ensureRunning();
-        const tool = JSON.parse(e.data) as ToolEvent;
+        const tool = parseEvent<ToolEvent>(e);
+        if (!tool) return;
         if (typeof tool.seq === "number" && tool.seq > maxSeqRef.current) {
           maxSeqRef.current = tool.seq;
         }
@@ -478,7 +491,8 @@ export function useResearchStream(
 
       es.addEventListener("tool.completed", (e) => {
         ensureRunning();
-        const tool = JSON.parse(e.data) as ToolEvent;
+        const tool = parseEvent<ToolEvent>(e);
+        if (!tool) return;
         if (typeof tool.seq === "number" && tool.seq > maxSeqRef.current) {
           maxSeqRef.current = tool.seq;
         }
@@ -487,7 +501,8 @@ export function useResearchStream(
 
       es.addEventListener("tool.error", (e) => {
         ensureRunning();
-        const tool = JSON.parse(e.data) as ToolEvent;
+        const tool = parseEvent<ToolEvent>(e);
+        if (!tool) return;
         if (typeof tool.seq === "number" && tool.seq > maxSeqRef.current) {
           maxSeqRef.current = tool.seq;
         }
@@ -496,7 +511,8 @@ export function useResearchStream(
 
       es.addEventListener("subagent.started", (e) => {
         ensureRunning();
-        const payload = JSON.parse(e.data) as SubagentStartedPayload;
+        const payload = parseEvent<SubagentStartedPayload>(e);
+        if (!payload) return;
         const subagent: Subagent = {
           id: payload.id,
           childSessionId: payload.childSessionId,
@@ -550,9 +566,9 @@ export function useResearchStream(
       });
 
       es.addEventListener("subagent.chunk", (e) => {
-        const { id, childSessionId, text, seq } = JSON.parse(
-          e.data,
-        ) as SubagentChunkPayload;
+        const parsed = parseEvent<SubagentChunkPayload>(e);
+        if (!parsed) return;
+        const { id, childSessionId, text, seq } = parsed;
         if (text) {
           upsertSubagentSegment(
             childSessionId,
@@ -580,9 +596,9 @@ export function useResearchStream(
       });
 
       es.addEventListener("subagent.thinking", (e) => {
-        const { childSessionId, text, seq } = JSON.parse(
-          e.data,
-        ) as SubagentThinkingPayload;
+        const parsed = parseEvent<SubagentThinkingPayload>(e);
+        if (!parsed) return;
+        const { childSessionId, text, seq } = parsed;
         if (!text) return;
         upsertSubagentSegment(
           childSessionId,
@@ -594,7 +610,8 @@ export function useResearchStream(
       });
 
       es.addEventListener("subagent.completed", (e) => {
-        const payload = JSON.parse(e.data) as SubagentCompletedPayload;
+        const payload = parseEvent<SubagentCompletedPayload>(e);
+        if (!payload) return;
         setSubagentLive((prev) => {
           const existing = prev[payload.childSessionId];
           if (!existing) return prev;
@@ -651,12 +668,8 @@ export function useResearchStream(
           // (history path has no validation, so it appears after reload).
           const asString = (v: unknown): string =>
             typeof v === "string" ? v.trim() : "";
-          const title = asString(
-            (raw as { title?: unknown }).title,
-          );
-          const company = asString(
-            (raw as { company?: unknown }).company,
-          );
+          const title = asString((raw as { title?: unknown }).title);
+          const company = asString((raw as { company?: unknown }).company);
           if (!title || !company) return;
           const rawType = asString(
             (raw as { type?: unknown }).type,
@@ -665,7 +678,14 @@ export function useResearchStream(
           let url: string | null = null;
           if (rawUrl) {
             try {
-              url = new URL(rawUrl).toString();
+              const parsedUrl = new URL(rawUrl);
+              // Job urls end up in clickable anchors — only web schemes.
+              if (
+                parsedUrl.protocol === "http:" ||
+                parsedUrl.protocol === "https:"
+              ) {
+                url = parsedUrl.toString();
+              }
             } catch {
               url = null;
             }
@@ -677,7 +697,8 @@ export function useResearchStream(
           const normalized = {
             title,
             company,
-            location: asString((raw as { location?: unknown }).location) || "Unknown",
+            location:
+              asString((raw as { location?: unknown }).location) || "Unknown",
             url,
             description:
               asString((raw as { description?: unknown }).description) ||
@@ -732,7 +753,9 @@ export function useResearchStream(
       });
 
       es.addEventListener("message.completed", (e) => {
-        const { messageId } = JSON.parse(e.data) as MessageCompletedPayload;
+        const payload = parseEvent<MessageCompletedPayload>(e);
+        if (!payload) return;
+        const { messageId } = payload;
         setState((prev) => ({
           ...prev,
           messageId,
@@ -740,9 +763,11 @@ export function useResearchStream(
       });
 
       es.addEventListener("error", (e: MessageEvent) => {
-        const data = (
-          e.data ? JSON.parse(e.data) : { message: "Connection error" }
-        ) as ErrorPayload;
+        const fallback = { message: "Connection error" } as ErrorPayload;
+        const data =
+          typeof e.data === "string"
+            ? (parseEvent<ErrorPayload>(e) ?? fallback)
+            : fallback;
         closeThinking();
         closed = true;
         if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -773,9 +798,14 @@ export function useResearchStream(
         es.close();
         if (reconnectTimer) clearTimeout(reconnectTimer);
         const delay = Math.min(1000 * 2 ** Math.min(attempt, 3), 5000);
-        reconnectTimer = setTimeout(() => {
-          if (!closed) connect();
-        }, delay);
+        // Jitter so many tabs hit the server at different instants instead
+        // of reconnecting in lockstep.
+        reconnectTimer = setTimeout(
+          () => {
+            if (!closed) connect();
+          },
+          delay + Math.random() * delay,
+        );
       };
     } // end connect()
 

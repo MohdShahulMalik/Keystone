@@ -75,8 +75,8 @@ beforeEach(() => {
   stubJobListing({
     findMany: mock(async () => []),
     findFirst: mock(async () => ({ id: "j1", userId: "user-1" })),
-    create: mock(async (args: unknown) => ({ id: "new-id" })),
-    update: mock(async (args: unknown) => ({})),
+    create: mock(async (_args: unknown) => ({ id: "new-id" })),
+    update: mock(async (_args: unknown) => ({})),
     delete: mock(async () => ({})),
     createMany: mock(async () => ({ count: 1 })),
   });
@@ -373,25 +373,20 @@ describe("C. client information loss — listings.tsx getActionError + Confirmat
 
 // ================================================================ D. structural risks
 describe("D. structural risks in the delete path", () => {
-  test('D1. PINPOINT: revalidatePath("/listings") sits INSIDE the try — its throw masquerades as a DB failure', async () => {
-    // jobs.ts:143-150: delete -> revalidatePath -> return success. If
-    // revalidatePath throws (mocked noop in tests, real Next runtime in prod),
-    // the catch reports "Failed to delete job" even though the row WAS
-    // deleted. Retry then yields "Job not found" — the classic
-    // delete-then-failure confusion. Assert source order to pin it.
+  test('D1. revalidation is log-only ("safeRevalidate") — its throw can no longer masquerade as a DB failure', async () => {
+    // Previously the raw revalidatePath("/listings") call sat inside the
+    // delete try-block; if revalidation threw (real Next runtime), the catch
+    // reported "Failed to delete job" for a row that WAS deleted — the
+    // classic delete-then-failure confusion (retry then said "Job not
+    // found"). Repaired: every revalidate in the job actions goes through
+    // the log-only safeRevalidate() wrapper, so a cache-refresh failure can
+    // never be reported as a delete failure. Assert source to pin it.
     const src = await Bun.file("app/actions/jobs.ts").text();
     const deleteIdx = src.indexOf("db.jobListing.delete");
-    const revalidateIdx = src.indexOf('revalidatePath("/listings")', deleteIdx);
-    const catchIdx = src.indexOf("catch (error)", revalidateIdx);
-    const successReturnIdx = src.indexOf(
-      "return { success: true",
-      revalidateIdx,
-    );
     expect(deleteIdx).toBeGreaterThan(-1);
-    expect(revalidateIdx).toBeGreaterThan(deleteIdx);
-    // Both revalidate AND the success return are inside the same try:
-    expect(successReturnIdx).toBeGreaterThan(revalidateIdx);
-    expect(catchIdx).toBeGreaterThan(successReturnIdx);
+    // No raw revalidatePath call remains in any action body.
+    expect(src.indexOf('revalidatePath("', deleteIdx)).toBe(-1);
+    expect(src).toContain("function safeRevalidate");
   });
 
   test("D2. PINPOINT: ownership read is user-scoped but the delete write is id-only (TOCTOU/IDOR-fragile)", async () => {

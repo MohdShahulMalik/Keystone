@@ -123,7 +123,13 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        if (children.length > 0) {
+        // Child transcripts are only replayed on a fresh connection
+        // (?sinceSeq missing/0). On reconnects they would collide with
+        // segments the client already holds (replay rows carry the
+        // committed seq, live deltas the pre-increment one) and duplicate
+        // text. A reconnect that missed child rows is covered by the
+        // subagent view, which always reads history from the DB.
+        if (children.length > 0 && since === 0) {
           try {
             const childSegs = await db.subagentSegment.findMany({
               where: { sessionId: { in: children.map((c) => c.sessionId) } },

@@ -98,11 +98,7 @@ describe("listAvailableModels", () => {
     ]);
     // Fallback info must expose the variants so the picker defaults to
     // "high" and offers low/max, even when discovery fails.
-    expect(models[0].variants.map((v) => v.id)).toEqual([
-      "low",
-      "high",
-      "max",
-    ]);
+    expect(models[0].variants.map((v) => v.id)).toEqual(["low", "high", "max"]);
   });
 
   test("falls back when provider.list throws and v2 is empty", async () => {

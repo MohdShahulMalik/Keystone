@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { addJobSchema, updateJobSchema } from "@/lib/schemas/jobs";
+import type { addJobSchema } from "@/lib/schemas/jobs";
 import type {
   ResponseAction,
   ResponseActionError,
@@ -8,8 +8,6 @@ import type {
 import type { JobStatus } from "./status";
 
 type AddJobInput = z.infer<typeof addJobSchema>;
-type UpdateJobInput = z.infer<typeof updateJobSchema>;
-
 export interface JobListing {
   id: string;
   userId: string;

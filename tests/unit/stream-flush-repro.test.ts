@@ -41,16 +41,14 @@ function makeCtx() {
 }
 
 function jobLine(i: number, extra: Record<string, unknown> = {}) {
-  return (
-    `JOB_JSON: ${JSON.stringify({
-      title: `Engineer ${i}`,
-      company: `Acme ${i}`,
-      location: "Remote",
-      description: `Build ${i}.`,
-      url: `https://a.example/j/${i}`,
-      ...extra,
-    })}\n`
-  );
+  return `JOB_JSON: ${JSON.stringify({
+    title: `Engineer ${i}`,
+    company: `Acme ${i}`,
+    location: "Remote",
+    description: `Build ${i}.`,
+    url: `https://a.example/j/${i}`,
+    ...extra,
+  })}\n`;
 }
 
 function feedJob(ctx: StreamCtx, partId: string, line: string) {
@@ -93,9 +91,9 @@ function flushErrorCalls() {
   );
 }
 
-function stubHealthyDb(opts: {
-  persistImpl?: (args: unknown) => Promise<unknown>;
-} = {}) {
+function stubHealthyDb(
+  opts: { persistImpl?: (args: unknown) => Promise<unknown> } = {},
+) {
   const persistImpl =
     opts.persistImpl ?? (async () => ({ _max: { seq: null } }));
   (db as unknown as Record<string, unknown>).searchResult = {
@@ -283,7 +281,7 @@ describe("REPRO: infinite requeue — the 4.5min stall shape", () => {
       expect(flushErrorCalls().length).toBeGreaterThanOrEqual(1);
       // Batch requeued instead of dropped — next flush will retry the same 8.
       expect(
-        (ctx.jobPersistQueue.get(DB_SESSION)?.length ?? 0),
+        ctx.jobPersistQueue.get(DB_SESSION)?.length ?? 0,
       ).toBeGreaterThanOrEqual(8);
     } finally {
       clearJobTimers(ctx);

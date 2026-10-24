@@ -23,6 +23,15 @@
 // - `INTENT (FAILS now):` asserts the fixed behavior; fails now to pinpoint
 //   where to fix.
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { ModelV2Info } from "@/lib/types/opencode";
+
+const MOCK_MODEL: ModelV2Info = {
+  id: "m",
+  providerID: "test",
+  name: "Model M",
+  variants: [],
+  status: "active",
+};
 
 const createResearchSession = mock(async (_m?: unknown) => ({
   id: "opencode-1",
@@ -179,12 +188,10 @@ describe("REPRO: stage=db-create ErrorEvent → 'Failed to save research session
       },
     });
 
-    const err = await research
-      .startResearch(PREFS)
-      .then(
-        () => null,
-        (e: unknown) => e as Error,
-      );
+    const err = await research.startResearch(PREFS).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
     expect(err).toBeInstanceOf(Error);
     // research.ts:201 throws a fixed string — the ErrorEvent (and any code /
     // constraint detail a real Error would carry) is dropped. The UI banner
@@ -244,7 +251,11 @@ describe("REPRO: stage=db-create ErrorEvent → 'Failed to save research session
 
   test("REPRO: validation still runs first (no remote/DB side effects on bad input)", async () => {
     await expect(
-      research.startResearch({ jobTypes: [], countries: ["Test"], skills: ["R"] }),
+      research.startResearch({
+        jobTypes: [],
+        countries: ["Test"],
+        skills: ["R"],
+      }),
     ).rejects.toThrow("Invalid research input");
     expect(createResearchSession).not.toHaveBeenCalled();
     expect(deleteResearchSession).not.toHaveBeenCalled();
@@ -259,12 +270,12 @@ describe("REPRO: getAvailableModelsAction blocks with no timeout (12s hang)", ()
     // the action ~1200ms — proving no timeout guard exists.
     listAvailableModels.mockImplementation(async () => {
       await new Promise((r) => setTimeout(r, 1200));
-      return [{ id: "m" }];
+      return [MOCK_MODEL];
     });
     const t0 = Date.now();
     const models = await research.getAvailableModelsAction();
     const elapsed = Date.now() - t0;
-    expect(models).toEqual([{ id: "m" }]);
+    expect(models).toEqual([MOCK_MODEL]);
     expect(elapsed).toBeGreaterThanOrEqual(1000);
   }, 10000);
 
@@ -274,7 +285,7 @@ describe("REPRO: getAvailableModelsAction blocks with no timeout (12s hang)", ()
     // prod sequence: degraded dependencies, then the write fails.
     listAvailableModels.mockImplementation(async () => {
       await new Promise((r) => setTimeout(r, 300));
-      return [{ id: "m" }];
+      return [MOCK_MODEL];
     });
     stub({
       searchSession: {
@@ -284,7 +295,7 @@ describe("REPRO: getAvailableModelsAction blocks with no timeout (12s hang)", ()
       },
     });
     const models = await research.getAvailableModelsAction();
-    expect(models).toEqual([{ id: "m" }]);
+    expect(models).toEqual([MOCK_MODEL]);
     await expect(research.startResearch(PREFS)).rejects.toThrow(
       "Failed to save research session",
     );
@@ -313,12 +324,10 @@ describe("INTENT (FAILS now): db-create failure should preserve diagnostics", ()
         }),
       },
     });
-    const err = await research
-      .startResearch(PREFS)
-      .then(
-        () => null,
-        (e: unknown) => e as Error,
-      );
+    const err = await research.startResearch(PREFS).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
     // Desired: message (or `cause`) carries stage + underlying detail so the
     // UI/tracker can distinguish DB-down from validation/remote failures.
     // Current: fixed generic string, so this fails.
@@ -342,12 +351,10 @@ describe("INTENT (FAILS now): db-create failure should preserve diagnostics", ()
     deleteResearchSession.mockImplementation(async () => {
       throw new Error("delete exploded");
     });
-    const err = await research
-      .startResearch(PREFS)
-      .then(
-        () => null,
-        (e: unknown) => e as Error,
-      );
+    const err = await research.startResearch(PREFS).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
     // Desired: original "Failed to save research session" survives even if
     // cleanup fails. Current: the delete error escapes instead.
     expect((err as Error).message).toBe("Failed to save research session");

@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { getDbReadTimeoutMs, withResilientDb } from "@/lib/db-errors";
 import { buildResearchPrompt, buildSessionTitle } from "@/lib/opencode/prompts";
 import {
   createResearchSession,
@@ -137,12 +138,47 @@ export async function startResearch(preferences: ResearchPromptInput) {
   // client-supplied id (this previously fell back to the dev user "maxum").
   const user = await requireUserId();
 
+  // Cap concurrent runs per user. Every session spawns parallel LLM
+  // subagents on the shared OpenCode server, so an unbounded count turns
+  // into an unbounded spend.
+  try {
+    const running = await withResilientDb(
+      () =>
+        db.searchSession.count({
+          where: { userId: user, status: "running" },
+        }),
+      getDbReadTimeoutMs(),
+    );
+    if (running >= 3) {
+      throw new Error(
+        "You already have 3 research sessions running. Wait for one to finish before starting another.",
+      );
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("3 research sessions running")
+    ) {
+      throw error;
+    }
+    console.error("[research] stage=running-count error=", error);
+    // Listing the cap is best-effort; never block research on a count failure.
+  }
+
   let resumeContent: string | undefined;
   if (parsedPreferences.resumeId) {
     try {
-      const resume = await db.resume.findUnique({
-        where: { id: parsedPreferences.resumeId },
-      });
+      // Scoped to the session user — a resume id belong to another user
+      // must resolve exactly like an unknown id, otherwise a crafted
+      // server-action call would leak someone else's resume text into
+      // this user's research prompt.
+      const resume = await withResilientDb(
+        () =>
+          db.resume.findFirst({
+            where: { id: parsedPreferences.resumeId, userId: user },
+          }),
+        getDbReadTimeoutMs(),
+      );
       resumeContent = resume?.content ?? undefined;
     } catch (error) {
       console.error("[research] stage=resume-lookup error=", error);
@@ -168,36 +204,40 @@ export async function startResearch(preferences: ResearchPromptInput) {
 
   let session: { id: string };
   try {
-    session = await db.searchSession.create({
-      data: {
-        userId: user,
-        query: prompt,
-        status: "running",
-        openCodeSessionId: openCodeSession.id,
-        mode: parsedPreferences.mode ?? "job",
-        title: buildSessionTitle(parsedPreferences),
-        preferences: {
-          jobTypes: parsedPreferences.jobTypes,
-          countries: parsedPreferences.countries,
-          skills: parsedPreferences.skills,
-          ...(parsedPreferences.notes
-            ? { notes: parsedPreferences.notes }
-            : {}),
-          ...(parsedPreferences.model
-            ? { model: parsedPreferences.model }
-            : {}),
-          ...(parsedPreferences.modelLabel
-            ? { modelLabel: parsedPreferences.modelLabel }
-            : {}),
-          ...(parsedPreferences.resumeId
-            ? { resumeId: parsedPreferences.resumeId }
-            : {}),
-          ...(parsedPreferences.resumeName
-            ? { resumeName: parsedPreferences.resumeName }
-            : {}),
-        },
-      },
-    });
+    session = await withResilientDb(
+      () =>
+        db.searchSession.create({
+          data: {
+            userId: user,
+            query: prompt,
+            status: "running",
+            openCodeSessionId: openCodeSession.id,
+            mode: parsedPreferences.mode ?? "job",
+            title: buildSessionTitle(parsedPreferences),
+            preferences: {
+              jobTypes: parsedPreferences.jobTypes,
+              countries: parsedPreferences.countries,
+              skills: parsedPreferences.skills,
+              ...(parsedPreferences.notes
+                ? { notes: parsedPreferences.notes }
+                : {}),
+              ...(parsedPreferences.model
+                ? { model: parsedPreferences.model }
+                : {}),
+              ...(parsedPreferences.modelLabel
+                ? { modelLabel: parsedPreferences.modelLabel }
+                : {}),
+              ...(parsedPreferences.resumeId
+                ? { resumeId: parsedPreferences.resumeId }
+                : {}),
+              ...(parsedPreferences.resumeName
+                ? { resumeName: parsedPreferences.resumeName }
+                : {}),
+            },
+          },
+        }),
+      getDbReadTimeoutMs(),
+    );
   } catch (error) {
     console.error("[research] stage=db-create error=", error);
     // Avoid orphaned remote session costing money/time.
@@ -223,13 +263,20 @@ export async function startResearch(preferences: ResearchPromptInput) {
     parsedPreferences.model,
   ).catch(async (error) => {
     console.error("Error sending research prompt:", error);
-    await db.searchSession.update({
-      where: { id: session.id },
-      data: {
-        status: "failed",
-        error: describePromptError(error),
-      },
-    });
+    await db.searchSession
+      .update({
+        where: { id: session.id },
+        data: {
+          status: "failed",
+          error: describePromptError(error),
+        },
+      })
+      .catch((updateError) => {
+        console.error("[research] failed to mark session failed", {
+          sessionId: session.id,
+          updateError,
+        });
+      });
   });
 
   return {

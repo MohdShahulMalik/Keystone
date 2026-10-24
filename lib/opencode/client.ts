@@ -1,7 +1,7 @@
-import { randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
-import { connect } from "node:net";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { connect } from "node:net";
 import {
   createOpencodeClient,
   createOpencodeServer,
@@ -43,7 +43,10 @@ function isPortOpen(port: number, host: string): Promise<boolean> {
 
 /** Port-open ≠ responsive (prod: TCP accepted, headers never arrived).
  * Any HTTP response — even 404 — proves the server sends headers. */
-async function isHttpResponsive(url: string, timeoutMs = 2500): Promise<boolean> {
+async function isHttpResponsive(
+  url: string,
+  timeoutMs = 2500,
+): Promise<boolean> {
   try {
     const res = await fetch(url, {
       method: "GET",
@@ -64,8 +67,7 @@ async function waitForHttpReady(
 ): Promise<boolean> {
   for (let i = 1; i <= attempts; i++) {
     if (await isHttpResponsive(url)) return true;
-    if (i < attempts)
-      await new Promise((r) => setTimeout(r, delayMs));
+    if (i < attempts) await new Promise((r) => setTimeout(r, delayMs));
   }
   return false;
 }
@@ -76,11 +78,10 @@ function rememberServerPassword(password: string): void {
   try {
     mkdirSync("/tmp/opencode", { recursive: true });
     // Local process password only (localhost server we spawn ourselves).
-    writeFileSync(
-      AUTH_FILE,
-      JSON.stringify({ port: PORT, password }),
-      { flag: "w", mode: 0o600 },
-    );
+    writeFileSync(AUTH_FILE, JSON.stringify({ port: PORT, password }), {
+      flag: "w",
+      mode: 0o600,
+    });
   } catch (error) {
     console.warn(
       "[opencode] could not persist server password file — app restarts may lose access to the running server",
@@ -95,9 +96,10 @@ function adoptReusePassword(): string | undefined {
     return globalForOpencode.opencodeServerPassword;
   }
   try {
-    const raw = JSON.parse(
-      readFileSync(AUTH_FILE, "utf8"),
-    ) as { port?: number; password?: string };
+    const raw = JSON.parse(readFileSync(AUTH_FILE, "utf8")) as {
+      port?: number;
+      password?: string;
+    };
     if (raw?.port === PORT && typeof raw?.password === "string") {
       globalForOpencode.opencodeServerPassword = raw.password;
       return raw.password;

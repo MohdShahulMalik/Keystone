@@ -23,7 +23,8 @@ function isPooledNeonUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return (
-      parsed.hostname.includes("pooler") && parsed.hostname.endsWith("neon.tech")
+      parsed.hostname.includes("pooler") &&
+      parsed.hostname.endsWith("neon.tech")
     );
   } catch {
     return false;

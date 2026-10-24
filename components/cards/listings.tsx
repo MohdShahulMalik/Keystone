@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { deleteJobListing } from "@/app/actions/jobs";
 import {
   ConfirmationBox,
   type ConfirmationBoxHandle,
@@ -11,14 +10,19 @@ import type { JobStatus } from "@/lib/types/status";
 
 interface JobListingCardProps {
   listing: JobListing;
-  onStatusChange: (
+  onStatusChange?: (
     id: string,
     status: JobStatus,
   ) => void | Promise<void> | Promise<{ success: boolean }>;
-  onDelete?: (id: string) => Promise<
+  onDelete?: (
+    id: string,
+  ) => Promise<
     { success: boolean; error?: string; data?: unknown } | undefined
   >;
   statuses: readonly JobStatus[];
+  /** False in read-only contexts (e.g. the research view), where status
+   * changes and deletes are hidden instead of silently no-op'ing. */
+  interactive?: boolean;
 }
 
 function formatStatusLabel(status: JobStatus) {
@@ -51,6 +55,7 @@ export function JobListingCard({
   onStatusChange,
   onDelete,
   statuses,
+  interactive = true,
 }: JobListingCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
@@ -59,6 +64,13 @@ export function JobListingCard({
 
   const confirmationRef = useRef<ConfirmationBoxHandle | null>(null);
 
+  // Info-only listings (scraped by the research agent) may carry URLs from
+  // untrusted pages — never hand a non-web scheme to `<a href>`.
+  const safeUrl =
+    listing.url && /^https?:\/\//i.test(listing.url.trim())
+      ? listing.url.trim()
+      : null;
+
   const primaryButtonClass =
     "flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)] sm:w-auto sm:px-7";
 
@@ -66,7 +78,7 @@ export function JobListingCard({
     "flex w-full items-center justify-center gap-2 rounded-lg border border-visit-border bg-transparent px-5 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)] sm:w-auto sm:px-6";
 
   const handleStatusChange = async (status: JobStatus) => {
-    if (isStatusUpdating) return;
+    if (isStatusUpdating || !onStatusChange) return;
     setIsStatusUpdating(true);
     try {
       await onStatusChange(listing.id, status);
@@ -76,18 +88,27 @@ export function JobListingCard({
   };
 
   const handleDelete = async () => {
+    if (!onDelete) {
+      return { success: false as const, error: "Delete is not available here" };
+    }
     // Optimistic: hide the card now, confirm with Neon in background.
     // The dialog stays mounted (only the article hides) so a failure can
     // roll back and surface its error without losing dialog state.
     setIsDeleted(true);
-    const result = onDelete
-      ? await onDelete(listing.id)
-      : await deleteJobListing(listing.id);
+    // onDelete returning nothing is treated as success by the dialog, so we
+    // guarantee a failure result when no handler exists.
+    const result = await onDelete(listing.id);
 
-    if (!result || (typeof result === "object" && "success" in result && result.success)) {
+    if (
+      !result ||
+      (typeof result === "object" && "success" in result && result.success)
+    ) {
       // revalidatePath("/listings") in jobs.ts:94 already invalidates the RSC cache
       // — Next.js will auto-refetch /listings after the action settles, no manual refresh needed
-      return { success: true as const, data: (result as { data?: unknown } | null | undefined)?.data };
+      return {
+        success: true as const,
+        data: (result as { data?: unknown } | null | undefined)?.data,
+      };
     }
 
     // Connectivity failures carry `cause`/`code` (`db_unreachable` |
@@ -95,124 +116,159 @@ export function JobListingCard({
     // validation errors; the banner keeps the generic message.
     console.error("[listings] deleteJobListing failed:", result);
     setIsDeleted(false);
-    return { success: false as const, error: getActionError(
-        (result as { error?: unknown }).error,
-      ) };
+    return {
+      success: false as const,
+      error: getActionError((result as { error?: unknown }).error),
+    };
   };
 
   return (
     <>
       {isDeleted ? null : (
-      <article className="group min-w-0 rounded-2xl border border-card-border bg-card-bg p-4 shadow-lg transition-all duration-200 hover:border-card-border-hover hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)] sm:p-7">
-        <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex items-center gap-3">
-              <h3 className="min-w-0 break-words text-lg font-bold text-card-title sm:text-xl">
-                {listing.company}
-              </h3>
-            </div>
-
-            <h4 className="mb-3 min-w-0 break-words text-base font-semibold text-card-subtitle sm:text-lg">
-              {listing.title}
-            </h4>
-
-            <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-              <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words text-card-text">
-                <svg
-                  className="h-5 w-5 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="font-semibold">
-                  {listing.salary || "N.A."}
-                </span>
-              </span>
-              <span
-                aria-hidden="true"
-                className="hidden text-[hsl(194_65%_62%/0.4)] sm:inline"
-              >
-                •
-              </span>
-              <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words text-card-text">
-                <svg
-                  className="h-5 w-5 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <span className="font-medium">{listing.experience}</span>
-              </span>
-            </div>
-
-            <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2.5">
-              <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words rounded-lg border border-badge-border bg-badge-bg px-3.5 py-1.5 text-xs font-medium text-badge-text">
-                <span>📍</span>
-                {listing.location}
-              </span>
-
-              {listing.visa ? (
-                <span className="rounded-lg border border-[var(--color-visa-border)] bg-gradient-to-br from-[var(--color-visa-from)] to-[var(--color-visa-to)] px-3.5 py-1.5 text-xs font-semibold text-[var(--color-visa-text)]">
-                  {listing.visa}
-                </span>
-              ) : null}
-
-              <span
-                className="flex items-center gap-2 rounded-lg border border-[var(--status-border)] bg-[var(--status-bg)] px-3.5 py-1.5 text-xs font-medium text-[var(--status-text)]"
-                data-status={getStatusDataAttribute(listing.status)}
-              >
-                <span className="h-2 w-2 rounded-full bg-[var(--status-dot)]" />
-                {formatStatusLabel(listing.status)}
-              </span>
-            </div>
-
-            {listing.description ? (
-              <div className="min-w-0">
-                <p className="break-words text-sm leading-relaxed text-foreground-600">
-                  {isExpanded || listing.description.length <= 200
-                    ? listing.description
-                    : `${listing.description.slice(0, 200)}...`}
-                </p>
-                {listing.description.length > 200 ? (
-                  <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="mt-2 text-sm font-medium text-[var(--color-card-subtitle)] transition"
-                    type="button"
-                  >
-                    {isExpanded ? "Show less" : "Show more"}
-                  </button>
-                ) : null}
+        <article className="group min-w-0 rounded-2xl border border-card-border bg-card-bg p-4 shadow-lg transition-all duration-200 hover:border-card-border-hover hover:shadow-[0_8px_24px_hsl(190_100%_42%/0.15)] sm:p-7">
+          <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 flex items-center gap-3">
+                <h3 className="min-w-0 break-words text-lg font-bold text-card-title sm:text-xl">
+                  {listing.company}
+                </h3>
               </div>
-            ) : null}
-          </div>
 
-          <div className="flex shrink-0 flex-row flex-wrap items-center gap-3 sm:ml-8 sm:flex-col sm:flex-nowrap sm:items-end">
-            {listing.status !== "OPEN" ? (
-              <>
-                <div className="group/dropdown relative w-full sm:w-auto">
-                  <button
-                    className="flex w-full items-center justify-between gap-2.5 rounded-lg border border-[var(--color-btn-secondary-border)] bg-gradient-to-br from-[var(--color-btn-secondary-from)] to-[var(--color-btn-secondary-to)] px-5 py-2.5 text-base font-medium text-[var(--color-btn-secondary-text)] shadow-[0_3px_10px_hsl(190_100%_42%_/_0.2)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_4px_14px_hsl(190_100%_42%_/_0.24)] sm:min-w-[160px]"
-                    type="button"
+              <h4 className="mb-3 min-w-0 break-words text-base font-semibold text-card-subtitle sm:text-lg">
+                {listing.title}
+              </h4>
+
+              <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words text-card-text">
+                  <svg
+                    className="h-5 w-5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
-                    <span>{formatStatusLabel(listing.status)}</span>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="font-semibold">
+                    {listing.salary || "N.A."}
+                  </span>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="hidden text-[hsl(194_65%_62%/0.4)] sm:inline"
+                >
+                  •
+                </span>
+                <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words text-card-text">
+                  <svg
+                    className="h-5 w-5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                  </svg>
+                  <span className="font-medium">{listing.experience}</span>
+                </span>
+              </div>
+
+              <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2.5">
+                <span className="inline-flex min-w-0 max-w-full items-center gap-2 break-words rounded-lg border border-badge-border bg-badge-bg px-3.5 py-1.5 text-xs font-medium text-badge-text">
+                  <span>📍</span>
+                  {listing.location}
+                </span>
+
+                {listing.visa ? (
+                  <span className="rounded-lg border border-[var(--color-visa-border)] bg-gradient-to-br from-[var(--color-visa-from)] to-[var(--color-visa-to)] px-3.5 py-1.5 text-xs font-semibold text-[var(--color-visa-text)]">
+                    {listing.visa}
+                  </span>
+                ) : null}
+
+                <span
+                  className="flex items-center gap-2 rounded-lg border border-[var(--status-border)] bg-[var(--status-bg)] px-3.5 py-1.5 text-xs font-medium text-[var(--status-text)]"
+                  data-status={getStatusDataAttribute(listing.status)}
+                >
+                  <span className="h-2 w-2 rounded-full bg-[var(--status-dot)]" />
+                  {formatStatusLabel(listing.status)}
+                </span>
+              </div>
+
+              {listing.description ? (
+                <div className="min-w-0">
+                  <p className="break-words text-sm leading-relaxed text-foreground-600">
+                    {isExpanded || listing.description.length <= 200
+                      ? listing.description
+                      : `${listing.description.slice(0, 200)}...`}
+                  </p>
+                  {listing.description.length > 200 ? (
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="mt-2 text-sm font-medium text-[var(--color-card-subtitle)] transition"
+                      type="button"
+                    >
+                      {isExpanded ? "Show less" : "Show more"}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 flex-row flex-wrap items-center gap-3 sm:ml-8 sm:flex-col sm:flex-nowrap sm:items-end">
+              {interactive && listing.status !== "OPEN" ? (
+                <>
+                  <div className="group/dropdown relative w-full sm:w-auto">
+                    <button
+                      className="flex w-full items-center justify-between gap-2.5 rounded-lg border border-[var(--color-btn-secondary-border)] bg-gradient-to-br from-[var(--color-btn-secondary-from)] to-[var(--color-btn-secondary-to)] px-5 py-2.5 text-base font-medium text-[var(--color-btn-secondary-text)] shadow-[0_3px_10px_hsl(190_100%_42%_/_0.2)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_4px_14px_hsl(190_100%_42%_/_0.24)] sm:min-w-[160px]"
+                      type="button"
+                    >
+                      <span>{formatStatusLabel(listing.status)}</span>
+                      <svg
+                        className="h-4 w-4 transition-transform duration-200 group-hover/dropdown:rotate-180"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+                    <div className="invisible absolute top-full right-0 left-0 z-10 mt-2 overflow-hidden rounded-xl border border-(--color-dropdown-border) bg-(--color-dropdown-bg) opacity-0 shadow-2xl transition-all duration-200 group-hover/dropdown:visible group-hover/dropdown:opacity-100 sm:right-0 sm:left-auto sm:w-48">
+                      {statuses
+                        .filter((status) => status !== listing.status)
+                        .map((status) => (
+                          <button
+                            key={`${listing.id}-${status}`}
+                            onClick={() => handleStatusChange(status)}
+                            disabled={isStatusUpdating}
+                            className="block w-full px-4 py-3 text-left text-base text-[var(--color-badge-text)] transition-all duration-200 ease-out first:rounded-t-xl last:rounded-b-xl hover:bg-[var(--color-dropdown-hover-bg)] hover:text-[var(--color-dropdown-hover-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                            type="button"
+                          >
+                            {formatStatusLabel(status)}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  <button className={secondaryButtonClass} type="button">
+                    <span>Visit</span>
                     <svg
-                      className="h-4 w-4 transition-transform duration-200 group-hover/dropdown:rotate-180"
+                      className="h-4 w-4"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -222,29 +278,32 @@ export function JobListingCard({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                       />
                     </svg>
                   </button>
-                  <div className="invisible absolute top-full right-0 left-0 z-10 mt-2 overflow-hidden rounded-xl border border-(--color-dropdown-border) bg-(--color-dropdown-bg) opacity-0 shadow-2xl transition-all duration-200 group-hover/dropdown:visible group-hover/dropdown:opacity-100 sm:right-0 sm:left-auto sm:w-48">
-                    {statuses
-                      .filter((status) => status !== listing.status)
-                      .map((status) => (
-                        <button
-                          key={`${listing.id}-${status}`}
-                          onClick={() => handleStatusChange(status)}
-                          disabled={isStatusUpdating}
-                          className="block w-full px-4 py-3 text-left text-base text-[var(--color-badge-text)] transition-all duration-200 ease-out first:rounded-t-xl last:rounded-b-xl hover:bg-[var(--color-dropdown-hover-bg)] hover:text-[var(--color-dropdown-hover-text)] disabled:cursor-not-allowed disabled:opacity-50"
-                          type="button"
-                        >
-                          {formatStatusLabel(status)}
-                        </button>
-                      ))}
-                  </div>
-                </div>
-
-                <button className={secondaryButtonClass} type="button">
-                  <span>Visit</span>
+                </>
+              ) : applyClicked && interactive ? (
+                <button
+                  className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50 disabled:saturate-50 disabled:hover:border-visit-border disabled:hover:bg-transparent disabled:hover:text-[var(--color-visit-text)] disabled:hover:shadow-none`}
+                  type="button"
+                  onClick={() => handleStatusChange("APPLIED")}
+                  disabled={isStatusUpdating}
+                  aria-busy={isStatusUpdating}
+                >
+                  <span>{isStatusUpdating ? "Updating..." : "Applied?"}</span>
+                </button>
+              ) : safeUrl ? (
+                <a
+                  className={primaryButtonClass}
+                  href={safeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={
+                    interactive ? () => setApplyClicked(true) : undefined
+                  }
+                >
+                  <span>Apply Now</span>
                   <svg
                     className="h-4 w-4"
                     fill="none"
@@ -256,96 +315,63 @@ export function JobListingCard({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                    />
+                  </svg>
+                </a>
+              ) : interactive ? (
+                <button
+                  className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60 disabled:saturate-50 disabled:hover:brightness-100 disabled:hover:shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)]`}
+                  type="button"
+                  onClick={() => handleStatusChange("APPLIED")}
+                  disabled={isStatusUpdating}
+                  aria-busy={isStatusUpdating}
+                >
+                  <span>{isStatusUpdating ? "Updating..." : "Apply Now"}</span>
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 7l5 5m0 0l-5 5m5-5H6"
                     />
                   </svg>
                 </button>
-              </>
-            ) : applyClicked ? (
-              <button
-                className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50 disabled:saturate-50 disabled:hover:border-visit-border disabled:hover:bg-transparent disabled:hover:text-[var(--color-visit-text)] disabled:hover:shadow-none`}
-                type="button"
-                onClick={() => handleStatusChange("APPLIED")}
-                disabled={isStatusUpdating}
-                aria-busy={isStatusUpdating}
-              >
-                <span>{isStatusUpdating ? "Updating..." : "Applied?"}</span>
-              </button>
-            ) : listing.url ? (
-              <a
-                className={primaryButtonClass}
-                href={listing.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setApplyClicked(true)}
-              >
-                <span>Apply Now</span>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </svg>
-              </a>
-            ) : (
-              <button
-                className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60 disabled:saturate-50 disabled:hover:brightness-100 disabled:hover:shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)]`}
-                type="button"
-                onClick={() => handleStatusChange("APPLIED")}
-                disabled={isStatusUpdating}
-                aria-busy={isStatusUpdating}
-              >
-                <span>{isStatusUpdating ? "Updating..." : "Apply Now"}</span>
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </svg>
-              </button>
-            )}
+              ) : null}
 
-            <button
-              type="button"
-              aria-label={`Delete ${listing.title} at ${listing.company}`}
-              title="Delete job listing"
-              className="ml-auto rounded-lg p-2.5 text-foreground-600-subtle transition-colors hover:bg-rose-500/15 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60 sm:ml-0 sm:mt-auto sm:p-2"
-              onClick={() => confirmationRef.current?.open()}
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </button>
+              {interactive ? (
+                <button
+                  type="button"
+                  aria-label={`Delete ${listing.title} at ${listing.company}`}
+                  title="Delete job listing"
+                  className="ml-auto rounded-lg p-2.5 text-foreground-600-subtle transition-colors hover:bg-rose-500/15 hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/60 sm:ml-0 sm:mt-auto sm:p-2"
+                  onClick={() => confirmationRef.current?.open()}
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </article>
+        </article>
       )}
 
       <ConfirmationBox

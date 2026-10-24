@@ -114,6 +114,7 @@ function prefsFromDb(preferences: unknown): UserPreferences | null {
     skills,
     notes: typeof p.notes === "string" ? p.notes : "",
     ...(typeof p.resumeName === "string" ? { resumeName: p.resumeName } : {}),
+    ...(typeof p.resumeId === "string" ? { resumeId: p.resumeId } : {}),
   };
 }
 
@@ -133,6 +134,10 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
   >(urlSessionId ? "checking" : "idle");
   const [session, setSession] = useState<SearchSession | null>(null);
   const [legacySubagentId, setLegacySubagentId] = useState<string | null>(null);
+  // The SSE connection waits for getSearchSessionHistory to settle. Without
+  // this gate the stream could start appending live segments and then a
+  // late history load would reset state and wipe them.
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historySegments, setHistorySegments] = useState<TextSegment[]>([]);
   const [historyJobs, setHistoryJobs] = useState<JobPayload[]>([]);
   const [userPreferences, setUserPreferences] =
@@ -147,6 +152,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
       setCheck("idle");
       setSession(null);
       setLegacySubagentId(null);
+      setHistoryLoaded(false);
       setHistorySegments([]);
       setHistoryJobs([]);
       setUserPreferences(null);
@@ -154,6 +160,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
     }
 
     setCheck("checking");
+    setHistoryLoaded(false);
     (async () => {
       try {
         const s = await getSearchSessionByAnyId(urlSessionId);
@@ -166,11 +173,13 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
           if (subagent) {
             setLegacySubagentId(subagent.subagent.sessionId);
             setSession(null);
+            setHistoryLoaded(true);
             setCheck("not-found");
             return;
           }
           setCheck("not-found");
           setSession(null);
+          setHistoryLoaded(true);
           setHistorySegments([]);
           setHistoryJobs([]);
           return;
@@ -206,10 +215,13 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             };
           }),
         );
+        // History settled: the live stream may now attach.
+        setHistoryLoaded(true);
         setCheck("found");
       } catch (err) {
         if (!cancelled) {
           setCheck("not-found");
+          setHistoryLoaded(true);
           setStartError(
             err instanceof Error ? err.message : "Failed to load session",
           );
@@ -222,7 +234,9 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
   }, [urlSessionId]);
 
   const isRunningDb = check === "found" && session?.status === "running";
-  const streamId = isRunningDb && session ? session.openCodeSessionId : null;
+  // Gate the live stream on the history load (see historyLoaded above).
+  const streamId =
+    isRunningDb && session && historyLoaded ? session.openCodeSessionId : null;
   const live = useResearchStream(
     streamId,
     {
@@ -283,6 +297,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
         model: preferences.model,
         modelLabel: preferences.modelLabel || undefined,
         resumeName: preferences.resumeName || undefined,
+        resumeId: preferences.resumeId || undefined,
         mode,
       });
       router.replace(`?sessionId=${newDbSessionId}`);
@@ -449,8 +464,8 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
               <JobListingCard
                 key={listing.id}
                 listing={listing}
-                onStatusChange={() => {}}
                 statuses={statuses}
+                interactive={false}
               />
             ))}
 
@@ -458,7 +473,9 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <div
-                    key={i}
+                    // Fixed-length skeleton placeholders; index keys are stable here.
+                    // biome-ignore lint/suspicious/noArrayIndexKey: static 3-item skeleton
+                    key={`shimmer-${i}`}
                     className="animate-pulse rounded-2xl border border-stroke bg-surface-800 p-7"
                   >
                     <div className="mb-3 h-5 w-1/3 rounded bg-surface-700" />

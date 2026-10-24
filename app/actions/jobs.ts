@@ -21,6 +21,19 @@ import type {
   JobListing,
 } from "@/lib/types/jobs";
 
+/**
+ * revalidatePath failing must never roll a successful DB write back into a
+ * client-visible "Failed to …" error, so it is called outside any try that
+ * covers the write, and its own failure is log-only.
+ */
+function safeRevalidate(path: string): void {
+  try {
+    revalidatePath(path);
+  } catch (error) {
+    console.error(`[revalidate ${path}] failed:`, error);
+  }
+}
+
 export async function getJobListings(): Promise<JobListing[]> {
   const userId = await requireUserId();
   // Never let a driver throw (notably the Neon's bare `ErrorEvent`, which
@@ -67,7 +80,7 @@ export async function addJobListing(formData: FormData) {
         }),
       getDbReadTimeoutMs(),
     );
-    revalidatePath("/listings");
+    safeRevalidate("/listings");
     return created;
   } catch (error) {
     console.error("[listings] addJobListing failed:", error);
@@ -112,7 +125,7 @@ export async function updateJobListing(
       getDbReadTimeoutMs(),
     );
 
-    revalidatePath("/listings");
+    safeRevalidate("/listings");
     return { success: true, data: updated };
   } catch (error) {
     console.error("[listings] updateJobListing failed:", error);
@@ -155,7 +168,7 @@ export async function deleteJobListing(
       getDbReadTimeoutMs(),
     );
 
-    revalidatePath("/listings");
+    safeRevalidate("/listings");
     return { success: true, data: job };
   } catch (error) {
     console.error("[listings] deleteJobListing failed:", error);
@@ -204,7 +217,7 @@ export async function importJobs(
         ...(classifyDbError(error) ?? {}),
       };
     }
-    revalidatePath("/listings");
+    safeRevalidate("/listings");
   }
 
   return { imported: valid.length, errors };

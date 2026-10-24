@@ -147,7 +147,7 @@ entry points (`startResearch` action, first SSE `GET`) via
   plus the update-fallback in `persistToolUpdate` then act as a
   real idempotency guard instead of a gap source.
 - **Jobs:** `SearchResult.create` per job plus
-  `bulkCreateJobsFromResearch` (`jobs.ts:162-188`) already dedup
+  `bulkCreateJobsFromResearch` (`lib/research/persist-jobs.ts`) already dedup
   against the DB — keep both, seed `emittedJobKeys` from existing
   rows on register.
 - **Write pressure:** keep commit-on-boundary persistence first;

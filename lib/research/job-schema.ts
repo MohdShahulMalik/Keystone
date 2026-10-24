@@ -9,6 +9,10 @@ export const StreamedJobSchema = z.object({
   url: z
     .string()
     .url()
+    // These strings become clickable anchors — reject non-web schemes
+    // (`javascript:` etc. pass z.string().url() because it follows the URL
+    // constructor, which accepts any scheme).
+    .refine((value) => /^https?:\/\//i.test(value.trim().toLowerCase()))
     .nullable()
     .optional()
     .or(z.literal("").transform(() => null)),

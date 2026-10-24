@@ -29,7 +29,6 @@ mock.module("@/lib/session-guard", () => ({
 
 import {
   addJobListing,
-  bulkCreateJobsFromResearch,
   deleteJobListing,
   getJobListings,
   importJobs,
@@ -37,6 +36,7 @@ import {
 } from "@/app/actions/jobs";
 import { updateStatus } from "@/app/actions/status";
 import { db } from "@/lib/db";
+import { bulkCreateJobsFromResearch } from "@/lib/research/persist-jobs";
 
 // The real throw from @neondatabase/serverless when its WebSocket dies.
 // Verified characteristics in this repo's runtime (Bun/Node):
@@ -162,7 +162,8 @@ describe("getJobListings under connection failure", () => {
 describe("updateStatus (the `Applied?` click path) under connection failure", () => {
   test("converts a Neon ErrorEvent into a serializable failure with cause", async () => {
     const restore = stubJobListing({
-      findUnique: mock(async () => {
+      // updateStatus resolves ownership with findFirst.
+      findFirst: mock(async () => {
         throw makeNeonWsErrorEvent();
       }),
     });
@@ -189,9 +190,9 @@ describe("updateStatus (the `Applied?` click path) under connection failure", ()
     }
   });
 
-  test("PINPOINT: the swallowed ErrorEvent keeps no diagnostic cause", async () => {
+  test("PINPOINT: connectivity failures carry a serializable cause", async () => {
     const restore = stubJobListing({
-      findUnique: mock(async () => {
+      findFirst: mock(async () => {
         throw makeNeonWsErrorEvent();
       }),
     });
@@ -214,7 +215,7 @@ describe("updateStatus (the `Applied?` click path) under connection failure", ()
       code: "P1001",
     });
     const restore = stubJobListing({
-      findUnique: mock(async () => {
+      findFirst: mock(async () => {
         throw p1001;
       }),
     });
