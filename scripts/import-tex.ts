@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /// <reference types="bun-types" />
 
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const TEX_PATH = join(import.meta.dir, "../../../../job-find/new-listings.tex");
 const OUTPUT_PATH = join(import.meta.dir, "../data/imported-jobs.json");
@@ -164,8 +164,11 @@ function parseLatex(texContent: string): JobListing[] {
   const sectionRegex =
     /\\section\{([^}]+)\}[\s\S]*?\\begin\{longtable\}[\s\S]*?\\end\{longtable\}/g;
 
-  let sectionMatch;
-  while ((sectionMatch = sectionRegex.exec(texContent)) !== null) {
+  for (
+    let sectionMatch = sectionRegex.exec(texContent);
+    sectionMatch !== null;
+    sectionMatch = sectionRegex.exec(texContent)
+  ) {
     const sectionTitle = sectionMatch[1];
     const tableContent = sectionMatch[0];
 
