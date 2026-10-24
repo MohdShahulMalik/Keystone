@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    image: keystone:latest
+    container_name: keystone
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      # resume uploads survive container restarts/rebuilds
+      - keystone-uploads:/app/uploads
+      # opencode server auth state (spawned on 127.0.0.1:3211 in-container)
+      - keystone-opencode:/tmp/opencode
+    # next start has no --init; keep PID 1 clean so signals propagate
+    init: true
+
+volumes:
+  keystone-uploads:
+  keystone-opencode:
