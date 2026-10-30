@@ -1,12 +1,9 @@
 import { Buffer } from "node:buffer";
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
-import {
-  createOpencodeClient,
-  createOpencodeServer,
-  type OpencodeClient,
-} from "@opencode-ai/sdk";
+import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk";
 
 const HOST = "127.0.0.1";
 const PORT = 3211;
@@ -20,13 +17,17 @@ const BASE_URL = `http://${HOST}:${PORT}`;
 // server 2.0.32: /api/model 401s without the header and 200s with it.
 const AUTH_FILE = `/tmp/opencode/opencode-keystone-${PORT}.json`;
 
-type ServerHandle = Awaited<ReturnType<typeof createOpencodeServer>>;
+type ServerHandle = { url: string; close: () => void };
 
 const globalForOpencode = globalThis as unknown as {
   opencodeServer?: ServerHandle;
   opencodeServerPromise?: Promise<ServerHandle>;
   opencodeServerPassword?: string;
 };
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function isPortOpen(port: number, host: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -116,6 +117,101 @@ function adoptReusePassword(): string | undefined {
   return undefined;
 }
 
+/**
+ * Spawn `opencode serve` directly instead of the SDK's createOpencodeServer:
+ * the SDK resolves readiness by grepping stdout for a line starting with
+ * "opencode server listening", but recent 2.x binaries print
+ * "server listening on ..." WITHOUT the prefix — so the SDK times out after
+ * 30s and kills a perfectly healthy server. This wrapper accepts any output
+ * format and confirms readiness by polling HTTP instead of parsing stdout.
+ */
+function spawnOpencodeServer(): Promise<ServerHandle> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(
+      "opencode",
+      ["serve", `--hostname=${HOST}`, `--port=${PORT}`],
+      // env passthrough carries OPENCODE_SERVER_PASSWORD to the server
+      { env: process.env, stdio: ["ignore", "pipe", "pipe"] },
+    );
+
+    // Ring-buffered output for failure diagnostics. Redact the server
+    // password (the 2.x server prints it to stdout) before it reaches logs.
+    let output = "";
+    const collect = (chunk: Buffer) => {
+      output += chunk.toString();
+      if (output.length > 8000) output = output.slice(-8000);
+    };
+    proc.stdout?.on("data", collect);
+    proc.stderr?.on("data", collect);
+    const sanitize = (text: string): string => {
+      const password = process.env.OPENCODE_SERVER_PASSWORD;
+      return password ? text.split(password).join("<redacted>") : text;
+    };
+
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+    const timer = setTimeout(() => {
+      finish(() => {
+        proc.kill();
+        reject(
+          new Error(
+            `opencode serve did not answer HTTP on ${BASE_URL} within 30s. ` +
+              `Server output: ${sanitize(output.trim()) || "(none)"}`,
+          ),
+        );
+      });
+    }, 30_000);
+
+    proc.on("error", (error) =>
+      finish(() => {
+        clearTimeout(timer);
+        reject(error);
+      }),
+    );
+    proc.on("exit", (code): void =>
+      finish(() => {
+        clearTimeout(timer);
+        reject(
+          new Error(
+            `opencode serve exited before HTTP readiness (code ${code}). ` +
+              `Server output: ${sanitize(output.trim()) || "(none)"}`,
+          ),
+        );
+      }),
+    );
+
+    void (async () => {
+      while (!settled) {
+        if (await isHttpResponsive(BASE_URL, 2000)) {
+          finish(() => {
+            // Any later crash still gets logged, but can no longer reject —
+            // callers hold a live client and make their own HTTP calls.
+            proc.on("exit", (code) => {
+              console.error(
+                `[opencode] server exited after readiness (code ${code}). ` +
+                  `Server output: ${sanitize(output.trim()) || "(none)"}`,
+              );
+            });
+            resolve({
+              url: BASE_URL,
+              close() {
+                proc.kill();
+              },
+            });
+          });
+          return;
+        }
+        await sleep(300);
+      }
+    })();
+  });
+}
+
 function authHeaders(): Record<string, string> | undefined {
   const password = globalForOpencode.opencodeServerPassword;
   if (!password) return undefined;
@@ -123,7 +219,6 @@ function authHeaders(): Record<string, string> | undefined {
     authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`,
   };
 }
-
 export async function getOpencodeServer() {
   if (globalForOpencode.opencodeServer) {
     return globalForOpencode.opencodeServer;
@@ -147,27 +242,23 @@ export async function getOpencodeServer() {
     return handle;
   }
 
-  // Generate once per server lifetime; the SDK spawn copies process.env, so
-  // the server picks the password up via OPENCODE_SERVER_PASSWORD.
+  // Generate once per server lifetime; the spawn copies process.env, so the
+  // server picks the password up via OPENCODE_SERVER_PASSWORD.
   const password =
     process.env.OPENCODE_SERVER_PASSWORD || randomBytes(24).toString("hex");
   process.env.OPENCODE_SERVER_PASSWORD = password;
   rememberServerPassword(password);
 
   if (!globalForOpencode.opencodeServerPromise) {
-    const spawn = createOpencodeServer({
-      hostname: HOST,
-      port: PORT,
-      timeout: 30_000,
-    }).then((handle) => {
+    const spawnPromise = spawnOpencodeServer().then((handle) => {
       globalForOpencode.opencodeServer = handle;
       return handle;
     });
-    globalForOpencode.opencodeServerPromise = spawn;
-    spawn
+    globalForOpencode.opencodeServerPromise = spawnPromise;
+    spawnPromise
       .catch(() => {})
       .finally(() => {
-        if (globalForOpencode.opencodeServerPromise === spawn) {
+        if (globalForOpencode.opencodeServerPromise === spawnPromise) {
           globalForOpencode.opencodeServerPromise = undefined;
         }
       });
