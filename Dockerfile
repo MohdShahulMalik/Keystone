@@ -32,8 +32,9 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends curl ca-certificates unzip \
   && rm -rf /var/lib/apt/lists/*
 # v2 installer (opencode.ai/install only ships OpenCode 1; the app's SDK
-# targets the 2.x server API).
-RUN curl -fsSL https://opencode.ai/v2/install | bash \
+# targets the 2.x server API). OPENCODE_VERSION pins the binary so the
+# server CLI output can't drift underneath us in a rebuild.
+RUN curl -fsSL https://opencode.ai/v2/install | bash -s -- --version "$OPENCODE_VERSION" \
   && test -x /root/.opencode/bin/opencode
 
 FROM oven/bun:1 AS runner
