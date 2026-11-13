@@ -31,8 +31,14 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # `next typegen` first: a fresh CI checkout has no next-env.d.ts and no
+      # .next/types, so tsc can't resolve image imports (`@/app/logo.png`) or
+      # the route-aware globals (PageProps/LayoutProps).
+      - name: Generate Next.js types
+        run: bunx next typegen
+
       - name: Typecheck
-        run: bunx tsc --noEmit
+        run: bun run typecheck
 
       # Non-blocking while INTENT tests document unbuilt behavior.
       - name: Tests
