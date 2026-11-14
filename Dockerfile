@@ -24,7 +24,7 @@ RUN bun run build
 
 # ── runner: runtime image ───────────────────────────────────────────────────
 # The opencode binary must be present: the app spawns its own OpenCode server
-# on 127.0.0.1:3211 via createOpencodeServer() at first research request.
+# on 127.0.0.1:3211 via `opencode serve` at first research request.
 FROM oven/bun:1-slim AS opencode
 ARG OPENCODE_VERSION=latest
 #oven/bun ships without curl; the installer and release download both need it.

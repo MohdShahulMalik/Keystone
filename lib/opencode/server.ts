@@ -1,7 +1,14 @@
 import type { ModelRef, ModelV2Info } from "../types/opencode";
 import { GLM_5_3_FLASH_FREE_INFO } from "../types/opencode";
-import { getOpencodeClient, getOpencodeClientV2 } from "./client";
+import {
+  authHeaders,
+  getOpencodeClient,
+  getOpencodeClientV2,
+  getOpencodeServer,
+  isOpencodeServerV2,
+} from "./client";
 import { RESEARCH_SYSTEM_PROMPT } from "./prompts";
+import { normalizeV2EventStream } from "./v2-event-bridge";
 
 export async function listAvailableModels(): Promise<ModelV2Info[]> {
   // v2 model.list (/api/model, HTTP Basic auth on server 2.x) carries the full
@@ -117,8 +124,10 @@ function sleep(ms: number): Promise<void> {
 export async function createResearchSession(
   model?: ModelRef,
 ): Promise<({ id: string } & Record<string, unknown>) | undefined> {
+  const serverIsV2 = await isOpencodeServerV2();
+
   // v2 create carries the model; retry once since the local server may still be cold-booting.
-  if (model) {
+  if (serverIsV2) {
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const v2client = await getOpencodeClientV2();
@@ -128,7 +137,7 @@ export async function createResearchSession(
               session: { create: (o: unknown) => Promise<{ data?: unknown }> };
             };
           }
-        ).v2.session.create({ model } as never);
+        ).v2.session.create((model ? { model } : {}) as never);
         // RequestResult .data is the response body; server 2.x wraps the
         // session in {data:{id,...}} while some SDK versions return it flat.
         const body = (res as { data?: unknown }).data as
@@ -182,6 +191,9 @@ export async function createResearchSession(
 }
 
 export async function deleteResearchSession(sessionId: string): Promise<void> {
+  // No v2-native delete exists (2.x only guarantees /api/session for create/
+  // get/prompt); both clients hit the same legacy route, which 2.x may not
+  // serve. Best-effort orphan cleanup — never throw.
   try {
     const client = await getOpencodeClient();
     await (
@@ -190,7 +202,6 @@ export async function deleteResearchSession(sessionId: string): Promise<void> {
       path: { id: sessionId },
     });
   } catch (error) {
-    // Best-effort orphan cleanup — never throw.
     console.warn(`[opencode] session.delete failed for ${sessionId}`, error);
   }
 }
@@ -218,9 +229,52 @@ export async function sendResearchPrompt(
       );
     }
   }
-  const client = await getOpencodeClient();
 
   const t0 = Date.now();
+
+  if (await isOpencodeServerV2()) {
+    // v2 admission endpoint (2.3.0): the body IS the PromptInput payload —
+    // flat { text, ... } with text required; no nested `prompt` key and no
+    // system field. Model is fixed at session.create (or switchModel above).
+    // The SDK's generated body map has no `text` key (it drops unmapped
+    // fields → empty body → 400), so call the endpoint directly.
+    const server = await getOpencodeServer();
+    try {
+      const res = await fetch(
+        `${server.url}/api/session/${encodeURIComponent(sessionId)}/prompt`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ text: `${systemPrompt}\n\n${prompt}` }),
+          signal: AbortSignal.timeout(timeoutMs),
+        },
+      );
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "");
+        let message = bodyText.slice(0, 300);
+        try {
+          const parsed = JSON.parse(bodyText) as { message?: unknown };
+          if (typeof parsed?.message === "string" && parsed.message)
+            message = parsed.message;
+        } catch {
+          // keep raw body text as the message
+        }
+        throw new Error(`prompt rejected (${res.status}): ${message}`);
+      }
+      await res.arrayBuffer().catch(() => undefined);
+      return undefined;
+    } catch (error) {
+      console.error("[opencode] v2 session.prompt failed", {
+        sessionId,
+        latencyMs: Date.now() - t0,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  const client = await getOpencodeClient();
+
   try {
     const result = await Promise.race([
       client.session.prompt({
@@ -246,6 +300,19 @@ export async function sendResearchPrompt(
         ),
       ),
     ]);
+    // HeyApi does not throw on non-2xx — surface it or the caller retries
+    // nothing and the session is stuck "running" forever.
+    const err = (result as { error?: unknown } | undefined)?.error;
+    if (err != null) {
+      throw new Error(
+        typeof err === "object" &&
+          err !== null &&
+          "message" in err &&
+          typeof (err as { message?: unknown }).message === "string"
+          ? (err as { message: string }).message
+          : `prompt rejected: ${typeof err === "string" ? err : JSON.stringify(err)}`,
+      );
+    }
     return result.data;
   } catch (error) {
     console.error("[opencode] session.prompt failed", {
@@ -258,6 +325,20 @@ export async function sendResearchPrompt(
 }
 
 export async function getSessionMessages(sessionId: string) {
+  if (await isOpencodeServerV2()) {
+    const v2client = await getOpencodeClientV2();
+    const res = await v2client.v2.session.messages({
+      sessionID: sessionId,
+    } as never);
+    const body = (res as { data?: { data?: unknown } | unknown }).data;
+    // v2 wraps the page as { data: SessionMessage[], cursor }
+    return (
+      body && typeof body === "object" && "data" in (body as object)
+        ? (body as { data?: unknown }).data
+        : body
+    ) as unknown;
+  }
+
   const client = await getOpencodeClient();
 
   const messages = await client.session.messages({ path: { id: sessionId } });
@@ -265,13 +346,41 @@ export async function getSessionMessages(sessionId: string) {
 }
 
 export async function getSessionChildren(sessionId: string) {
+  if (await isOpencodeServerV2()) {
+    // 2.x has no /children equivalent under /api/session; subagent sessions
+    // are tracked in SubagentSession by the research hub instead.
+    return undefined;
+  }
+
   const client = await getOpencodeClient();
 
   const children = await client.session.children({ path: { id: sessionId } });
   return children.data;
 }
 
+/**
+ * The hub (lib/research/event-hub.ts) and handleHubEvent both speak the
+ * pre-2.x event names (`message.part.updated`, `message.part.delta`, …)
+ * with a `properties` envelope. server 2.x renamed the events and nests
+ * the payload under `data`. normalizeV2EventStream does the full dialect
+ * translation (see v2-event-bridge.ts) in one pass. v1 events pass through
+ * untouched.
+ */
 export async function subscribeToEvents() {
+  if (await isOpencodeServerV2()) {
+    const v2client = await getOpencodeClientV2();
+    const events = await (
+      v2client as unknown as {
+        v2: {
+          event: {
+            subscribe: () => Promise<{ stream: AsyncIterable<unknown> }>;
+          };
+        };
+      }
+    ).v2.event.subscribe();
+    return normalizeV2EventStream(events.stream);
+  }
+
   const client = await getOpencodeClient();
 
   const events = await client.event.subscribe();

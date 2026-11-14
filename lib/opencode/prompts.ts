@@ -4,9 +4,11 @@ import type { ResearchPreferences } from "../types/opencode";
  * System prompt: tells the model its sole job is job discovery via parallel subagents
  * and how to stream structured results without duplicating them in narrative.
  *
- * SDK: sent as `body.system` in `client.session.prompt({ body: { system, parts }})`
+ * SDK: how the system prompt reaches the model, per opencode version
  * - v1: `SessionPromptData.body.system` (`node_modules/@opencode-ai/sdk/dist/gen/types.gen.d.ts:2253`)
- * - v2: `SessionPromptData.body.system` (`node_modules/@opencode-ai/sdk/dist/v2/gen/types.gen.d.ts:8371`)
+ * - v2 (server 2.3.0): no system field on /api/session/{id}/prompt — the
+ *   body IS a flat PromptInput (`{ text, ... }`), so the system prompt is
+ *   prepended to the text block (see sendResearchPrompt in lib/opencode/server.ts)
  */
 export const RESEARCH_SYSTEM_PROMPT = `You are Keystone's Job Research Agent. Your SOLE job is to find job listings that match the user's criteria.
 

@@ -4,18 +4,22 @@
 // send with optional variant switch, and best-effort session delete.
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 
-mock.module("@/lib/opencode/client", () => ({
-  getOpencodeClient: mock(async () => globalThis.__mockV1Client),
-  getOpencodeClientV2: mock(async () => globalThis.__mockV2Client),
-  getOpencodeServer: mock(async () => ({ url: "http://127.0.0.1:3211" })),
-}));
-
 declare global {
   // eslint-disable-next-line no-var
   var __mockV1Client: unknown;
   // eslint-disable-next-line no-var
   var __mockV2Client: unknown;
+  // eslint-disable-next-line no-var
+  var __mockIsV2: boolean | undefined;
 }
+
+mock.module("@/lib/opencode/client", () => ({
+  getOpencodeClient: mock(async () => globalThis.__mockV1Client),
+  getOpencodeClientV2: mock(async () => globalThis.__mockV2Client),
+  getOpencodeServer: mock(async () => ({ url: "http://127.0.0.1:3211" })),
+  isOpencodeServerV2: mock(async () => globalThis.__mockIsV2 ?? false),
+  authHeaders: mock(() => ({ authorization: "Basic test" })),
+}));
 
 const server = await import("@/lib/opencode/server");
 
@@ -38,6 +42,7 @@ function setProviderList(all: unknown[]) {
 }
 
 beforeEach(() => {
+  globalThis.__mockIsV2 = false;
   setV2ModelList([]);
   setProviderList([]);
 });
@@ -121,6 +126,7 @@ describe("createResearchSession", () => {
   });
 
   test("uses v2 create with the requested model when provided", async () => {
+    globalThis.__mockIsV2 = true;
     const create = mock(async () => ({ data: { id: "sess-v2" } }));
     globalThis.__mockV2Client = envelopeCreate(create);
     const session = await server.createResearchSession({
@@ -132,6 +138,7 @@ describe("createResearchSession", () => {
   });
 
   test("unwraps the server 2.x {data:{id}} create envelope", async () => {
+    globalThis.__mockIsV2 = true;
     const create = mock(async () => ({
       data: { data: { id: "sess-2x-wrap" } },
     }));
@@ -144,6 +151,7 @@ describe("createResearchSession", () => {
   });
 
   test("retries v2 once then falls back to v1", async () => {
+    globalThis.__mockIsV2 = true;
     let v2calls = 0;
     globalThis.__mockV2Client = {
       v2: {
@@ -210,6 +218,141 @@ describe("sendResearchPrompt / deleteResearchSession", () => {
     expect(arg.path.id).toBe("sess-1");
     expect(arg.body.system).toBe("SYSTEM");
     expect(arg.body.model).toEqual({ providerID: "opencode", modelID: "m" });
+  });
+
+  test("v2 admission endpoint is used on 2.x servers (system rides as text)", async () => {
+    globalThis.__mockIsV2 = true;
+    const calls: Array<{ url: string; body?: string }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url.includes("/prompt")) {
+        calls.push({
+          url,
+          body: typeof init?.body === "string" ? init.body : undefined,
+        });
+        return new Response(JSON.stringify({ data: { admittedSeq: 1 } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return originalFetch(input, init);
+    }) as typeof fetch;
+    try {
+      await server.sendResearchPrompt(
+        "sess-1",
+        "find Rust jobs",
+        undefined,
+        "SYSTEM",
+      );
+      expect(calls.length).toBe(1);
+      expect(calls[0].url).toContain("/api/session/sess-1/prompt");
+      expect(calls[0].body).toContain("SYSTEM");
+      expect(calls[0].body).toContain("find Rust jobs");
+      // flat body: { text } only — no nested prompt key
+      const sent = JSON.parse(calls[0].body ?? "{}") as Record<string, unknown>;
+      expect(typeof sent.text).toBe("string");
+      expect(sent.prompt).toBeUndefined();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("throws when the v2 prompt endpoint rejects (non-2xx message surfaces)", async () => {
+    globalThis.__mockIsV2 = true;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (url.includes("/prompt")) {
+        return new Response(
+          JSON.stringify({ message: "SessionNotFoundError" }),
+          {
+            status: 404,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+      return originalFetch(input);
+    }) as typeof fetch;
+    try {
+      await expect(server.sendResearchPrompt("sess-1", "q")).rejects.toThrow(
+        "SessionNotFoundError",
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("throws when the v1 prompt endpoint rejects (non-2xx is not an exception)", async () => {
+    globalThis.__mockIsV2 = false;
+    const prompt = mock(async () => ({ error: { message: "bad request" } }));
+    globalThis.__mockV1Client = { session: { prompt } };
+    await expect(server.sendResearchPrompt("sess-1", "q")).rejects.toThrow(
+      "bad request",
+    );
+  });
+
+  test("subscribeToEvents normalizes the v2 {data} envelope to {properties}", async () => {
+    globalThis.__mockIsV2 = true;
+    async function* fakeStream() {
+      yield { id: "1", type: "session.idle", data: { sessionID: "s1" } };
+      yield {
+        id: "2",
+        type: "message.part.updated",
+        data: { sessionID: "s1", part: { type: "text" }, delta: "x" },
+      };
+    }
+    globalThis.__mockV2Client = {
+      v2: { event: { subscribe: async () => ({ stream: fakeStream() }) } },
+    };
+    const stream = (await server.subscribeToEvents()) as AsyncIterable<{
+      type: string;
+      properties?: Record<string, unknown>;
+    }>;
+    const events = [];
+    for await (const e of stream) events.push(e);
+    expect(events[0]).toMatchObject({
+      type: "session.idle",
+      properties: { sessionID: "s1" },
+    });
+    expect(events[1].properties).toEqual({
+      sessionID: "s1",
+      part: { type: "text" },
+      delta: "x",
+    });
+  });
+
+  test("subscribeToEvents passes v1 events through unchanged", async () => {
+    globalThis.__mockIsV2 = false;
+    async function* fakeStream() {
+      yield { type: "session.idle", properties: { sessionID: "s2" } };
+    }
+    globalThis.__mockV1Client = {
+      event: { subscribe: async () => ({ stream: fakeStream() }) },
+    };
+    const stream = (await server.subscribeToEvents()) as AsyncIterable<{
+      type: string;
+      properties?: Record<string, unknown>;
+    }>;
+    const events = [];
+    for await (const e of stream) events.push(e);
+    expect(events[0]).toEqual({
+      type: "session.idle",
+      properties: { sessionID: "s2" },
+    });
   });
 
   test("switches model first when a variant is requested", async () => {

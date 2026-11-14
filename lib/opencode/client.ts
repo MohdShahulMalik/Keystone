@@ -23,6 +23,7 @@ const globalForOpencode = globalThis as unknown as {
   opencodeServer?: ServerHandle;
   opencodeServerPromise?: Promise<ServerHandle>;
   opencodeServerPassword?: string;
+  opencodeServerV2?: boolean;
 };
 
 function sleep(ms: number): Promise<void> {
@@ -212,7 +213,7 @@ function spawnOpencodeServer(): Promise<ServerHandle> {
   });
 }
 
-function authHeaders(): Record<string, string> | undefined {
+export function authHeaders(): Record<string, string> | undefined {
   const password = globalForOpencode.opencodeServerPassword;
   if (!password) return undefined;
   return {
@@ -265,6 +266,49 @@ export async function getOpencodeServer() {
   }
 
   return globalForOpencode.opencodeServerPromise;
+}
+
+/**
+ * Detect which OpenCode server API generation answers on BASE_URL.
+ * v2 (`opencode serve` 2.x) serves everything under /api/* as JSON and gates
+ * it behind Basic auth; pre-2.x serves routes at the root (`/event`,
+ * `/session/...`) and answers non-JSON (usually the web-app HTML catch-all)
+ * on /api/*. Probe /api/model once per process — the same route model
+ * discovery already relies on. Only definite answers are cached, so a
+ * transient probe failure re-checks next call instead of pinning the wrong
+ * API for the server's lifetime. (Note: 2.x mirrors nothing at
+ * /api/health — authenticated requests to nonexistent routes 404 with no
+ * content-type, which is why /api/model is the probe.)
+ */
+export async function isOpencodeServerV2(): Promise<boolean> {
+  if (globalForOpencode.opencodeServerV2 !== undefined) {
+    return globalForOpencode.opencodeServerV2;
+  }
+  try {
+    const server = await getOpencodeServer();
+    const res = await fetch(`${server.url}/api/model`, {
+      headers: authHeaders(),
+      signal: AbortSignal.timeout(2500),
+    });
+    const contentType = res.headers.get("content-type") ?? "";
+    // v2 answers JSON (200 with auth, 401 without). A pre-2.x catch-all
+    // answers HTML, and a plain 404 is never "yes", even if a proxy makes
+    // it JSON.
+    const isV2 =
+      contentType.includes("application/json") &&
+      (res.ok || res.status === 401);
+    globalForOpencode.opencodeServerV2 = isV2;
+    // Consume the body or the connection leaks.
+    await res.arrayBuffer().catch(() => undefined);
+    return isV2;
+  } catch (error) {
+    // Server unreachable — don't cache; callers decide their own fallback.
+    console.warn(
+      "[opencode] /api/model probe failed — assuming v2 (spawned server is 2.x)",
+      error,
+    );
+    return true;
+  }
 }
 
 export async function getOpencodeClient(): Promise<OpencodeClient> {
