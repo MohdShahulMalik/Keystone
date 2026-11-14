@@ -439,23 +439,9 @@ export function ResearchForm({ researchType, onStart }: ResearchFormProps) {
       <button
         type="submit"
         disabled={isUploadingResume}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3.5 text-base font-bold text-[var(--color-btn-primary-text)] shadow-btn-primary transition-all duration-200 enabled:hover:brightness-105 enabled:hover:shadow-btn-primary-hover disabled:cursor-wait disabled:opacity-70"
+        className="flex w-full items-center justify-center rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3.5 text-base font-bold text-[var(--color-btn-primary-text)] shadow-btn-primary transition-all duration-200 enabled:hover:brightness-105 enabled:hover:shadow-btn-primary-hover disabled:cursor-wait disabled:opacity-70"
       >
         {isUploadingResume ? "Uploading resume…" : actionLabel}
-        <svg
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13 7l5 5m0 0-5 5m5-5H6"
-          />
-        </svg>
       </button>
     </form>
   );

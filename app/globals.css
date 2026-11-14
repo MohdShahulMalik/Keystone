@@ -139,6 +139,14 @@ body {
 }
 
 @layer utilities {
+  /* Squircle (superellipse) corners for elements that were pill-shaped.
+     corner-shape is ignored on browsers without support, leaving the
+     plain border-radius as a graceful fallback. */
+  .squircle {
+    /* biome-ignore lint/correctness/noUnknownProperty: corner-shape is a valid modern CSS property (superellipse corners); browsers that don't support it fall back to the element's border-radius */
+    corner-shape: squircle;
+  }
+
   .shadow-btn-primary {
     box-shadow: 0 4px 16px var(--color-btn-primary-shadow);
   }

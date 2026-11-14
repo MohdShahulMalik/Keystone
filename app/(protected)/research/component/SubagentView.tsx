@@ -138,7 +138,7 @@ export function SubagentView({
 
         <div className="flex flex-wrap items-center gap-3">
           <span
-            className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+            className={`rounded-xl squircle border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
               status === "completed"
                 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
                 : status === "error"
@@ -148,7 +148,7 @@ export function SubagentView({
           >
             {status}
           </span>
-          <span className="rounded-full border border-stroke bg-surface-800 px-3 py-1 text-xs font-medium text-foreground-600">
+          <span className="rounded-xl squircle border border-stroke bg-surface-800 px-3 py-1 text-xs font-medium text-foreground-600">
             {type}
           </span>
         </div>

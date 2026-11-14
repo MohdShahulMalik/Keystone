@@ -80,7 +80,7 @@ export function Filters({
             <div key={group.label}>
               <div
                 aria-hidden="true"
-                className="h-px rounded-full bg-secondary [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%_-_16px),transparent)]"
+                className="h-px rounded-[1px] bg-secondary [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%_-_16px),transparent)]"
               />
               <div className="pt-4">
                 <div className="mb-3 flex items-center justify-between gap-3">

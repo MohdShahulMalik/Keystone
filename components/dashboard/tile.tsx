@@ -64,17 +64,14 @@ export function Eyebrow({
  */
 export function Pill({
   tone = "neutral",
-  live = false,
   children,
 }: {
-  /** `live` swaps the resting dot for a pulsing one. */
   tone?: "neutral" | "success" | "accent";
-  live?: boolean;
   children: ReactNode;
 }) {
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-lg border bg-[rgba(2,11,20,0.75)] px-[0.6rem] py-[0.3rem] font-mono text-[11px] uppercase tracking-[0.08em] ${
+      className={`inline-flex max-w-full items-center gap-2 whitespace-nowrap rounded-lg squircle border bg-[rgba(2,11,20,0.75)] px-[0.6rem] py-[0.3rem] font-mono text-[11px] uppercase tracking-[0.08em] ${
         tone === "success"
           ? "border-ok/30 text-ok"
           : tone === "accent"
@@ -82,7 +79,6 @@ export function Pill({
             : "border-edge text-body"
       }`}
     >
-      {live ? <LiveDot /> : null}
       {children}
     </span>
   );
@@ -100,16 +96,4 @@ export function Dot({ color }: { color: string }) {
   );
 }
 
-/**
- * Ports `.pulse-dot` (1.6s ease-in-out infinite pulse, disabled under
- * prefers-reduced-motion) to Tailwind using the built-in pulse keyframes —
- * no custom CSS.
- */
-export function LiveDot() {
-  return (
-    <span
-      className="h-1.5 w-1.5 flex-none rounded-full bg-ok motion-safe:animate-[pulse_1.6s_ease-in-out_infinite] motion-reduce:animate-none"
-      aria-hidden="true"
-    />
-  );
-}
+

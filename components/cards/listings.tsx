@@ -72,10 +72,10 @@ export function JobListingCard({
       : null;
 
   const primaryButtonClass =
-    "flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)] sm:w-auto sm:px-7";
+    "flex w-full items-center justify-center rounded-xl bg-gradient-to-br from-[var(--color-btn-primary-from)] to-[var(--color-btn-primary-to)] px-5 py-3 font-bold text-btn-primary-text shadow-[0_4px_16px_hsl(190_100%_42%_/_0.4)] transition-all duration-200 ease-out hover:brightness-105 hover:shadow-[0_6px_20px_hsl(190_100%_42%_/_0.48)] sm:w-auto sm:px-7";
 
   const secondaryButtonClass =
-    "flex w-full items-center justify-center gap-2 rounded-lg border border-visit-border bg-transparent px-5 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)] sm:w-auto sm:px-6";
+    "flex w-full items-center justify-center rounded-lg border border-visit-border bg-transparent px-5 py-2.5 text-base font-semibold text-[var(--color-visit-text)] transition-all duration-200 ease-out hover:border-[var(--color-visit-border-hover)] hover:bg-[var(--color-visit-bg-hover)] hover:text-[var(--color-visit-text-hover)] hover:shadow-[0_2px_10px_hsl(190_100%_42%_/_0.14)] sm:w-auto sm:px-6";
 
   const handleStatusChange = async (status: JobStatus) => {
     if (isStatusUpdating || !onStatusChange) return;
@@ -267,20 +267,6 @@ export function JobListingCard({
 
                   <button className={secondaryButtonClass} type="button">
                     <span>Visit</span>
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
                   </button>
                 </>
               ) : applyClicked && interactive ? (
@@ -304,20 +290,6 @@ export function JobListingCard({
                   }
                 >
                   <span>Apply Now</span>
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
                 </a>
               ) : interactive ? (
                 <button
@@ -328,20 +300,6 @@ export function JobListingCard({
                   aria-busy={isStatusUpdating}
                 >
                   <span>{isStatusUpdating ? "Updating..." : "Apply Now"}</span>
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5m0 0l-5 5m5-5H6"
-                    />
-                  </svg>
                 </button>
               ) : null}
 

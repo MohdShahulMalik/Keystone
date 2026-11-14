@@ -48,7 +48,7 @@ function PillSpan({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border bg-[rgba(2,11,20,0.75)] px-[0.6rem] py-[0.3rem] font-mono text-[11px] uppercase tracking-[0.08em] ${
+      className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg squircle border bg-[rgba(2,11,20,0.75)] px-[0.6rem] py-[0.3rem] font-mono text-[11px] uppercase tracking-[0.08em] ${
         tone === "ok"
           ? "border-ok/30 text-ok"
           : tone === "accent"
@@ -333,9 +333,9 @@ export default function Home() {
                       <span className="text-sm font-medium text-ice">Open</span>
                       <span className="font-mono text-sm text-ice">34</span>
                     </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-ink">
+                    <div className="mt-2 h-1.5 w-full rounded-sm squircle bg-ink">
                       <div
-                        className="h-full rounded-full bg-body/60"
+                        className="h-full rounded-sm squircle bg-body/60"
                         style={{ width: "85%" }}
                       />
                     </div>
@@ -347,9 +347,9 @@ export default function Home() {
                       </span>
                       <span className="font-mono text-sm text-ice">12</span>
                     </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-ink">
+                    <div className="mt-2 h-1.5 w-full rounded-sm squircle bg-ink">
                       <div
-                        className="h-full rounded-full bg-info"
+                        className="h-full rounded-sm squircle bg-info"
                         style={{ width: "42%" }}
                       />
                     </div>
@@ -361,9 +361,9 @@ export default function Home() {
                       </span>
                       <span className="font-mono text-sm text-ice">4</span>
                     </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-ink">
+                    <div className="mt-2 h-1.5 w-full rounded-sm squircle bg-ink">
                       <div
-                        className="h-full rounded-full bg-acc-cyan"
+                        className="h-full rounded-sm squircle bg-acc-cyan"
                         style={{ width: "22%" }}
                       />
                     </div>
@@ -375,9 +375,9 @@ export default function Home() {
                       </span>
                       <span className="font-mono text-sm text-ok">1</span>
                     </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-ink">
+                    <div className="mt-2 h-1.5 w-full rounded-sm squircle bg-ink">
                       <div
-                        className="h-full rounded-full bg-ok"
+                        className="h-full rounded-sm squircle bg-ok"
                         style={{ width: "10%" }}
                       />
                     </div>
@@ -402,10 +402,7 @@ export default function Home() {
               aria-label="Live AI research response preview"
             >
               <div className="flex items-center justify-end gap-4">
-                <PillSpan tone="ok">
-                  <DotSpan color="bg-ok" />
-                  Running
-                </PillSpan>
+                <PillSpan tone="ok">Running</PillSpan>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -486,7 +483,7 @@ export default function Home() {
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                   <h3 className="min-w-0 text-sm font-semibold text-ice">
                     Matched jobs{" "}
-                    <span className="ml-2 rounded-full border border-edge bg-ink/60 px-2.5 py-0.5 font-mono text-[11px] font-medium text-body">
+                    <span className="ml-2 rounded-xl squircle border border-edge bg-ink/60 px-2.5 py-0.5 font-mono text-[11px] font-medium text-body">
                       30 · streaming…
                     </span>
                   </h3>
@@ -512,18 +509,9 @@ export default function Home() {
                       <span>4+ yrs experience</span>
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <PillSpan>
-                        <DotSpan color="bg-info" />
-                        Remote · EU
-                      </PillSpan>
-                      <PillSpan>
-                        <DotSpan color="bg-ok" />
-                        Visa sponsored
-                      </PillSpan>
-                      <PillSpan>
-                        <DotSpan color="bg-acc-cyan" />
-                        Open
-                      </PillSpan>
+                      <PillSpan>Remote · EU</PillSpan>
+                      <PillSpan>Visa sponsored</PillSpan>
+                      <PillSpan>Open</PillSpan>
                     </div>
                     <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-body">
                       You&rsquo;ll own rendering primitives in the React core
@@ -563,14 +551,8 @@ export default function Home() {
                       <span>3+ yrs experience</span>
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <PillSpan>
-                        <DotSpan color="bg-info" />
-                        Remote · EU
-                      </PillSpan>
-                      <PillSpan>
-                        <DotSpan color="bg-acc-cyan" />
-                        Open
-                      </PillSpan>
+                      <PillSpan>Remote · EU</PillSpan>
+                      <PillSpan>Open</PillSpan>
                     </div>
                     <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-body">
                       You&rsquo;ll build the real-time editor surface —
@@ -838,23 +820,9 @@ export default function Home() {
 
                       <Link
                         href="/research/job"
-                        className={`flex w-full items-center justify-center gap-2 rounded-xl border border-acc-cyan bg-acc-cyan px-5 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:border-[#33C7DE] hover:bg-[#33C7DE] ${FOCUS}`}
+                        className={`flex w-full items-center justify-center rounded-xl border border-acc-cyan bg-acc-cyan px-5 py-3 text-sm font-semibold text-white transition-colors duration-200 hover:border-[#33C7DE] hover:bg-[#33C7DE] ${FOCUS}`}
                       >
                         Start job research
-                        <svg
-                          className="h-4 w-4 max-w-full"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M13 7l5 5m0 0-5 5m5-5H6"
-                          />
-                        </svg>
                       </Link>
                     </section>
                   </div>
@@ -894,10 +862,7 @@ export default function Home() {
                       <EyebrowText className="text-body/70">
                         Researching React jobs
                       </EyebrowText>
-                      <PillSpan tone="accent">
-                        <DotSpan color="bg-acc-cyan" />
-                        Active
-                      </PillSpan>
+                      <PillSpan tone="accent">Active</PillSpan>
                     </div>
                     <div className="mt-4">
                       <div className="flex items-end justify-between">
@@ -909,7 +874,7 @@ export default function Home() {
                         </span>
                       </div>
                       <div
-                        className="mt-2 h-2 w-full overflow-hidden rounded-full border border-edge bg-ink"
+                        className="mt-2 h-2 w-full overflow-hidden rounded-sm squircle border border-edge bg-ink"
                         role="progressbar"
                         aria-valuenow={68}
                         aria-valuemin={0}
@@ -917,7 +882,7 @@ export default function Home() {
                         aria-label="Research progress"
                       >
                         <div
-                          className="h-full rounded-full bg-acc-cyan"
+                          className="h-full rounded-sm squircle bg-acc-cyan"
                           style={{ width: "68%" }}
                         />
                       </div>

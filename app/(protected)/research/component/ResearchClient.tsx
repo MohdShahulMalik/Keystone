@@ -368,7 +368,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             {sessionTitle}
           </h2>
           <span
-            className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+            className={`rounded-xl squircle border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
               status === "completed"
                 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
                 : status === "error"
@@ -444,7 +444,7 @@ export function ResearchClient({ mode, label }: ResearchClientProps) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="min-w-0 text-lg font-semibold break-words text-foreground-900">
                 Matched jobs{" "}
-                <span className="ml-2 rounded-full bg-surface-800 px-2.5 py-1 text-xs font-medium text-foreground-600">
+                <span className="ml-2 rounded-xl squircle bg-surface-800 px-2.5 py-1 text-xs font-medium text-foreground-600">
                   {jobs.length}
                   {isStreaming ? " · streaming…" : ""}
                 </span>

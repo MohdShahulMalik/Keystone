@@ -28,11 +28,11 @@ export function SalarySpreadCard({ listings }: { listings: JobListing[] }) {
       </p>
 
       <div className="mt-6">
-        <div className="relative h-2 rounded-full bg-ink">
-          <div className="absolute inset-y-0 left-[20%] right-[18%] rounded-full bg-acc-cyan/30" />
+        <div className="relative h-2 rounded-sm squircle bg-ink">
+          <div className="absolute inset-y-0 left-[20%] right-[18%] rounded-sm squircle bg-acc-cyan/30" />
           {markerLeft !== null ? (
             <span
-              className="absolute -top-1 h-4 w-1 rounded-full bg-ok"
+              className="absolute -top-1 h-4 w-1 rounded-sm squircle bg-ok"
               style={{ left: `${markerLeft}%` }}
               aria-hidden="true"
             />

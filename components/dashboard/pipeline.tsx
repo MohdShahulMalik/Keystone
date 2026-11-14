@@ -22,9 +22,9 @@ export function PipelineCard({ listings }: { listings: JobListing[] }) {
                 {stage.count}
               </span>
             </div>
-            <div className="mt-2 h-1.5 rounded-full bg-ink">
+            <div className="mt-2 h-1.5 rounded-sm squircle bg-ink">
               <div
-                className={`h-full rounded-full ${stage.bar}`}
+                className={`h-full rounded-sm squircle ${stage.bar}`}
                 style={{ width: `${Math.min(100, stage.width)}%` }}
               />
             </div>

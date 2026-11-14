@@ -7,7 +7,7 @@ import { HeroMetricCard } from "@/components/dashboard/hero-metric";
 import { LatestTrackedCard } from "@/components/dashboard/latest-tracked";
 import { PipelineCard } from "@/components/dashboard/pipeline";
 import { SalarySpreadCard } from "@/components/dashboard/salary-spread";
-import { LiveDot, Pill } from "@/components/dashboard/tile";
+import { Pill } from "@/components/dashboard/tile";
 import { type DashboardSession, isoWeek } from "@/lib/dashboard/metrics";
 import { db } from "@/lib/db";
 import { requireUserId } from "@/lib/session-guard";
@@ -98,10 +98,9 @@ export default async function DashboardPage() {
 
           <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 sm:w-auto">
             {running > 0 ? (
-              <span className="inline-flex max-w-full shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-ok/30 bg-[rgba(2,11,20,0.75)] px-[0.6rem] py-[0.3rem] font-mono text-[11px] uppercase tracking-[0.08em] text-ok">
-                <LiveDot />
+              <Pill tone="success">
                 {running} agent{running === 1 ? "" : "s"} running
-              </span>
+              </Pill>
             ) : (
               <Pill>no agents running</Pill>
             )}

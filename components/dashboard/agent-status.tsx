@@ -28,7 +28,7 @@ function SessionRow({ session }: { session: DashboardSession }) {
         </span>
       </div>
       <div
-        className="mt-2 h-1.5 rounded-full bg-ink"
+        className="mt-2 h-1.5 rounded-sm squircle bg-ink"
         role="progressbar"
         aria-valuenow={percent}
         aria-valuemin={0}
@@ -36,7 +36,7 @@ function SessionRow({ session }: { session: DashboardSession }) {
         aria-label={`${session.title ?? "Research"} progress`}
       >
         <div
-          className={`h-full rounded-full ${bar}`}
+          className={`h-full rounded-sm squircle ${bar}`}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -66,9 +66,7 @@ export function AgentStatusCard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Eyebrow>Agents</Eyebrow>
         {running > 0 ? (
-          <Pill tone="success" live>
-            live
-          </Pill>
+          <Pill tone="success">live</Pill>
         ) : (
           <Pill>idle</Pill>
         )}

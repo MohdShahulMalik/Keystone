@@ -62,7 +62,7 @@ export function AgentProgress({
         </div>
 
         {status ? (
-          <span className="rounded-full border border-stroke bg-surface-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-foreground-600">
+          <span className="rounded-xl squircle border border-stroke bg-surface-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-foreground-600">
             {status}
           </span>
         ) : null}
@@ -73,9 +73,9 @@ export function AgentProgress({
           <span>Progress</span>
           <span>{clampedProgress}%</span>
         </div>
-        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-900">
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-sm squircle bg-surface-900">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-indigo-400 transition-all"
+            className="h-full rounded-sm squircle bg-gradient-to-r from-emerald-400 via-sky-400 to-indigo-400 transition-all"
             style={{ width: `${clampedProgress}%` }}
             aria-hidden="true"
           />
@@ -118,7 +118,7 @@ export function AgentProgress({
                 ) : null}
               </div>
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${getStatusTone(
+                className={`shrink-0 rounded-xl squircle px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${getStatusTone(
                   step.status,
                 )}`}
               >
