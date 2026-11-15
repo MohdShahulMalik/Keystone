@@ -13,12 +13,15 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned: `latest` drifted CI onto a bun whose module-mock
+          # behavior failed tests/unit/opencode-server.test.ts even though
+          # it passes locally.
+          bun-version: 1.4.4
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
