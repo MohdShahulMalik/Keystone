@@ -26,7 +26,7 @@ RUN bun run build
 # The opencode binary must be present: the app spawns its own OpenCode server
 # on 127.0.0.1:3211 via `opencode serve` at first research request.
 FROM oven/bun:1-slim AS opencode
-ARG OPENCODE_VERSION=latest
+ARG OPENCODE_VERSION=2.3.0
 #oven/bun ships without curl; the installer and release download both need it.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends curl ca-certificates unzip \
