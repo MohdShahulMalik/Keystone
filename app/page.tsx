@@ -297,7 +297,7 @@ export default function Home() {
                 </ol>
 
                 <p className="mt-6 text-sm text-body">
-                  Free while self-hosted.{" "}
+                  Free to self-host with Docker.{" "}
                   <span className="font-medium text-ice">
                     No credit card required.
                   </span>
@@ -1072,7 +1072,7 @@ export default function Home() {
                 Your pipeline deserves a keystone.
               </h2>
               <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-body sm:text-base">
-                Free while self-hosted. Bring your own Postgres, point it at
+                Free to self-host. Bring your own Postgres, point it at
                 your boards, and let the agents run.
               </p>
 
