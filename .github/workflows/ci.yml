@@ -6,9 +6,9 @@ on:
   pull_request:
     branches: [main]
 
-# Failures here are informational on purpose: the test suite still contains
-# intentionally-red INTENT tests documenting not-yet-built features. CI gates
-# on lint, typecheck and build; `bun test` runs as a non-blocking report step.
+# CI gates on lint, typecheck, build and unit tests (excluding the repro
+# suite). The repro/integration step is intentionally non-blocking: those
+# tests are intentionally-red INTENT/REPRO pinpointing not-yet-built fixes.
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -43,9 +43,21 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
-      # Non-blocking while INTENT tests document unbuilt behavior.
-      - name: Tests
-        run: bun test --preload ./tests/setup.ts tests/
+      # Unit tests gate CI, excluding the intentionally-red repro suite
+      # (stream-flush-repro.test.ts) — see the informational step below.
+      - name: Unit tests
+        run: bun test --preload ./tests/setup.ts $(ls tests/unit/*.test.ts | grep -v -- '-repro\.test\.ts$')
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      # Non-blocking while REPRO/INTENT tests document unbuilt behavior.
+      # Splitting this out keeps integration mocks from poisoning the unit
+      # suite: bun's mock.module is process-global, so files that mock
+      # @/lib/opencode/server can shadow it for tests/unit/opencode-server.test.ts
+      # depending on file evaluation order.
+      - name: Repro & integration tests (informational)
+        run: bun test --preload ./tests/setup.ts tests/unit/stream-flush-repro.test.ts tests/integration/
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DIRECT_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
