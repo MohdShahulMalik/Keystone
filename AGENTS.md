@@ -6,6 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Things to NEVER do
   - DON'T try to access the .env file or any other sensitive files. This is a security risk and will not work in production. Don't try to access it through the cat command, the read tool you have, or just any other means that's possible.
+  - DON'T EVER GIVE ME VERBOSE ANSWERS AT ALL, USE YOUR UNSLOP SKILL BEFORE GIVING ME ANY RESPONSE.
 
 # Things to keep in mind
  - This project utilize "bun" and not npm, always use bun commands and not npm or npx commands
