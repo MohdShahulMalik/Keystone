@@ -65,11 +65,7 @@ export function AgentStatusCard({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Eyebrow>Agents</Eyebrow>
-        {running > 0 ? (
-          <Pill tone="success">live</Pill>
-        ) : (
-          <Pill>idle</Pill>
-        )}
+        {running > 0 ? <Pill tone="success">live</Pill> : <Pill>idle</Pill>}
       </div>
 
       {sessions.length === 0 ? (

@@ -95,5 +95,3 @@ export function Dot({ color }: { color: string }) {
     />
   );
 }
-
-
