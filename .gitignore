@@ -52,3 +52,7 @@ next-env.d.ts
 /.aye
 fixes
 keystone-logo
+
+# personal artifacts (untracked; kept on disk)
+scripts/apply/plans/
+data/imported-jobs.json
