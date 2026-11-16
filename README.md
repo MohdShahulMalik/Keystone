@@ -62,24 +62,42 @@ Open [http://localhost:5421](http://localhost:5421) to view the app.
 ## Docker Deployment (Oracle VM)
 
 The image builds the app, installs the `opencode` binary, and on boot applies
-`prisma migrate deploy` before starting `next start`. The app then spawns its
-own OpenCode server on `127.0.0.1:3211` inside the same container — no
-separate service required.
+`prisma migrate deploy` (via a minimal pinned Prisma CLI in `/migrator`)
+before starting the traced standalone server (`.next/standalone/server.js`).
+The app then spawns its own OpenCode server on `127.0.0.1:3211`
+(`OPENCODE_PORT` overrides) inside the same container — no separate service
+required. A `HEALTHCHECK` probes `/` every 30s; compose caps restarts at 5
+(`on-failure:5`) so a broken deploy stops instead of restart-looping.
 
 ```bash
-cp .env.example .env          # fill in real values
-docker compose up -d --build  # builds and starts on port 3000
+cp .env.example .env          # fill in real values — BETTER_AUTH_URL must be
+                              # the public origin, not localhost
+docker compose up -d --build  # builds and starts on 127.0.0.1:3000
 docker compose logs -f        # watch boot/migration logs
 ```
 
+Startup aborts in production if `DATABASE_URL`, `BETTER_AUTH_SECRET` or
+`BETTER_AUTH_URL` are missing/placeholders or if `BETTER_AUTH_URL` is a
+loopback origin (see `instrumentation.ts`).
+
 Notes for a VM behind a reverse proxy (Caddy/Nginx):
 
-- Terminate TLS at the proxy; the container serves plain HTTP on 3000.
+- Compose publishes `127.0.0.1:3000` only. Terminate TLS at the proxy; the
+  container serves plain HTTP on loopback. Do not re-publish 0.0.0.0.
 - Disable response buffering and raise the idle/read timeout for
   `/api/research/stream` — it is a Server-Sent-Events endpoint and streaming
   responses die silently through default proxy buffering.
-- Mount nothing by hand: docker-compose already persists `uploads/` (resumes)
-  and `/tmp/opencode` (server auth state) as named volumes.
+- `uploads/` persists as a named volume. The spawned OpenCode server gets a
+  minimal allowlisted environment (provider `*_API_KEY`s, `OPENCODE_*`,
+  essentials like PATH/HOME) — it does NOT see `DATABASE_URL`,
+  `APPLY_AGENT_TOKEN` or `BETTER_AUTH_SECRET`. The server password is kept in
+  memory only, never written to disk.
 - Model provider credentials used by OpenCode (e.g. provider API keys) live in
   OpenCode's own config — set `OPENCODE_SERVER_PASSWORD` in `.env` if you want
-  the spawned server's API locked behind Basic auth.
+  the spawned server's API locked behind Basic auth. `*_API_KEY` variables in
+  `.env` are passed through to it automatically.
+
+PII note: resumes are stored twice — the PDF under `uploads/` (named volume)
+and extracted text in the Postgres `Resume.content` column. Database backups
+therefore contain full resume text. Treat DB dumps as PII and encrypt them at
+rest.
