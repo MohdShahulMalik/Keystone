@@ -3,19 +3,20 @@ services:
     build: .
     image: keystone:latest
     container_name: keystone
-    restart: unless-stopped
+    # Cap restart attempts so an unreachable DB (migrate deploy fails) doesn't
+    # restart-loop forever.
+    restart: on-failure:5
     ports:
-      - "3000:3000"
+      # Loopback only: TLS terminates at the reverse proxy on the same host.
+      # Publishing 3000 on all interfaces would bypass the proxy and the cert.
+      - "127.0.0.1:3000:3000"
     env_file:
       - .env
     volumes:
       # resume uploads survive container restarts/rebuilds
       - keystone-uploads:/app/uploads
-      # opencode server auth state (spawned on 127.0.0.1:3211 in-container)
-      - keystone-opencode:/tmp/opencode
-    # next start has no --init; keep PID 1 clean so signals propagate
+    # tiny init keeps PID 1 clean so signals propagate
     init: true
 
 volumes:
   keystone-uploads:
-  keystone-opencode:
