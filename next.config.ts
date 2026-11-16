@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 /**
- * Baseline security headers for an auth-cookie app. A strict CSP is a
- * follow-up: Next.js needs nonce-based inline scripts wired through the
- * server first, and a broken CSP takes the whole app down.
+ * Baseline security headers for an auth-cookie app. Enforcing a strict CSP is
+ * a follow-up: Next.js needs nonce-based inline scripts wired through the
+ * server first. Until then we ship a Report-Only baseline so violations are
+ * visible without breaking the app.
  */
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
@@ -16,6 +17,16 @@ const securityHeaders = [
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains",
+  },
+  // Report-Only baseline: tighten and enforce once real violation reports
+  // come in. 'unsafe-inline' is required for Next's inline bootstrap
+  // scripts/styles; removing it belongs to the enforce-mode follow-up.
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value:
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; " +
+      "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   },
 ];
 
