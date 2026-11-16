@@ -670,9 +670,12 @@ export default function Home() {
                   strokeLinejoin="round"
                   aria-hidden="true"
                 >
-                  <path d="M22 10 12 5 2 10l10 5 10-5z" />
-                  <path d="M6 12v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5" />
-                  <path d="M22 10v6" />
+                  <path d="M3.5 5.5 5 7l3-3" />
+                  <path d="M11 6h9.5" strokeLinecap="round" />
+                  <path d="M3.5 12.5 5 14l3-3" />
+                  <path d="M11 13h9.5" strokeLinecap="round" />
+                  <path d="M3.5 19.5 5 21l3-3" />
+                  <path d="M11 20h9.5" strokeLinecap="round" />
                 </svg>
                 <PillSpan tone="accent-strong">Coming soon</PillSpan>
               </div>
