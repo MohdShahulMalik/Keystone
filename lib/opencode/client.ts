@@ -1,21 +1,31 @@
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk";
 
 const HOST = "127.0.0.1";
-const PORT = 3211;
+// Port is overridable so co-locating with something on 3211 doesn't break the
+// spawn. Must match any external server you point the app at.
+const PORT = (() => {
+  const raw = process.env.OPENCODE_PORT;
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 && parsed < 65536
+    ? parsed
+    : 3211;
+})();
 const BASE_URL = `http://${HOST}:${PORT}`;
 
 // Server 2.x (`opencode serve`) protects every /api/* route with HTTP Basic
 // auth (username "opencode", password from OPENCODE_SERVER_PASSWORD). Model
 // discovery and sessions read through those routes, so both clients must send
-// the header. The password is persisted under /tmp/opencode so an app restart
-// can authenticate to the server spawned by the previous run. Verified live on
-// server 2.0.32: /api/model 401s without the header and 200s with it.
-const AUTH_FILE = `/tmp/opencode/opencode-keystone-${PORT}.json`;
+// the header. The password lives only in this process and (optionally) in the
+// user's environment — it is never written to disk. A container restart kills
+// the spawned server anyway, so a persisted password only bought a stale file.
+//
+// The spawned server gets a minimal env (see spawnEnv below) instead of the
+// full app env, so app secrets (DATABASE_URL, APPLY_AGENT_TOKEN, …) are not
+// visible to it.
 
 type ServerHandle = { url: string; close: () => void };
 
@@ -25,6 +35,25 @@ const globalForOpencode = globalThis as unknown as {
   opencodeServerPassword?: string;
   opencodeServerV2?: boolean;
 };
+
+/**
+ * Allowlist of variables the spawned opencode server may see. Anything not
+ * matched (DATABASE_URL, APPLY_AGENT_TOKEN, BETTER_AUTH_SECRET, Google client
+ * secrets, …) is withheld. Provider credentials pass through via the common
+ * `*_API_KEY` / `*_API_KEY_ID` / `*_API_SECRET` suffixes, as do OPENCODE_*.
+ */
+const SPAWN_ENV_ALLOWLIST =
+  /^(PATH|HOME|USER|LOGNAME|SHELL|LANG|LC_.*|TERM|TMPDIR|XDG_.*|OPENCODE_.*|.*_API_KEY|.*_API_KEY_ID|.*_API_SECRET)$/;
+
+function spawnEnv(): NodeJS.ProcessEnv {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && SPAWN_ENV_ALLOWLIST.test(key)) {
+      env[key] = value;
+    }
+  }
+  return env as NodeJS.ProcessEnv;
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -77,37 +106,12 @@ async function waitForHttpReady(
 /** Password our spawned server uses (or a pre-set user env value). */
 function rememberServerPassword(password: string): void {
   globalForOpencode.opencodeServerPassword = password;
-  try {
-    mkdirSync("/tmp/opencode", { recursive: true });
-    // Local process password only (localhost server we spawn ourselves).
-    writeFileSync(AUTH_FILE, JSON.stringify({ port: PORT, password }), {
-      flag: "w",
-      mode: 0o600,
-    });
-  } catch (error) {
-    console.warn(
-      "[opencode] could not persist server password file — app restarts may lose access to the running server",
-      error,
-    );
-  }
 }
 
 /** Choose auth for a server we did not spawn in this process. */
 function adoptReusePassword(): string | undefined {
   if (globalForOpencode.opencodeServerPassword) {
     return globalForOpencode.opencodeServerPassword;
-  }
-  try {
-    const raw = JSON.parse(readFileSync(AUTH_FILE, "utf8")) as {
-      port?: number;
-      password?: string;
-    };
-    if (raw?.port === PORT && typeof raw?.password === "string") {
-      globalForOpencode.opencodeServerPassword = raw.password;
-      return raw.password;
-    }
-  } catch {
-    // No stored password — fall through.
   }
   // User-managed server honoring the documented env contract.
   if (process.env.OPENCODE_SERVER_PASSWORD) {
@@ -131,8 +135,9 @@ function spawnOpencodeServer(): Promise<ServerHandle> {
     const proc = spawn(
       "opencode",
       ["serve", `--hostname=${HOST}`, `--port=${PORT}`],
-      // env passthrough carries OPENCODE_SERVER_PASSWORD to the server
-      { env: process.env, stdio: ["ignore", "pipe", "pipe"] },
+      // Minimal allowlisted env — the server must see OPENCODE_SERVER_PASSWORD
+      // (in OPENCODE_*) but not the app's database/auth secrets.
+      { env: spawnEnv(), stdio: ["ignore", "pipe", "pipe"] },
     );
 
     // Ring-buffered output for failure diagnostics. Redact the server
