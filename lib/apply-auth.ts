@@ -1,4 +1,12 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { getSessionUserId } from "@/lib/session-guard";
+
+/** Constant-time string compare via digests, so length is also hidden. */
+function safeTokenEqual(a: string, b: string): boolean {
+  const da = createHash("sha256").update(a).digest();
+  const db = createHash("sha256").update(b).digest();
+  return timingSafeEqual(da, db);
+}
 
 /**
  * Resolves which user's pipeline an `/api/apply/*` endpoint operates on.
@@ -23,7 +31,7 @@ export async function resolveApplyTargetUserId(
   const expectedToken = process.env.APPLY_AGENT_TOKEN;
   if (expectedToken) {
     const authHeader = req.headers.get("authorization") ?? "";
-    if (authHeader === `Bearer ${expectedToken}`) {
+    if (safeTokenEqual(authHeader, `Bearer ${expectedToken}`)) {
       return explicitUserId ? explicitUserId : null;
     }
     if (authHeader) {
