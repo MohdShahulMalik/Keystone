@@ -22,6 +22,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactCompiler: true,
   poweredByHeader: false,
+  // Traced minimal server (.next/standalone) for the Docker runner image.
+  output: "standalone",
   // pdf-parse resolves its pdf.js worker via a runtime-relative path
   // ("./pdf.worker.mjs"); bundling it into the server chunks breaks that
   // resolution (prod: "Setting up fake worker failed: Cannot find module").
