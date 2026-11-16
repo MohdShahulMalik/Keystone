@@ -13,8 +13,8 @@ FROM oven/bun:1 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Build-time dummy values: no DB is reachable during docker build, and
-# better-auth only validates BETTER_AUTH_SECRET at request time in production.
+# Build-time dummy values: no DB is reachable during docker build. Runtime
+# env validation lives in instrumentation.ts and runs at server boot instead.
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV DIRECT_DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -22,9 +22,20 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN bunx prisma generate
 RUN bun run build
 
-# ── runner: runtime image ───────────────────────────────────────────────────
+# ── migrator: minimal pinned prisma CLI for `migrate deploy` at boot ────────
+# Standalone output ships no prisma CLI, so we install just the CLI (matching
+# the app's prisma version) with its own tiny node_modules. Its config lives
+# here too (migrator.prisma.config.ts) so it doesn't depend on resolving
+# packages from /app.
+FROM oven/bun:1 AS migrator
+WORKDIR /migrator
+RUN bun add prisma@7.9.0
+COPY migrator.prisma.config.ts /migrator/prisma.config.ts
+COPY prisma /app/prisma
+
+# ── runner: opencode binary + traced standalone server ───────────────────────
 # The opencode binary must be present: the app spawns its own OpenCode server
-# on 127.0.0.1:3211 via `opencode serve` at first research request.
+# on 127.0.0.1:3211 (override with OPENCODE_PORT) at first research request.
 FROM oven/bun:1-slim AS opencode
 ARG OPENCODE_VERSION=2.3.0
 #oven/bun ships without curl; the installer and release download both need it.
@@ -37,6 +48,9 @@ RUN apt-get update \
 RUN curl -fsSL https://opencode.ai/v2/install | bash -s -- --version "$OPENCODE_VERSION" \
   && test -x /root/.opencode/bin/opencode
 
+# oven/bun:1 (not slim) for the runner: the prisma schema engine needs OpenSSL
+# and friends that slim images don't carry. node_modules from the app itself
+# is gone — the traced standalone output replaces it.
 FROM oven/bun:1 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -46,22 +60,23 @@ ENV HOSTNAME=0.0.0.0
 
 COPY --from=opencode /root/.opencode/bin/opencode /usr/local/bin/opencode
 
-# Full node_modules: prisma CLI is needed for `prisma migrate deploy` at boot.
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
+# Traced minimal server (node_modules subset included) + static assets.
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/bun.lock ./bun.lock
-COPY --from=builder /app/next.config.ts ./next.config.ts
+# Schema + migrations + the self-contained migrator.
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=migrator /migrator /migrator
 
 # Resumes are written to ./uploads — mount a volume here to persist them.
-RUN mkdir -p /app/uploads /tmp/opencode
+RUN mkdir -p /app/uploads
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
+ENV PORT=3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD bun -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["bun", "run", "start"]
+CMD ["bun", "server.js"]
